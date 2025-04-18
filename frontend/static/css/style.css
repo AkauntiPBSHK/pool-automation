@@ -1,0 +1,63 @@
+/* Pool Automation Dashboard CSS */
+
+/* Global styles */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+}
+
+/* Sidebar styles */
+#sidebar {
+    position: fixed;
+    height: 100vh;
+    padding-top: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    background-color: #212529;
+}
+
+#sidebar .sidebar-header {
+    border-bottom: 1px solid #343a40;
+    margin-bottom: 1rem;
+}
+
+#sidebar .nav-link {
+    color: #adb5bd;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    border-radius: 0.25rem;
+    margin-bottom: 0.25rem;
+}
+
+#sidebar .nav-link:hover {
+    color: #fff;
+    background-color: #343a40;
+}
+
+#sidebar .nav-link.active {
+    color: #fff;
+    background-color: #0d6efd;
+}
+
+/* Main content styles */
+main {
+    padding-top: 16px;
+}
+
+/* Card styles */
+.card {
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+}
+
+.card-title {
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin-bottom: 1rem;
+    color: #495057;
+}

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pool Automation System</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block bg-dark sidebar">
+                <div class="position-sticky">
+                    <div class="sidebar-header p-3">
+                        <h3 class="text-light">Pool Automation</h3>
+                    </div>
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="#overview-tab">Overview</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#water-chemistry-tab">Water Chemistry</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#turbidity-tab">Turbidity & PAC</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#history-tab">History</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#settings-tab">Settings</a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+            
+            <!-- Main content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">Dashboard</h1>
+                    <div class="btn-toolbar mb-2 mb-md-0">
+                        <div class="btn-group me-2">
+                            <button type="button" class="btn btn-sm btn-success active" id="autoMode">
+                                Automatic
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="manualMode">
+                                Manual
+                            </button>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="refreshBtn">
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info" role="alert" id="statusBar">
+                    System running in simulation mode.
+                </div>
+                
+                <div id="overview-tab" class="tab-content">
+                    <h3>System Overview</h3>
+                    <p>Welcome to the Pool Automation System! This dashboard is under development.</p>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.socket.io/4.4.1/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
