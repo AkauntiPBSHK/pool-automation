@@ -846,58 +846,81 @@ function stopPACDosing() {
  * Update detailed turbidity and PAC displays
  */
 function updateTurbidityPACDisplays() {
-    // Update turbidity detail panel
-    document.getElementById('turbidityDetailValue').textContent = mockData.turbidity.toFixed(2);
+    
+    // Null checks for all DOM operations
+    const turbidityDetailValue = document.getElementById('turbidityDetailValue');
+    if (turbidityDetailValue) {
+        turbidityDetailValue.textContent = mockData.turbidity.toFixed(2);
+    }
     
     // Update turbidity marker position
-    const turbidityPercentage = ((mockData.turbidity - 0.05) / (0.5 - 0.05)) * 100;
-    document.querySelector('.turbidity-marker').style.left = `${turbidityPercentage}%`;
+    const turbidityMarker = document.querySelector('.turbidity-marker');
+    if (turbidityMarker) {
+        const turbidityPercentage = ((mockData.turbidity - 0.05) / (0.5 - 0.05)) * 100;
+        turbidityMarker.style.left = `${turbidityPercentage}%`;
+    }
     
     // Update PAC panel
-    document.getElementById('pacDosingRate').textContent = mockData.pacDosingRate;
-    document.getElementById('pacPumpDetailStatus').innerHTML = mockData.pacPumpRunning ? 
-        '<i class="bi bi-droplet-fill me-1 text-primary"></i> Running' : 
-        '<i class="bi bi-droplet me-1"></i> Idle';
+    const pacDosingRate = document.getElementById('pacDosingRate');
+    if (pacDosingRate) {
+        pacDosingRate.textContent = mockData.pacDosingRate;
+    }
     
-    if (mockData.pacPumpRunning) {
-        document.getElementById('pacPumpDetailStatus').className = 'text-primary pump-active';
-    } else {
-        document.getElementById('pacPumpDetailStatus').className = 'text-secondary';
+    const pacPumpDetailStatus = document.getElementById('pacPumpDetailStatus');
+    if (pacPumpDetailStatus) {
+        pacPumpDetailStatus.innerHTML = mockData.pacPumpRunning ? 
+            '<i class="bi bi-droplet-fill me-1 text-primary"></i> Running' : 
+            '<i class="bi bi-droplet me-1"></i> Idle';
+        
+        pacPumpDetailStatus.className = mockData.pacPumpRunning ? 
+            'text-primary pump-active' : 'text-secondary';
     }
     
     // Update filter efficiency calculation (simplified simulation)
-    const efficiency = Math.round(85 - mockData.turbidity * 100);
-    document.getElementById('filterEfficiency').textContent = `${efficiency}%`;
+    const filterEfficiency = document.getElementById('filterEfficiency');
+    if (filterEfficiency) {
+        const efficiency = Math.round(85 - mockData.turbidity * 100);
+        filterEfficiency.textContent = `${efficiency}%`;
+    }
     
-    // Update filter load progress 
-    const filterLoad = Math.round(mockData.turbidity * 100) + 10;
-    document.getElementById('filterLoadProgress').style.width = `${filterLoad}%`;
-    document.getElementById('filterLoadProgress').textContent = `${filterLoad}%`;
-    document.getElementById('filterLoadProgress').setAttribute('aria-valuenow', filterLoad);
-    
-    // Update filter load color based on value
-    if (filterLoad < 40) {
-        document.getElementById('filterLoadProgress').className = 'progress-bar bg-success';
-    } else if (filterLoad < 70) {
-        document.getElementById('filterLoadProgress').className = 'progress-bar bg-warning';
-    } else {
-        document.getElementById('filterLoadProgress').className = 'progress-bar bg-danger';
+    // Update filter load progress
+    const filterLoadProgress = document.getElementById('filterLoadProgress');
+    if (filterLoadProgress) {
+        const filterLoad = Math.round(mockData.turbidity * 100) + 10;
+        filterLoadProgress.style.width = `${filterLoad}%`;
+        filterLoadProgress.textContent = `${filterLoad}%`;
+        filterLoadProgress.setAttribute('aria-valuenow', filterLoad);
+        
+        // Update filter load color based on value
+        if (filterLoad < 40) {
+            filterLoadProgress.className = 'progress-bar bg-success';
+        } else if (filterLoad < 70) {
+            filterLoadProgress.className = 'progress-bar bg-warning';
+        } else {
+            filterLoadProgress.className = 'progress-bar bg-danger';
+        }
     }
     
     // Update PAC level indicator randomly for simulation
-    if (Math.random() > 0.95) {
+    const pacLevelIndicator = document.getElementById('pacLevelIndicator');
+    if (pacLevelIndicator && Math.random() > 0.95) {
         const pacLevel = Math.round(Math.random() * 30) + 40; // 40-70%
-        document.getElementById('pacLevelIndicator').style.height = `${pacLevel}%`;
-        document.getElementById('pacLevelIndicator').setAttribute('aria-valuenow', pacLevel);
-        document.querySelector('#pacLevelIndicator').nextElementSibling.textContent = `${pacLevel}%`;
+        pacLevelIndicator.style.height = `${pacLevel}%`;
+        pacLevelIndicator.setAttribute('aria-valuenow', pacLevel);
+        
+        const pacLevelText = pacLevelIndicator.nextElementSibling;
+        if (pacLevelText) {
+            pacLevelText.textContent = `${pacLevel}%`;
+        }
     }
     
     // Update trends randomly for simulation
-    if (Math.random() > 0.7) {
-        const turbidityTrend = Math.random() > 0.5 ? 
+    const turbidityTrend = document.getElementById('turbidityTrend');
+    if (turbidityTrend && Math.random() > 0.7) {
+        const trendHtml = Math.random() > 0.5 ? 
             '<i class="bi bi-arrow-up-short trend-up"></i> +0.02 in 1h' : 
             '<i class="bi bi-arrow-down-short trend-down"></i> -0.02 in 1h';
-        document.getElementById('turbidityTrend').innerHTML = turbidityTrend;
+        turbidityTrend.innerHTML = trendHtml;
     }
 }
 
@@ -1146,6 +1169,10 @@ function initializeHistoryTab() {
         filterEventsByType(this.value);
     });
     
+    // Initialize tables with initial data
+    updateTableDataForPage('historyDataTable', 1);
+    updateEventsDataForPage('eventsTable', 1);
+    
     // Create initial history chart
     initializeHistoryChart();
     
@@ -1392,6 +1419,7 @@ function initializeHistoryChart() {
         
         // Link parameter checkboxes to chart visibility
         linkCheckboxesToChart();
+        syncCheckboxesWithChart();
     } catch (error) {
         console.error('Error initializing chart:', error);
     }
@@ -1780,24 +1808,42 @@ function formatDateTimeForInput(date) {
 }
 
 /**
- * Initialize pagination
+ * Initialize pagination for both tables
  */
 function initializePagination() {
+    // Initialize data table pagination
+    initializeTablePagination('historyDataTable', 'historyDataPagination');
+    
+    // Initialize events table pagination
+    initializeTablePagination('eventsTable', 'eventsPagination');
+}
+
+/**
+ * Initialize pagination for a specific table
+ */
+function initializeTablePagination(tableId, paginationId) {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+    
+    // Find pagination container - select the closest pagination element to the table
+    const paginationContainer = table.closest('.card').querySelector('.pagination');
+    if (!paginationContainer) return;
+    
     // Add active class to first page
-    const firstPageItem = document.querySelector('.pagination .page-item:nth-child(2)');
+    const firstPageItem = paginationContainer.querySelector('.page-item:nth-child(2)');
     if (firstPageItem) {
         firstPageItem.classList.add('active');
     }
     
     // Add click handlers to pagination links
-    document.querySelectorAll('.pagination .page-link').forEach(link => {
+    paginationContainer.querySelectorAll('.page-link').forEach(link => {
         link.addEventListener('click', function(e) {
             e.preventDefault();
             
             const pageText = this.textContent;
             if (pageText === '«' || pageText === '»') {
                 // Handle previous/next
-                const activePage = document.querySelector('.pagination .page-item.active');
+                const activePage = paginationContainer.querySelector('.page-item.active');
                 if (!activePage) return;
                 
                 let newPage;
@@ -1814,22 +1860,22 @@ function initializePagination() {
                 if (newPage) {
                     // Simulate click on the page link
                     const pageLink = newPage.querySelector('.page-link');
-                    if (pageLink) pageLink.click();
+                    if (pageLink && pageLink.textContent !== '«' && pageLink.textContent !== '»') {
+                        pageLink.click();
+                    }
                 }
             } else {
                 // Handle direct page number click
-                document.querySelectorAll('.pagination .page-item').forEach(item => {
+                paginationContainer.querySelectorAll('.page-item').forEach(item => {
                     item.classList.remove('active');
                 });
                 this.parentElement.classList.add('active');
                 
-                // Update data based on page number
-                updateTableDataForPage(parseInt(pageText));
-                
-                // Update display text
-                const countText = document.querySelector('#historyDataTable + div div');
-                if (countText) {
-                    countText.textContent = `Showing 5 of 168 records (Page ${pageText})`;
+                // Update data based on page number and table ID
+                if (tableId === 'historyDataTable') {
+                    updateTableDataForPage(tableId, parseInt(pageText));
+                } else if (tableId === 'eventsTable') {
+                    updateEventsDataForPage(tableId, parseInt(pageText));
                 }
             }
         });
@@ -1866,5 +1912,119 @@ function updateTableDataForPage(pageNumber) {
         `;
         
         tbody.appendChild(tr);
+    }
+}
+
+/**
+ * Sync checkbox states with initial chart visibility
+ */
+function syncCheckboxesWithChart() {
+    if (!historyChart) return;
+    
+    // Match checkbox states to chart visibility
+    document.getElementById('showPh').checked = !historyChart.data.datasets[0].hidden;
+    document.getElementById('showOrp').checked = !historyChart.data.datasets[1].hidden;
+    document.getElementById('showFreeChlorine').checked = !historyChart.data.datasets[2].hidden;
+    document.getElementById('showCombinedChlorine').checked = !historyChart.data.datasets[3].hidden;
+    document.getElementById('showTurbidity').checked = !historyChart.data.datasets[4].hidden;
+    document.getElementById('showTemp').checked = !historyChart.data.datasets[5].hidden;
+}
+
+/**
+ * Update table data for a specific page
+ */
+function updateTableDataForPage(tableId, pageNumber) {
+    const tbody = document.getElementById(tableId).querySelector('tbody');
+    if (!tbody) return;
+    
+    const recordsPerPage = 5; // 5 records per page
+    const offset = (pageNumber - 1) * recordsPerPage;
+    const now = new Date();
+    
+    // Clear existing rows
+    tbody.innerHTML = '';
+    
+    // Generate new rows for this page
+    for (let i = 0; i < recordsPerPage; i++) {
+        const date = new Date(now);
+        date.setHours(date.getHours() - (offset + i));
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${formatDateTime(date)}</td>
+            <td>${(7.4 + (Math.random() - 0.5) * 0.2).toFixed(2)}</td>
+            <td>${Math.round(720 + (Math.random() - 0.5) * 30)}</td>
+            <td>${(1.2 + (Math.random() - 0.5) * 0.3).toFixed(2)}</td>
+            <td>${(0.2 + (Math.random() - 0.5) * 0.1).toFixed(2)}</td>
+            <td>${(0.15 + (Math.random() - 0.5) * 0.05).toFixed(3)}</td>
+            <td>${(28 + (Math.random() - 0.5) * 1).toFixed(1)}</td>
+        `;
+        
+        tbody.appendChild(tr);
+    }
+    
+    // Update the count display
+    const countDisplay = document.querySelector(`#${tableId}`).closest('.card-body').querySelector('.d-flex div');
+    if (countDisplay) {
+        countDisplay.textContent = `Showing ${recordsPerPage} of 168 records`;
+    }
+}
+
+/**
+ * Update events data for a specific page
+ */
+function updateEventsDataForPage(tableId, pageNumber) {
+    const tbody = document.getElementById(tableId).querySelector('tbody');
+    if (!tbody) return;
+    
+    const recordsPerPage = 5; // 5 records per page
+    const offset = (pageNumber - 1) * recordsPerPage;
+    const now = new Date();
+    
+    // Event types
+    const eventTypes = [
+        { type: 'System', class: 'bg-info' },
+        { type: 'Dosing', class: 'bg-success' },
+        { type: 'Alert', class: 'bg-warning' },
+        { type: 'User', class: 'bg-primary' }
+    ];
+    
+    // Event descriptions
+    const descriptions = [
+        { text: 'System started in automatic mode', param: '-', value: '-' },
+        { text: 'Automatic chlorine dosing', param: 'Free Cl', value: '0.9 mg/L' },
+        { text: 'Low chlorine level detected', param: 'Free Cl', value: '0.7 mg/L' },
+        { text: 'Automatic PAC dosing', param: 'Turbidity', value: '0.22 NTU' },
+        { text: 'User changed target pH range', param: 'pH', value: '7.2-7.6' }
+    ];
+    
+    // Clear existing rows
+    tbody.innerHTML = '';
+    
+    // Generate new rows for this page
+    for (let i = 0; i < recordsPerPage; i++) {
+        const date = new Date(now);
+        date.setHours(date.getHours() - (offset + i));
+        
+        // Pick random event type and description
+        const eventType = eventTypes[Math.floor(Math.random() * eventTypes.length)];
+        const description = descriptions[Math.floor(Math.random() * descriptions.length)];
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${formatDateTime(date)}</td>
+            <td><span class="badge ${eventType.class}">${eventType.type}</span></td>
+            <td>${description.text}</td>
+            <td>${description.param}</td>
+            <td>${description.value}</td>
+        `;
+        
+        tbody.appendChild(tr);
+    }
+    
+    // Update the count display
+    const countDisplay = document.querySelector(`#${tableId}`).closest('.card-body').querySelector('.d-flex div');
+    if (countDisplay) {
+        countDisplay.textContent = `Showing ${recordsPerPage} of 42 events`;
     }
 }
