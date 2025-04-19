@@ -19,11 +19,17 @@ const mockData = {
 // Connect to Socket.IO
 const socket = io();
 
+// Global variables for charts
+let chemistryChart = null;
+
 // DOM Ready
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Dashboard initialized');
     
-    // Setup event listeners
+    // Initialize navigation
+    initializeNavigation();
+    
+    // Setup mode toggle event listeners
     document.getElementById('autoMode').addEventListener('click', function() {
         console.log('Switching to automatic mode');
         setMode('automatic');
@@ -39,6 +45,9 @@ document.addEventListener('DOMContentLoaded', function() {
         fetchStatus();
         updateParameterDisplays(mockData);
     });
+    
+    // Initialize water chemistry section
+    initializeWaterChemistryControls();
     
     // Initial data fetch
     fetchStatus();
@@ -62,6 +71,389 @@ document.addEventListener('DOMContentLoaded', function() {
         setInterval(simulateDataChanges, 5000);
     }
 });
+
+/**
+ * Initialize navigation between tabs
+ */
+function initializeNavigation() {
+    // Add event listeners to nav links
+    document.querySelectorAll('#sidebar .nav-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Get the target tab ID
+            const targetId = this.getAttribute('href');
+            
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.style.display = 'none';
+            });
+            
+            // Show the target tab
+            if (targetId && document.querySelector(targetId)) {
+                document.querySelector(targetId).style.display = 'block';
+            }
+            
+            // Update active state in navigation
+            document.querySelectorAll('#sidebar .nav-link').forEach(navLink => {
+                navLink.classList.remove('active');
+            });
+            this.classList.add('active');
+        });
+    });
+}
+
+/**
+ * Initialize water chemistry controls
+ */
+function initializeWaterChemistryControls() {
+    // Initialize mode-dependent controls
+    updateControlsBasedOnMode();
+    
+    // Add event listeners to dose buttons
+    document.getElementById('phDoseBtn').addEventListener('click', function() {
+        const duration = document.getElementById('phDoseDuration').value;
+        startPHDosing(duration);
+    });
+    
+    document.getElementById('phStopBtn').addEventListener('click', function() {
+        stopPHDosing();
+    });
+    
+    document.getElementById('clDoseBtn').addEventListener('click', function() {
+        const duration = document.getElementById('clDoseDuration').value;
+        startCLDosing(duration);
+    });
+    
+    document.getElementById('clStopBtn').addEventListener('click', function() {
+        stopCLDosing();
+    });
+    
+    // Initialize chart
+    initializeChemistryChart();
+    
+    // Add event listener for time range change
+    document.getElementById('chemistryTimeRange').addEventListener('change', function() {
+        updateChemistryChart(this.value);
+    });
+}
+
+/**
+ * Update manual controls based on operation mode
+ */
+function updateControlsBasedOnMode() {
+    const isManualMode = document.getElementById('manualMode').classList.contains('active');
+    
+    // Enable or disable control buttons based on mode
+    document.getElementById('phDoseBtn').disabled = !isManualMode;
+    document.getElementById('phStopBtn').disabled = !isManualMode;
+    document.getElementById('clDoseBtn').disabled = !isManualMode;
+    document.getElementById('clStopBtn').disabled = !isManualMode;
+    
+    // Update help text if needed
+    if (isManualMode) {
+        // Any manual mode specific UI updates
+    } else {
+        // Any automatic mode specific UI updates
+    }
+}
+
+/**
+ * Simulate starting pH dosing
+ */
+function startPHDosing(duration) {
+    mockData.phPumpRunning = true;
+    updatePumpStatus('phPump', true);
+    updatePumpStatus('phPumpDetail', true);
+    
+    // Show toast notification
+    showToast(`pH dosing started for ${duration} seconds`);
+    
+    // Auto-stop after duration
+    setTimeout(() => {
+        stopPHDosing();
+    }, duration * 1000);
+}
+
+/**
+ * Simulate stopping pH dosing
+ */
+function stopPHDosing() {
+    mockData.phPumpRunning = false;
+    updatePumpStatus('phPump', false);
+    updatePumpStatus('phPumpDetail', false);
+    
+    // Show toast notification
+    showToast('pH dosing stopped');
+}
+
+/**
+ * Simulate starting chlorine dosing
+ */
+function startCLDosing(duration) {
+    mockData.clPumpRunning = true;
+    updatePumpStatus('clPump', true);
+    updatePumpStatus('clPumpDetail', true);
+    
+    // Show toast notification
+    showToast(`Chlorine dosing started for ${duration} seconds`);
+    
+    // Auto-stop after duration
+    setTimeout(() => {
+        stopCLDosing();
+    }, duration * 1000);
+}
+
+/**
+ * Simulate stopping chlorine dosing
+ */
+function stopCLDosing() {
+    mockData.clPumpRunning = false;
+    updatePumpStatus('clPump', false);
+    updatePumpStatus('clPumpDetail', false);
+    
+    // Show toast notification
+    showToast('Chlorine dosing stopped');
+}
+
+/**
+ * Show a toast notification
+ */
+function showToast(message) {
+    // Check if toast container exists, create if not
+    let toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toastContainer';
+        toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+        document.body.appendChild(toastContainer);
+    }
+    
+    // Create toast element
+    const toastId = 'toast-' + Date.now();
+    const toastHtml = `
+    <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <strong class="me-auto">Pool Automation</strong>
+            <small>Just now</small>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">
+            ${message}
+        </div>
+    </div>
+    `;
+    
+    // Add toast to container
+    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+    
+    // Initialize and show toast
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, { autohide: true, delay: 3000 });
+    toast.show();
+    
+    // Remove toast after it's hidden
+    toastElement.addEventListener('hidden.bs.toast', function() {
+        toastElement.remove();
+    });
+}
+
+/**
+ * Initialize chemistry chart
+ */
+function initializeChemistryChart() {
+    const ctx = document.getElementById('chemistryChart');
+    
+    if (!ctx) return;
+    
+    // Generate sample data
+    const hours = 24;
+    const labels = Array.from({length: hours}, (_, i) => `${23 - i}h ago`);
+    
+    // Sample pH data
+    const phData = [];
+    for (let i = 0; i < hours; i++) {
+        phData.push(7.4 + (Math.random() - 0.5) * 0.3);
+    }
+    
+    // Sample chlorine data
+    const clData = [];
+    for (let i = 0; i < hours; i++) {
+        clData.push(1.2 + (Math.random() - 0.5) * 0.4);
+    }
+    
+    // Create chart
+    chemistryChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels.reverse(),
+            datasets: [
+                {
+                    label: 'pH',
+                    data: phData.reverse(),
+                    borderColor: 'rgba(13, 110, 253, 1)',
+                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: false,
+                    yAxisID: 'y-ph'
+                },
+                {
+                    label: 'Free Chlorine',
+                    data: clData.reverse(),
+                    borderColor: 'rgba(25, 135, 84, 1)',
+                    backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: false,
+                    yAxisID: 'y-cl'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'index',
+                intersect: false
+            },
+            scales: {
+                x: {
+                    ticks: {
+                        maxRotation: 0
+                    }
+                },
+                'y-ph': {
+                    type: 'linear',
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'pH'
+                    },
+                    min: 6.8,
+                    max: 8.0,
+                    grid: {
+                        drawOnChartArea: true
+                    }
+                },
+                'y-cl': {
+                    type: 'linear',
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Chlorine (mg/L)'
+                    },
+                    min: 0,
+                    max: 3,
+                    grid: {
+                        drawOnChartArea: false
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed.y !== null) {
+                                label += context.parsed.y.toFixed(2);
+                                if (context.dataset.label === 'pH') {
+                                    label += ' pH';
+                                } else if (context.dataset.label === 'Free Chlorine') {
+                                    label += ' mg/L';
+                                }
+                            }
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Update chemistry chart with new data
+ */
+function updateChemistryChart(hours) {
+    if (!chemistryChart) return;
+    
+    hours = parseInt(hours);
+    
+    // Generate new labels
+    const labels = Array.from({length: hours}, (_, i) => `${hours - 1 - i}h ago`);
+    
+    // Generate new data
+    const phData = [];
+    const clData = [];
+    
+    for (let i = 0; i < hours; i++) {
+        phData.push(7.4 + (Math.random() - 0.5) * 0.3);
+        clData.push(1.2 + (Math.random() - 0.5) * 0.4);
+    }
+    
+    // Update chart data
+    chemistryChart.data.labels = labels;
+    chemistryChart.data.datasets[0].data = phData;
+    chemistryChart.data.datasets[1].data = clData;
+    
+    // Update chart
+    chemistryChart.update();
+}
+
+/**
+ * Update detailed water chemistry displays
+ */
+function updateWaterChemistryDisplays() {
+    // Update pH detail panel
+    document.getElementById('phDetailValue').textContent = mockData.ph.toFixed(2);
+    document.getElementById('phPumpDetailStatus').innerHTML = mockData.phPumpRunning ? 
+        '<i class="bi bi-droplet-fill me-1 text-primary"></i> Pump active' : 
+        '<i class="bi bi-droplet me-1"></i> Pump inactive';
+    
+    if (mockData.phPumpRunning) {
+        document.getElementById('phPumpDetailStatus').className = 'text-primary pump-active';
+    } else {
+        document.getElementById('phPumpDetailStatus').className = 'text-secondary';
+    }
+    
+    // Update pH marker position
+    const phPercentage = ((mockData.ph - 6.8) / (8.0 - 6.8)) * 100;
+    document.querySelector('.ph-marker').style.left = `${phPercentage}%`;
+    
+    // Update chlorine detail panel
+    document.getElementById('freeChlorineDetailValue').textContent = mockData.freeChlorine.toFixed(2);
+    document.getElementById('combinedChlorineDetailValue').textContent = mockData.combinedChlorine.toFixed(2);
+    document.getElementById('clPumpDetailStatus').innerHTML = mockData.clPumpRunning ? 
+        '<i class="bi bi-droplet-fill me-1 text-primary"></i> Pump active' : 
+        '<i class="bi bi-droplet me-1"></i> Pump inactive';
+    
+    if (mockData.clPumpRunning) {
+        document.getElementById('clPumpDetailStatus').className = 'text-primary pump-active';
+    } else {
+        document.getElementById('clPumpDetailStatus').className = 'text-secondary';
+    }
+    
+    // Update chlorine marker position
+    const clPercentage = ((mockData.freeChlorine - 0.5) / (5.0 - 0.5)) * 100;
+    document.querySelector('.chlorine-marker').style.left = `${clPercentage}%`;
+    
+    // Update trends randomly for simulation
+    if (Math.random() > 0.7) {
+        const phTrend = Math.random() > 0.5 ? 
+            '<i class="bi bi-arrow-up-short trend-up"></i> +0.1 in 1h' : 
+            '<i class="bi bi-arrow-down-short trend-down"></i> -0.1 in 1h';
+        document.getElementById('phTrend').innerHTML = phTrend;
+        
+        const clTrend = Math.random() > 0.5 ? 
+            '<i class="bi bi-arrow-up-short trend-up"></i> +0.1 in 1h' : 
+            '<i class="bi bi-arrow-down-short trend-down"></i> -0.1 in 1h';
+        document.getElementById('chlorineTrend').innerHTML = clTrend;
+    }
+}
 
 /**
  * Update all parameter displays with current values
@@ -225,6 +617,9 @@ function setMode(mode) {
         
         updateStatusBar('Manual mode activated', 'warning');
     }
+
+    // Update control availability based on mode
+    updateControlsBasedOnMode();
 }
 
 /**
@@ -252,6 +647,9 @@ function simulateDataChanges() {
     
     // Update displays
     updateParameterDisplays(mockData);
+
+    // Update Water Chemistry displays
+    updateWaterChemistryDisplays();
 }
 
 /**

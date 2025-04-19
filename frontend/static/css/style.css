@@ -144,3 +144,73 @@ main {
     padding: 0.25rem 0.75rem;
     font-size: 0.875rem;
 }
+
+/* Water Chemistry tab styles */
+.tab-content {
+    display: none;
+}
+
+#overview-tab {
+    display: block;
+}
+
+/* Parameter marker sliders */
+.ph-marker, .chlorine-marker {
+    position: absolute;
+    width: 12px;
+    height: 16px;
+    background-color: #0d6efd;
+    border-radius: 6px;
+    top: -4px;
+    transform: translateX(-50%);
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+}
+
+/* Progress bar styling */
+.progress {
+    position: relative;
+    overflow: visible;
+}
+
+.active-range {
+    font-weight: 500;
+    color: #198754;
+}
+
+/* Trend indicators */
+.trend-up {
+    color: #dc3545;
+}
+
+.trend-down {
+    color: #198754;
+}
+
+.trend-stable {
+    color: #6c757d;
+}
+
+/* Table styling */
+.table-sm td, .table-sm th {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+/* Card headers */
+.card-header {
+    background-color: rgba(0, 0, 0, 0.03);
+    padding: 0.75rem 1rem;
+}
+
+/* Manual control buttons when active */
+.btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Chart container */
+#chemistryChart {
+    width: 100%;
+    height: 100%;
+}

@@ -240,6 +240,292 @@
                         </div>
                     </div>
                 </div>
+                
+                <div id="water-chemistry-tab" class="tab-content" style="display: none;">
+                    <h3>Water Chemistry Control</h3>
+                    
+                    <div class="row">
+                        <!-- pH Control Panel -->
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h5 class="card-title mb-0">pH Control</h5>
+                                    <span class="badge bg-success" id="phDetailStatus">Good</span>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-4">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <h2 class="mb-0" id="phDetailValue">7.4</h2>
+                                            <div class="text-muted small">
+                                                <span id="phTrend">
+                                                    <i class="bi bi-arrow-up-short text-danger"></i> +0.1 in 1h
+                                                </span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="progress mb-2" style="height: 8px;">
+                                            <div class="progress-bar bg-danger" role="progressbar" style="width: 10%"></div>
+                                            <div class="progress-bar bg-warning" role="progressbar" style="width: 10%"></div>
+                                            <div class="progress-bar bg-success" role="progressbar" style="width: 20%"></div>
+                                            <div class="progress-bar bg-warning" role="progressbar" style="width: 10%"></div>
+                                            <div class="progress-bar bg-danger" role="progressbar" style="width: 50%"></div>
+                                        </div>
+                                        
+                                        <div class="d-flex justify-content-between text-muted small">
+                                            <span>6.8</span>
+                                            <span class="active-range">7.2 - 7.6</span>
+                                            <span>8.0</span>
+                                        </div>
+                                        
+                                        <div class="ph-marker" style="left: 60%"></div>
+                                    </div>
+                                    
+                                    <div class="row mb-3">
+                                        <div class="col">
+                                            <div class="card bg-light">
+                                                <div class="card-body p-2">
+                                                    <div class="d-flex justify-content-between">
+                                                        <div>
+                                                            <div class="text-muted small">Last 24h</div>
+                                                            <div class="d-flex align-items-center">
+                                                                <span class="h5 mb-0 me-2">Min: 7.2</span>
+                                                                <span class="h5 mb-0">Max: 7.6</span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="text-end">
+                                                            <div class="text-muted small">Status</div>
+                                                            <div class="d-flex align-items-center">
+                                                                <span id="phPumpDetailStatus" class="text-secondary">
+                                                                    <i class="bi bi-droplet me-1"></i>
+                                                                    Pump inactive
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-3">
+                                        <h6>Manual Control</h6>
+                                        <div class="row g-2">
+                                            <div class="col-md-6">
+                                                <select class="form-select" id="phDoseDuration">
+                                                    <option value="5">5 seconds</option>
+                                                    <option value="10">10 seconds</option>
+                                                    <option value="30" selected>30 seconds</option>
+                                                    <option value="60">1 minute</option>
+                                                    <option value="120">2 minutes</option>
+                                                    <option value="300">5 minutes</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="d-grid gap-2">
+                                                    <button class="btn btn-primary" id="phDoseBtn" disabled>
+                                                        Dose Acid
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row mt-2">
+                                            <div class="col d-grid">
+                                                <button class="btn btn-danger" id="phStopBtn" disabled>
+                                                    Stop Pump
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-4">
+                                        <h6>Recent Dosing</h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Time</th>
+                                                        <th>Duration</th>
+                                                        <th>Type</th>
+                                                        <th>pH Before</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="phDosingHistory">
+                                                    <tr>
+                                                        <td>10:32 AM</td>
+                                                        <td>30 sec</td>
+                                                        <td>Automatic</td>
+                                                        <td>7.8</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>Yesterday 8:15 PM</td>
+                                                        <td>1 min</td>
+                                                        <td>Manual</td>
+                                                        <td>7.7</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Chlorine Control Panel -->
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h5 class="card-title mb-0">Chlorine Control</h5>
+                                    <span class="badge bg-success" id="chlorineDetailStatus">Good</span>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-4">
+                                        <div class="d-flex justify-content-between mb-3">
+                                            <div>
+                                                <div class="text-muted small mb-1">Free Chlorine (mg/L)</div>
+                                                <h2 class="mb-0" id="freeChlorineDetailValue">1.2</h2>
+                                            </div>
+                                            <div>
+                                                <div class="text-muted small mb-1">Combined (mg/L)</div>
+                                                <h3 class="mb-0" id="combinedChlorineDetailValue">0.2</h3>
+                                            </div>
+                                            <div class="text-muted small text-end">
+                                                <span id="chlorineTrend">
+                                                    <i class="bi bi-arrow-down-short text-success"></i> -0.1 in 1h
+                                                </span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="progress mb-2" style="height: 8px;">
+                                            <div class="progress-bar bg-danger" role="progressbar" style="width: 10%"></div>
+                                            <div class="progress-bar bg-warning" role="progressbar" style="width: 10%"></div>
+                                            <div class="progress-bar bg-success" role="progressbar" style="width: 30%"></div>
+                                            <div class="progress-bar bg-warning" role="progressbar" style="width: 10%"></div>
+                                            <div class="progress-bar bg-danger" role="progressbar" style="width: 40%"></div>
+                                        </div>
+                                        
+                                        <div class="d-flex justify-content-between text-muted small">
+                                            <span>0.5</span>
+                                            <span class="active-range">1.0 - 3.0</span>
+                                            <span>5.0</span>
+                                        </div>
+                                        
+                                        <div class="chlorine-marker" style="left: 24%"></div>
+                                    </div>
+                                    
+                                    <div class="row mb-3">
+                                        <div class="col">
+                                            <div class="card bg-light">
+                                                <div class="card-body p-2">
+                                                    <div class="d-flex justify-content-between">
+                                                        <div>
+                                                            <div class="text-muted small">Last 24h</div>
+                                                            <div class="d-flex align-items-center">
+                                                                <span class="h5 mb-0 me-2">Min: 1.0</span>
+                                                                <span class="h5 mb-0">Max: 1.4</span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="text-end">
+                                                            <div class="text-muted small">Status</div>
+                                                            <div class="d-flex align-items-center">
+                                                                <span id="clPumpDetailStatus" class="text-secondary">
+                                                                    <i class="bi bi-droplet me-1"></i>
+                                                                    Pump inactive
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-3">
+                                        <h6>Manual Control</h6>
+                                        <div class="row g-2">
+                                            <div class="col-md-6">
+                                                <select class="form-select" id="clDoseDuration">
+                                                    <option value="5">5 seconds</option>
+                                                    <option value="10">10 seconds</option>
+                                                    <option value="30" selected>30 seconds</option>
+                                                    <option value="60">1 minute</option>
+                                                    <option value="120">2 minutes</option>
+                                                    <option value="300">5 minutes</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="d-grid gap-2">
+                                                    <button class="btn btn-primary" id="clDoseBtn" disabled>
+                                                        Dose Chlorine
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row mt-2">
+                                            <div class="col d-grid">
+                                                <button class="btn btn-danger" id="clStopBtn" disabled>
+                                                    Stop Pump
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-4">
+                                        <h6>Recent Dosing</h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Time</th>
+                                                        <th>Duration</th>
+                                                        <th>Type</th>
+                                                        <th>Cl Before</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="clDosingHistory">
+                                                    <tr>
+                                                        <td>9:45 AM</td>
+                                                        <td>1 min</td>
+                                                        <td>Automatic</td>
+                                                        <td>0.8</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>Yesterday 6:20 PM</td>
+                                                        <td>2 min</td>
+                                                        <td>Manual</td>
+                                                        <td>0.7</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Water Chemistry Chart -->
+                    <div class="row mt-2">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h5 class="card-title mb-0">Historical Data</h5>
+                                    <div>
+                                        <select class="form-select form-select-sm d-inline-block" style="width: auto;" id="chemistryTimeRange">
+                                            <option value="24">Last 24 Hours</option>
+                                            <option value="48">Last 48 Hours</option>
+                                            <option value="168">Last 7 Days</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div style="height: 300px;">
+                                        <canvas id="chemistryChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </main>
         </div>
     </div>
