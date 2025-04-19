@@ -1468,7 +1468,7 @@ function generateSimplifiedDosingEvents(count) {
     const numEvents = 5 + Math.floor(Math.random() * 4);
     for (let i = 0; i < numEvents; i++) {
         const position = Math.floor(Math.random() * count);
-        events[position] = 7.4; // Position near the top of pH scale
+        events[position] = 7.8; // Position near the top of pH scale
     }
     
     return events;
@@ -1846,7 +1846,7 @@ function generateSampleEvents(hours, count) {
     // Add random events
     for (let i = 0; i < count; i++) {
         const position = Math.floor(Math.random() * hours);
-        events[position] = 7.4; // Position dosing events at the top of the chart
+        events[position] = 7.8; // Position dosing events at the top of the chart
     }
     
     return events;
