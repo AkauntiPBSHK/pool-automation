@@ -1169,9 +1169,8 @@ function initializeHistoryTab() {
         filterEventsByType(this.value);
     });
     
-    // Initialize tables with initial data
-    updateTableDataForPage('historyDataTable', 1);
-    updateEventsDataForPage('eventsTable', 1);
+    // Initialize tables with consistent data
+    initializeTableData();
     
     // Create initial history chart
     initializeHistoryChart();
@@ -1575,8 +1574,7 @@ function updateHistoryChart(hours) {
     // Update chart
     historyChart.update();
     
-    // Update table data to match chart
-    updateHistoryTable(hours);
+    updateTableDataForPage('historyDataTable', 1);
 }
 
 /**
@@ -1638,8 +1636,7 @@ function updateHistoryChartCustomRange(startDate, endDate) {
     // Update chart
     historyChart.update();
     
-    // Update table data to match chart
-    updateHistoryTable(steps);
+    updateTableDataForPage('historyDataTable', 1);
 }
 
 /**
@@ -1834,6 +1831,9 @@ function initializeTablePagination(tableId, paginationId) {
     if (firstPageItem) {
         firstPageItem.classList.add('active');
     }
+
+    // Update the disabled state of prev/next buttons
+    updatePaginationArrows(paginationContainer, 1);
     
     // Add click handlers to pagination links
     paginationContainer.querySelectorAll('.page-link').forEach(link => {
@@ -1841,77 +1841,100 @@ function initializeTablePagination(tableId, paginationId) {
             e.preventDefault();
             
             const pageText = this.textContent;
-            if (pageText === '«' || pageText === '»') {
-                // Handle previous/next
+            let currentPage = 1;
+
+            if (pageText === '«') {
+                // Previous page
                 const activePage = paginationContainer.querySelector('.page-item.active');
                 if (!activePage) return;
                 
-                let newPage;
-                if (pageText === '«' && activePage.previousElementSibling && 
-                    activePage.previousElementSibling.classList.contains('page-item') && 
-                    !activePage.previousElementSibling.classList.contains('disabled')) {
-                    newPage = activePage.previousElementSibling;
-                } else if (pageText === '»' && activePage.nextElementSibling && 
-                           activePage.nextElementSibling.classList.contains('page-item') &&
-                           !activePage.nextElementSibling.classList.contains('disabled')) {
-                    newPage = activePage.nextElementSibling;
-                }
+                // Find the page number of the active page
+                const activePageNum = activePage.querySelector('.page-link').textContent;
+                currentPage = parseInt(activePageNum) - 1;
                 
-                if (newPage) {
-                    // Simulate click on the page link
-                    const pageLink = newPage.querySelector('.page-link');
-                    if (pageLink && pageLink.textContent !== '«' && pageLink.textContent !== '»') {
-                        pageLink.click();
-                    }
-                }
-            } else {
-                // Handle direct page number click
-                paginationContainer.querySelectorAll('.page-item').forEach(item => {
-                    item.classList.remove('active');
-                });
-                this.parentElement.classList.add('active');
+                if (currentPage < 1) return; // Don't go below page 1
                 
-                // Update data based on page number and table ID
-                if (tableId === 'historyDataTable') {
-                    updateTableDataForPage(tableId, parseInt(pageText));
-                } else if (tableId === 'eventsTable') {
-                    updateEventsDataForPage(tableId, parseInt(pageText));
-                }
+                // Update page data and UI
+                updatePaginationPage(paginationContainer, currentPage, tableId);
+            } 
+            else if (pageText === '»') {
+                // Next page
+                const activePage = paginationContainer.querySelector('.page-item.active');
+                if (!activePage) return;
+                
+                // Find the page number of the active page
+                const activePageNum = activePage.querySelector('.page-link').textContent;
+                currentPage = parseInt(activePageNum) + 1;
+                
+                // Determine max pages (we have 3 page links in our pagination)
+                const maxPage = 3; // Assuming 3 pages in the pagination
+                if (currentPage > maxPage) return; // Don't go beyond available pages
+                
+                // Update page data and UI
+                updatePaginationPage(paginationContainer, currentPage, tableId);
+            }
+            else {
+                // Direct page click
+                currentPage = parseInt(pageText);
+                updatePaginationPage(paginationContainer, currentPage, tableId);
             }
         });
     });
 }
 
 /**
- * Update table data for a specific page
+ * Update pagination page - handles both UI updates and data updates
  */
-function updateTableDataForPage(pageNumber) {
-    const tbody = document.querySelector('#historyDataTable tbody');
-    if (!tbody) return;
+function updatePaginationPage(paginationContainer, pageNumber, tableId) {
+    // Update active page
+    paginationContainer.querySelectorAll('.page-item').forEach(item => {
+        if (item.classList.contains('active')) {
+            item.classList.remove('active');
+        }
+    });
     
-    const offset = (pageNumber - 1) * 5; // 5 records per page
-    const now = new Date();
+    // Find the page item with the target page number and make it active
+    paginationContainer.querySelectorAll('.page-item').forEach(item => {
+        const link = item.querySelector('.page-link');
+        if (link && link.textContent === pageNumber.toString()) {
+            item.classList.add('active');
+        }
+    });
     
-    // Clear existing rows
-    tbody.innerHTML = '';
+    // Update previous/next button states
+    updatePaginationArrows(paginationContainer, pageNumber);
     
-    // Generate new rows for this page
-    for (let i = 0; i < 5; i++) {
-        const date = new Date(now);
-        date.setHours(date.getHours() - (offset + i));
-        
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${formatDateTime(date)}</td>
-            <td>${(7.4 + (Math.random() - 0.5) * 0.2).toFixed(2)}</td>
-            <td>${Math.round(720 + (Math.random() - 0.5) * 30)}</td>
-            <td>${(1.2 + (Math.random() - 0.5) * 0.3).toFixed(2)}</td>
-            <td>${(0.2 + (Math.random() - 0.5) * 0.1).toFixed(2)}</td>
-            <td>${(0.15 + (Math.random() - 0.5) * 0.05).toFixed(3)}</td>
-            <td>${(28 + (Math.random() - 0.5) * 1).toFixed(1)}</td>
-        `;
-        
-        tbody.appendChild(tr);
+    // Update table data based on the page number
+    if (tableId === 'historyDataTable') {
+        updateTableDataForPage(tableId, pageNumber);
+    } else if (tableId === 'eventsTable') {
+        updateEventsDataForPage(tableId, pageNumber);
+    }
+}
+
+/**
+ * Update the disabled state of pagination arrows based on current page
+ */
+function updatePaginationArrows(paginationContainer, currentPage) {
+    // Get previous and next buttons
+    const prevButton = paginationContainer.querySelector('.page-item:first-child');
+    const nextButton = paginationContainer.querySelector('.page-item:last-child');
+    
+    if (prevButton) {
+        if (currentPage <= 1) {
+            prevButton.classList.add('disabled');
+        } else {
+            prevButton.classList.remove('disabled');
+        }
+    }
+    
+    if (nextButton) {
+        // Assuming we have 3 page links
+        if (currentPage >= 3) {
+            nextButton.classList.add('disabled');
+        } else {
+            nextButton.classList.remove('disabled');
+        }
     }
 }
 
@@ -2026,5 +2049,98 @@ function updateEventsDataForPage(tableId, pageNumber) {
     const countDisplay = document.querySelector(`#${tableId}`).closest('.card-body').querySelector('.d-flex div');
     if (countDisplay) {
         countDisplay.textContent = `Showing ${recordsPerPage} of 42 events`;
+    }
+}
+
+/**
+ * Initialize table data with 5 records per page
+ */
+function initializeTableData() {
+    // Get both tables
+    const historyTable = document.getElementById('historyDataTable');
+    const eventsTable = document.getElementById('eventsTable');
+    
+    if (historyTable) {
+        const tbody = historyTable.querySelector('tbody');
+        if (tbody) {
+            // Clear any existing data first
+            tbody.innerHTML = '';
+            
+            // Add exactly 5 rows
+            const now = new Date();
+            for (let i = 0; i < 5; i++) {
+                const date = new Date(now);
+                date.setHours(date.getHours() - i);
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${formatDateTime(date)}</td>
+                    <td>${(7.4 + (Math.random() - 0.5) * 0.2).toFixed(2)}</td>
+                    <td>${Math.round(720 + (Math.random() - 0.5) * 30)}</td>
+                    <td>${(1.2 + (Math.random() - 0.5) * 0.3).toFixed(2)}</td>
+                    <td>${(0.2 + (Math.random() - 0.5) * 0.1).toFixed(2)}</td>
+                    <td>${(0.15 + (Math.random() - 0.5) * 0.05).toFixed(3)}</td>
+                    <td>${(28 + (Math.random() - 0.5) * 1).toFixed(1)}</td>
+                `;
+                tbody.appendChild(tr);
+            }
+            
+            // Update the count display
+            const countDisplay = historyTable.closest('.card-body').querySelector('.d-flex div');
+            if (countDisplay) {
+                countDisplay.textContent = 'Showing 5 of 168 records';
+            }
+        }
+    }
+    
+    if (eventsTable) {
+        const tbody = eventsTable.querySelector('tbody');
+        if (tbody) {
+            // Clear any existing data
+            tbody.innerHTML = '';
+            
+            // Event types and descriptions are the same as in updateEventsDataForPage
+            const eventTypes = [
+                { type: 'System', class: 'bg-info' },
+                { type: 'Dosing', class: 'bg-success' },
+                { type: 'Alert', class: 'bg-warning' },
+                { type: 'User', class: 'bg-primary' }
+            ];
+            
+            const descriptions = [
+                { text: 'System started in automatic mode', param: '-', value: '-' },
+                { text: 'Automatic chlorine dosing', param: 'Free Cl', value: '0.9 mg/L' },
+                { text: 'Low chlorine level detected', param: 'Free Cl', value: '0.7 mg/L' },
+                { text: 'Automatic PAC dosing', param: 'Turbidity', value: '0.22 NTU' },
+                { text: 'User changed target pH range', param: 'pH', value: '7.2-7.6' }
+            ];
+            
+            // Add exactly 5 rows
+            const now = new Date();
+            for (let i = 0; i < 5; i++) {
+                const date = new Date(now);
+                date.setHours(date.getHours() - i);
+                
+                // Pick specific event for consistency
+                const eventType = eventTypes[i % eventTypes.length];
+                const description = descriptions[i % descriptions.length];
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${formatDateTime(date)}</td>
+                    <td><span class="badge ${eventType.class}">${eventType.type}</span></td>
+                    <td>${description.text}</td>
+                    <td>${description.param}</td>
+                    <td>${description.value}</td>
+                `;
+                tbody.appendChild(tr);
+            }
+            
+            // Update the count display
+            const countDisplay = eventsTable.closest('.card-body').querySelector('.d-flex div');
+            if (countDisplay) {
+                countDisplay.textContent = 'Showing 5 of 42 events';
+            }
+        }
     }
 }
