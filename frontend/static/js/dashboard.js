@@ -1434,7 +1434,7 @@ function generateSimplifiedDosingEvents(count) {
     const numEvents = 5 + Math.floor(Math.random() * 4);
     for (let i = 0; i < numEvents; i++) {
         const position = Math.floor(Math.random() * count);
-        events[position] = 7.8; // Position near the top of pH scale
+        events[position] = 7.4; // Position near the top of pH scale
     }
     
     return events;
