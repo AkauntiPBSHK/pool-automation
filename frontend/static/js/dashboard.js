@@ -1422,6 +1422,40 @@ function initializeHistoryChart() {
     } catch (error) {
         console.error('Error initializing chart:', error);
     }
+
+        // Add legend click handler to sync checkboxes
+        historyChart.options.plugins.legend.onClick = function(e, legendItem, legend) {
+            // Default legend click behavior (toggle visibility)
+            Chart.defaults.plugins.legend.onClick.call(this, e, legendItem, legend);
+    
+            // Update checkbox state
+            if (legendItem.datasetIndex !== 6) { // Skip dosing events
+                const datasetLabels = {
+                    'pH': 'showPh',
+                    'ORP': 'showOrp',
+                    'Free Chlorine': 'showFreeChlorine',
+                    'Combined Chlorine': 'showCombinedChlorine', 
+                    'Turbidity': 'showTurbidity',
+                    'Temperature': 'showTemp'
+                };
+        
+                const checkboxId = datasetLabels[legendItem.text];
+                if (checkboxId) {
+                    const checkbox = document.getElementById(checkboxId);
+                    if (checkbox) {
+                        checkbox.checked = !historyChart.isDatasetVisible(legendItem.datasetIndex);
+                    }
+                }
+            } else {
+                // Handle dosing events
+                const checkbox = document.getElementById('showDosingEvents');
+                if (checkbox) {
+                    checkbox.checked = !historyChart.isDatasetVisible(legendItem.datasetIndex);
+                }
+            }
+    
+            historyChart.update();
+        };
 }
 
 /**
@@ -1500,16 +1534,17 @@ function linkCheckboxesToChart() {
                 // Update dataset visibility
                 historyChart.data.datasets[datasetIndex].hidden = !this.checked;
                 
-                // Update axis visibility (except for shared axes)
-                if (axisId && historyChart.options.scales[axisId]) {
-                    if (axisId !== 'y-chlorine' || 
-                        (axisId === 'y-chlorine' && 
-                         !document.getElementById('showFreeChlorine').checked && 
-                         !document.getElementById('showCombinedChlorine').checked)) {
-                        historyChart.options.scales[axisId].display = this.checked;
-                    }
+                // Handle special case for shared chlorine axis
+                if (axisId === 'y-chlorine') {
+                    // Show axis if either chlorine dataset is visible
+                    const freeChlorineVisible = document.getElementById('showFreeChlorine').checked;
+                    const combinedChlorineVisible = document.getElementById('showCombinedChlorine').checked;
+                    historyChart.options.scales[axisId].display = freeChlorineVisible || combinedChlorineVisible;
+                } else if (axisId && historyChart.options.scales[axisId]) {
+                    // For other axes, directly match visibility to checkbox
+                    historyChart.options.scales[axisId].display = this.checked;
                 }
-
+                
                 historyChart.update();
             });
         }
@@ -1666,8 +1701,35 @@ function updateHistoryChartVisibility() {
     // Dosing Events
     historyChart.data.datasets[6].hidden = !document.getElementById('showDosingEvents').checked;
     
+    // Update axis visibility
+    updateAxisVisibility();
+
     // Update chart
     historyChart.update();
+}
+
+/**
+ * Update axis visibility based on dataset visibility
+ */
+function updateAxisVisibility() {
+    if (!historyChart) return;
+    
+    // pH axis
+    historyChart.options.scales['y-ph'].display = document.getElementById('showPh').checked;
+    
+    // Chlorine axis - show if either chlorine dataset is visible
+    const freeChlorineVisible = document.getElementById('showFreeChlorine').checked;
+    const combinedChlorineVisible = document.getElementById('showCombinedChlorine').checked;
+    historyChart.options.scales['y-chlorine'].display = freeChlorineVisible || combinedChlorineVisible;
+    
+    // ORP axis
+    historyChart.options.scales['y-orp'].display = document.getElementById('showOrp').checked;
+    
+    // Turbidity axis
+    historyChart.options.scales['y-turbidity'].display = document.getElementById('showTurbidity').checked;
+    
+    // Temperature axis
+    historyChart.options.scales['y-temp'].display = document.getElementById('showTemp').checked;
 }
 
 /**
@@ -1784,7 +1846,7 @@ function generateSampleEvents(hours, count) {
     // Add random events
     for (let i = 0; i < count; i++) {
         const position = Math.floor(Math.random() * hours);
-        events[position] = 8.0; // Position dosing events at the top of the chart
+        events[position] = 7.4; // Position dosing events at the top of the chart
     }
     
     return events;
