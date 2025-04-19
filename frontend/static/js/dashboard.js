@@ -1381,6 +1381,35 @@ function initializeHistoryChart() {
                         position: 'top',
                         labels: {
                             usePointStyle: true
+                        },
+                        onClick: function(e, legendItem, legend) {
+                            // Toggle dataset visibility (default behavior)
+                            const index = legendItem.datasetIndex;
+                            const meta = this.chart.getDatasetMeta(index);
+                            meta.hidden = meta.hidden === null ? !this.chart.data.datasets[index].hidden : null;
+                            
+                            // Sync checkbox states based on dataset visibility
+                            if (index === 0) { // pH
+                                document.getElementById('showPh').checked = !meta.hidden;
+                            } else if (index === 1) { // ORP
+                                document.getElementById('showOrp').checked = !meta.hidden;
+                            } else if (index === 2) { // Free Chlorine
+                                document.getElementById('showFreeChlorine').checked = !meta.hidden;
+                            } else if (index === 3) { // Combined Chlorine
+                                document.getElementById('showCombinedChlorine').checked = !meta.hidden;
+                            } else if (index === 4) { // Turbidity
+                                document.getElementById('showTurbidity').checked = !meta.hidden;
+                            } else if (index === 5) { // Temperature
+                                document.getElementById('showTemp').checked = !meta.hidden;
+                            } else if (index === 6) { // Dosing Events
+                                document.getElementById('showDosingEvents').checked = !meta.hidden;
+                            }
+                            
+                            // Update all axis visibility
+                            updateAllAxisVisibility();
+                            
+                            // Update chart
+                            this.chart.update();
                         }
                     },
                     tooltip: {
@@ -1529,22 +1558,14 @@ function linkCheckboxesToChart() {
         if (checkbox) {
             checkbox.addEventListener('change', function() {
                 const datasetIndex = checkboxMap[this.id];
-                const axisId = axisMap[this.id];
                 
                 // Update dataset visibility
                 historyChart.data.datasets[datasetIndex].hidden = !this.checked;
                 
-                // Handle special case for shared chlorine axis
-                if (axisId === 'y-chlorine') {
-                    // Show axis if either chlorine dataset is visible
-                    const freeChlorineVisible = document.getElementById('showFreeChlorine').checked;
-                    const combinedChlorineVisible = document.getElementById('showCombinedChlorine').checked;
-                    historyChart.options.scales[axisId].display = freeChlorineVisible || combinedChlorineVisible;
-                } else if (axisId && historyChart.options.scales[axisId]) {
-                    // For other axes, directly match visibility to checkbox
-                    historyChart.options.scales[axisId].display = this.checked;
-                }
+                // Update all axes visibility
+                updateAllAxisVisibility();
                 
+                // Update chart
                 historyChart.update();
             });
         }
@@ -1555,6 +1576,7 @@ function linkCheckboxesToChart() {
     if (dosingEventsCheckbox) {
         dosingEventsCheckbox.addEventListener('change', function() {
             historyChart.data.datasets[6].hidden = !this.checked;
+            updateAllAxisVisibility();
             historyChart.update();
         });
     }
@@ -2017,6 +2039,9 @@ function syncCheckboxesWithChart() {
     document.getElementById('showCombinedChlorine').checked = !historyChart.data.datasets[3].hidden;
     document.getElementById('showTurbidity').checked = !historyChart.data.datasets[4].hidden;
     document.getElementById('showTemp').checked = !historyChart.data.datasets[5].hidden;
+
+    // Update all axes visibility
+    updateAllAxisVisibility();
 }
 
 /**
@@ -2230,4 +2255,43 @@ function updateActivePageNumberStyle(paginationContainer) {
             }
         }
     });
+}
+
+/**
+ * Update all axis visibility based on dataset visibility
+ */
+function updateAllAxisVisibility() {
+    if (!historyChart) return;
+    
+    // Get actual visibility state from the chart
+    const datasets = historyChart.data.datasets;
+    const metas = historyChart.getSortedVisibleDatasetMetas();
+    const visibleDatasetIndices = metas.map(meta => meta.index);
+    
+    // Set all axes to hidden by default
+    historyChart.options.scales['y-ph'].display = false;
+    historyChart.options.scales['y-chlorine'].display = false;
+    historyChart.options.scales['y-orp'].display = false;
+    historyChart.options.scales['y-turbidity'].display = false;
+    historyChart.options.scales['y-temp'].display = false;
+    
+    // Show axes for visible datasets
+    visibleDatasetIndices.forEach(index => {
+        if (index === 0) { // pH
+            historyChart.options.scales['y-ph'].display = true;
+        } else if (index === 1) { // ORP
+            historyChart.options.scales['y-orp'].display = true;
+        } else if (index === 2 || index === 3) { // Free or Combined Chlorine
+            historyChart.options.scales['y-chlorine'].display = true;
+        } else if (index === 4) { // Turbidity
+            historyChart.options.scales['y-turbidity'].display = true;
+        } else if (index === 5) { // Temperature
+            historyChart.options.scales['y-temp'].display = true;
+        }
+    });
+    
+    // Ensure y-ph is visible if dosing events are visible (since they use this axis)
+    if (visibleDatasetIndices.includes(6)) {
+        historyChart.options.scales['y-ph'].display = true;
+    }
 }
