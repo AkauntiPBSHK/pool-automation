@@ -61,3 +61,84 @@ main {
     margin-bottom: 1rem;
     color: #495057;
 }
+
+/* Parameter cards */
+.display-value h2 {
+    font-size: 2.5rem;
+    font-weight: 600;
+    color: #0d6efd;
+    line-height: 1;
+}
+
+.display-value h5 {
+    font-size: 1.25rem;
+    font-weight: 500;
+    line-height: 1;
+}
+
+.parameter-range {
+    position: relative;
+    height: 4px;
+    background: linear-gradient(to right, 
+        #dc3545, /* Red - poor (low) */
+        #ffc107, /* Yellow - fair (low) */
+        #20c997, /* Teal - optimal */
+        #ffc107, /* Yellow - fair (high) */
+        #dc3545  /* Red - poor (high) */
+    );
+    border-radius: 2px;
+    width: 100%;
+    margin-top: 4px;
+}
+
+.parameter-marker {
+    position: absolute;
+    top: -4px;
+    width: 4px;
+    height: 12px;
+    background-color: #212529;
+    border-radius: 2px;
+    transform: translateX(-50%);
+}
+
+/* Status badges */
+.badge {
+    padding: 0.4rem 0.65rem;
+    font-weight: 500;
+    font-size: 0.75rem;
+}
+
+/* Pump status indicator */
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.6; }
+    100% { opacity: 1; }
+}
+
+.pump-active {
+    color: #0d6efd;
+    animation: pulse 1.5s infinite;
+}
+
+/* Card hover effects */
+.card {
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.card-title {
+    color: #495057;
+    font-weight: 500;
+}
+
+/* Use Bootstrap button styles but make them more compact */
+.btn-group > .btn-sm {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.875rem;
+}
