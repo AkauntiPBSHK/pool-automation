@@ -102,7 +102,17 @@ function updateParameter(id, value, lowThreshold, highThreshold, minValue, maxVa
     // Update value
     const valueEl = document.getElementById(id + 'Value');
     if (valueEl) {
-        valueEl.textContent = typeof value === 'number' && value < 10 ? value.toFixed(2) : value;
+        if (typeof value === 'number') {
+            if (id === 'orp' || id === 'uvIntensity') {
+                valueEl.textContent = Math.round(value);
+            } else if (value < 10) {
+                valueEl.textContent = value.toFixed(2);
+            } else {
+                valueEl.textContent = value.toFixed(1);
+            }
+        } else {
+            valueEl.textContent = value;
+        }
     }
     
     // Update status

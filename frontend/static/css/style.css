@@ -93,12 +93,13 @@ main {
 
 .parameter-marker {
     position: absolute;
-    top: -4px;
-    width: 4px;
-    height: 12px;
-    background-color: #212529;
-    border-radius: 2px;
+    top: -5px;
+    width: 6px;
+    height: 14px;
+    background-color: #0d6efd;
+    border-radius: 3px;
     transform: translateX(-50%);
+    box-shadow: 0 0 3px rgba(0, 0, 0, 0.2);
 }
 
 /* Status badges */
@@ -108,16 +109,17 @@ main {
     font-size: 0.75rem;
 }
 
+.pump-active {
+    color: #0d6efd;
+    font-weight: 500;
+    animation: pulse 1.2s infinite;
+}
+
 /* Pump status indicator */
 @keyframes pulse {
     0% { opacity: 1; }
-    50% { opacity: 0.6; }
+    50% { opacity: 0.5; }
     100% { opacity: 1; }
-}
-
-.pump-active {
-    color: #0d6efd;
-    animation: pulse 1.5s infinite;
 }
 
 /* Card hover effects */
