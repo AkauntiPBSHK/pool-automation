@@ -53,6 +53,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize turbidity & PAC section
     initializeTurbidityPACControls();
     
+    // Initialize history tab
+    initializeHistoryTab();
+
     // Initial data fetch
     fetchStatus();
     
@@ -1038,4 +1041,623 @@ function updateTurbidityChart(hours) {
     
     // Update chart
     turbidityChart.update();
+}
+
+// Global variables for history charts
+let historyChart = null;
+
+/**
+ * Initialize history tab functionality
+ */
+function initializeHistoryTab() {
+    console.log('Initializing History Tab');
+    
+    // Initialize time range controls
+    document.getElementById('historyPresetRange').addEventListener('change', function() {
+        const value = this.value;
+        if (value === 'custom') {
+            document.getElementById('customDateRange').style.display = 'block';
+            // Set default date range (last 7 days)
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - 7);
+            
+            document.getElementById('historyStartDate').value = formatDateTimeForInput(startDate);
+            document.getElementById('historyEndDate').value = formatDateTimeForInput(endDate);
+        } else {
+            document.getElementById('customDateRange').style.display = 'none';
+            // Update chart with selected preset
+            updateHistoryChart(parseInt(value));
+        }
+    });
+    
+    // Initialize apply custom range button
+    document.getElementById('applyCustomRange').addEventListener('click', function() {
+        const startDate = new Date(document.getElementById('historyStartDate').value);
+        const endDate = new Date(document.getElementById('historyEndDate').value);
+        
+        if (startDate && endDate) {
+            if (startDate > endDate) {
+                showToast('Start date must be before end date', 'warning');
+                return;
+            }
+            updateHistoryChartCustomRange(startDate, endDate);
+        } else {
+            showToast('Please select valid date range', 'warning');
+        }
+    });
+    
+    // Initialize refresh button
+    document.getElementById('refreshHistoryBtn').addEventListener('click', function() {
+        const rangeSelect = document.getElementById('historyPresetRange');
+        const value = rangeSelect.value;
+        
+        if (value === 'custom') {
+            document.getElementById('applyCustomRange').click();
+        } else {
+            updateHistoryChart(parseInt(value));
+        }
+        
+        showToast('Historical data refreshed');
+    });
+    
+    // Initialize parameter checkboxes
+    document.querySelectorAll('#history-tab input[type="checkbox"]').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            updateHistoryChartVisibility();
+        });
+    });
+    
+    // Initialize visualization type
+    document.getElementById('visualizationType').addEventListener('change', function() {
+        updateHistoryChartType(this.value);
+    });
+    
+    // Initialize resolution selection
+    document.getElementById('dataResolution').addEventListener('change', function() {
+        // This would typically re-fetch data with different resolution
+        // For demo, we'll just show a toast
+        showToast(`Data resolution changed to ${this.options[this.selectedIndex].text}`);
+        // Simulate chart update
+        updateHistoryChart(parseInt(document.getElementById('historyPresetRange').value));
+    });
+    
+    // Initialize export buttons
+    document.getElementById('downloadChartBtn').addEventListener('click', function() {
+        // This would typically generate a download
+        // For demo, we'll just show a toast
+        showToast('Chart data export started');
+    });
+    
+    document.getElementById('exportCsvBtn').addEventListener('click', function() {
+        // This would typically generate a CSV download
+        // For demo, we'll just show a toast
+        showToast('CSV export started');
+    });
+    
+    document.getElementById('exportJsonBtn').addEventListener('click', function() {
+        // This would typically generate a JSON download
+        // For demo, we'll just show a toast
+        showToast('JSON export started');
+    });
+    
+    // Initialize event type filter
+    document.getElementById('eventTypeFilter').addEventListener('change', function() {
+        filterEventsByType(this.value);
+    });
+    
+    // Create initial history chart
+    initializeHistoryChart();
+    
+    // Load initial data based on default selections
+    updateHistoryChart(168); // Default: 7 days
+}
+
+/**
+ * Initialize history chart
+ */
+function initializeHistoryChart() {
+    const ctx = document.getElementById('historyChart');
+    
+    if (!ctx) return;
+    
+    // Generate sample data
+    const hours = 168; // 7 days
+    const labels = [];
+    const now = new Date();
+    
+    for (let i = hours - 1; i >= 0; i--) {
+        const date = new Date(now);
+        date.setHours(date.getHours() - i);
+        labels.push(formatDateTime(date));
+    }
+    
+    // Sample data sets
+    const phData = generateSampleData(7.4, 0.2, hours);
+    const orpData = generateSampleData(720, 30, hours);
+    const freeChlorineData = generateSampleData(1.2, 0.3, hours);
+    const combinedChlorineData = generateSampleData(0.2, 0.1, hours);
+    const turbidityData = generateSampleData(0.15, 0.05, hours);
+    const temperatureData = generateSampleData(28, 1, hours);
+    
+    // Generate dosing events (approximately 10-15 over the period)
+    const dosingEvents = generateSampleEvents(hours, 15);
+    
+    // Create chart
+    historyChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'pH',
+                    data: phData,
+                    borderColor: 'rgba(13, 110, 253, 1)',
+                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.2,
+                    fill: false,
+                    yAxisID: 'y-ph'
+                },
+                {
+                    label: 'ORP',
+                    data: orpData,
+                    borderColor: 'rgba(108, 117, 125, 1)',
+                    backgroundColor: 'rgba(108, 117, 125, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.2,
+                    fill: false,
+                    yAxisID: 'y-orp'
+                },
+                {
+                    label: 'Free Chlorine',
+                    data: freeChlorineData,
+                    borderColor: 'rgba(25, 135, 84, 1)',
+                    backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.2,
+                    fill: false,
+                    yAxisID: 'y-chlorine'
+                },
+                {
+                    label: 'Combined Chlorine',
+                    data: combinedChlorineData,
+                    borderColor: 'rgba(25, 135, 84, 0.6)',
+                    backgroundColor: 'rgba(25, 135, 84, 0.05)',
+                    borderWidth: 1.5,
+                    borderDash: [5, 5],
+                    tension: 0.2,
+                    fill: false,
+                    hidden: true, // Initially hidden
+                    yAxisID: 'y-chlorine'
+                },
+                {
+                    label: 'Turbidity',
+                    data: turbidityData,
+                    borderColor: 'rgba(220, 53, 69, 1)',
+                    backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.2,
+                    fill: false,
+                    yAxisID: 'y-turbidity'
+                },
+                {
+                    label: 'Temperature',
+                    data: temperatureData,
+                    borderColor: 'rgba(255, 193, 7, 1)',
+                    backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.2,
+                    fill: false,
+                    hidden: true, // Initially hidden
+                    yAxisID: 'y-temp'
+                },
+                {
+                    label: 'Dosing Events',
+                    data: dosingEvents,
+                    borderColor: 'rgba(13, 202, 240, 0.8)',
+                    backgroundColor: 'rgba(13, 202, 240, 0.8)',
+                    borderWidth: 0,
+                    pointRadius: 6,
+                    pointStyle: 'triangle',
+                    pointRotation: 0,
+                    showLine: false,
+                    yAxisID: 'y-ph' // Positioned on pH axis for visibility
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'nearest',
+                intersect: false
+            },
+            scales: {
+                x: {
+                    ticks: {
+                        maxRotation: 0,
+                        autoSkip: true,
+                        maxTicksLimit: 24
+                    }
+                },
+                'y-ph': {
+                    type: 'linear',
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'pH'
+                    },
+                    min: 6.8,
+                    max: 8.0,
+                    grid: {
+                        drawOnChartArea: true
+                    }
+                },
+                'y-orp': {
+                    type: 'linear',
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'ORP (mV)'
+                    },
+                    min: 600,
+                    max: 800,
+                    grid: {
+                        drawOnChartArea: false
+                    }
+                },
+                'y-chlorine': {
+                    type: 'linear',
+                    position: 'left',
+                    title: {
+                        display: true,
+                        text: 'Chlorine (mg/L)'
+                    },
+                    min: 0,
+                    max: 3,
+                    grid: {
+                        drawOnChartArea: false
+                    }
+                },
+                'y-turbidity': {
+                    type: 'linear',
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Turbidity (NTU)'
+                    },
+                    min: 0,
+                    max: 0.5,
+                    grid: {
+                        drawOnChartArea: false
+                    }
+                },
+                'y-temp': {
+                    type: 'linear',
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Temperature (°C)'
+                    },
+                    min: 22,
+                    max: 32,
+                    grid: {
+                        drawOnChartArea: false
+                    }
+                }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.dataset.label === 'Dosing Events' && context.raw !== null) {
+                                return 'Dosing Event';
+                            }
+                            if (context.parsed.y !== null) {
+                                label += context.parsed.y.toFixed(2);
+                                if (context.dataset.label === 'pH') {
+                                    label += ' pH';
+                                } else if (context.dataset.label.includes('Chlorine')) {
+                                    label += ' mg/L';
+                                } else if (context.dataset.label === 'ORP') {
+                                    label += ' mV';
+                                } else if (context.dataset.label === 'Turbidity') {
+                                    label += ' NTU';
+                                } else if (context.dataset.label === 'Temperature') {
+                                    label += ' °C';
+                                }
+                            }
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Update history chart with new data for a time period
+ */
+function updateHistoryChart(hours) {
+    if (!historyChart) return;
+    
+    // Generate sample data
+    const labels = [];
+    const now = new Date();
+    
+    for (let i = hours - 1; i >= 0; i--) {
+        const date = new Date(now);
+        date.setHours(date.getHours() - i);
+        labels.push(formatDateTime(date));
+    }
+    
+    // Sample data sets
+    const phData = generateSampleData(7.4, 0.2, hours);
+    const orpData = generateSampleData(720, 30, hours);
+    const freeChlorineData = generateSampleData(1.2, 0.3, hours);
+    const combinedChlorineData = generateSampleData(0.2, 0.1, hours);
+    const turbidityData = generateSampleData(0.15, 0.05, hours);
+    const temperatureData = generateSampleData(28, 1, hours);
+    
+    // Generate dosing events
+    const dosingEvents = generateSampleEvents(hours, Math.max(5, Math.floor(hours / 12)));
+    
+    // Update chart data
+    historyChart.data.labels = labels;
+    historyChart.data.datasets[0].data = phData;
+    historyChart.data.datasets[1].data = orpData;
+    historyChart.data.datasets[2].data = freeChlorineData;
+    historyChart.data.datasets[3].data = combinedChlorineData;
+    historyChart.data.datasets[4].data = turbidityData;
+    historyChart.data.datasets[5].data = temperatureData;
+    historyChart.data.datasets[6].data = dosingEvents;
+    
+    // Update axis options for better display with different time ranges
+    if (hours <= 48) {
+        historyChart.options.scales.x.ticks.maxTicksLimit = 24;
+    } else if (hours <= 168) {
+        historyChart.options.scales.x.ticks.maxTicksLimit = 14;
+    } else {
+        historyChart.options.scales.x.ticks.maxTicksLimit = 10;
+    }
+    
+    // Update chart
+    historyChart.update();
+    
+    // Update table data to match chart
+    updateHistoryTable(hours);
+}
+
+/**
+ * Update history chart with custom date range
+ */
+function updateHistoryChartCustomRange(startDate, endDate) {
+    if (!historyChart) return;
+    
+    // Calculate hours between dates
+    const diffMs = endDate - startDate;
+    const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
+    
+    // Generate new labels for custom range
+    const labels = [];
+    const currentDate = new Date(startDate);
+    
+    // Generate labels based on range duration
+    let interval = 1; // hours
+    if (diffHours > 168) interval = 6;
+    if (diffHours > 720) interval = 24;
+    
+    const steps = Math.ceil(diffHours / interval);
+    
+    for (let i = 0; i < steps; i++) {
+        labels.push(formatDateTime(currentDate));
+        currentDate.setHours(currentDate.getHours() + interval);
+    }
+    
+    // Sample data sets
+    const phData = generateSampleData(7.4, 0.2, steps);
+    const orpData = generateSampleData(720, 30, steps);
+    const freeChlorineData = generateSampleData(1.2, 0.3, steps);
+    const combinedChlorineData = generateSampleData(0.2, 0.1, steps);
+    const turbidityData = generateSampleData(0.15, 0.05, steps);
+    const temperatureData = generateSampleData(28, 1, steps);
+    
+    // Generate dosing events
+    const dosingEvents = generateSampleEvents(steps, Math.max(5, Math.floor(steps / 12)));
+    
+    // Update chart data
+    historyChart.data.labels = labels;
+    historyChart.data.datasets[0].data = phData;
+    historyChart.data.datasets[1].data = orpData;
+    historyChart.data.datasets[2].data = freeChlorineData;
+    historyChart.data.datasets[3].data = combinedChlorineData;
+    historyChart.data.datasets[4].data = turbidityData;
+    historyChart.data.datasets[5].data = temperatureData;
+    historyChart.data.datasets[6].data = dosingEvents;
+    
+    // Update axis options for better display with different time ranges
+    if (steps <= 48) {
+        historyChart.options.scales.x.ticks.maxTicksLimit = 24;
+    } else if (steps <= 168) {
+        historyChart.options.scales.x.ticks.maxTicksLimit = 14;
+    } else {
+        historyChart.options.scales.x.ticks.maxTicksLimit = 10;
+    }
+    
+    // Update chart
+    historyChart.update();
+    
+    // Update table data to match chart
+    updateHistoryTable(steps);
+}
+
+/**
+ * Update chart visibility based on parameter checkboxes
+ */
+function updateHistoryChartVisibility() {
+    if (!historyChart) return;
+    
+    // pH
+    historyChart.data.datasets[0].hidden = !document.getElementById('showPh').checked;
+    
+    // ORP
+    historyChart.data.datasets[1].hidden = !document.getElementById('showOrp').checked;
+    
+    // Free Chlorine
+    historyChart.data.datasets[2].hidden = !document.getElementById('showFreeChlorine').checked;
+    
+    // Combined Chlorine
+    historyChart.data.datasets[3].hidden = !document.getElementById('showCombinedChlorine').checked;
+    
+    // Turbidity
+    historyChart.data.datasets[4].hidden = !document.getElementById('showTurbidity').checked;
+    
+    // Temperature
+    historyChart.data.datasets[5].hidden = !document.getElementById('showTemp').checked;
+    
+    // Dosing Events
+    historyChart.data.datasets[6].hidden = !document.getElementById('showDosingEvents').checked;
+    
+    // Update chart
+    historyChart.update();
+}
+
+/**
+ * Update chart type
+ */
+function updateHistoryChartType(type) {
+    if (!historyChart) return;
+    
+    // Change chart type
+    historyChart.config.type = type;
+    
+    // Adjust point sizes for different chart types
+    if (type === 'scatter') {
+        historyChart.data.datasets.forEach(dataset => {
+            if (dataset.label !== 'Dosing Events') {
+                dataset.pointRadius = 3;
+            }
+        });
+    } else {
+        historyChart.data.datasets.forEach(dataset => {
+            if (dataset.label !== 'Dosing Events') {
+                dataset.pointRadius = type === 'line' ? undefined : 0;
+            }
+        });
+    }
+    
+    // Update chart
+    historyChart.update();
+}
+
+/**
+ * Update history data table
+ */
+function updateHistoryTable(hours) {
+    const tbody = document.getElementById('historyDataTable').querySelector('tbody');
+    tbody.innerHTML = '';
+    
+    // Generate sample data for table (most recent first)
+    const now = new Date();
+    let rows = Math.min(hours, 25); // Limit to 25 rows for demo
+    
+    for (let i = 0; i < rows; i++) {
+        const date = new Date(now);
+        date.setHours(date.getHours() - i);
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${formatDateTime(date)}</td>
+            <td>${(7.4 + (Math.random() - 0.5) * 0.2).toFixed(2)}</td>
+            <td>${Math.round(720 + (Math.random() - 0.5) * 30)}</td>
+            <td>${(1.2 + (Math.random() - 0.5) * 0.3).toFixed(2)}</td>
+            <td>${(0.2 + (Math.random() - 0.5) * 0.1).toFixed(2)}</td>
+            <td>${(0.15 + (Math.random() - 0.5) * 0.05).toFixed(3)}</td>
+            <td>${(28 + (Math.random() - 0.5) * 1).toFixed(1)}</td>
+        `;
+        
+        tbody.appendChild(tr);
+    }
+    
+    // Update row count
+    const rowCountElem = document.getElementById('historyDataTable').parentNode.nextElementSibling.firstElementChild;
+    if (rowCountElem) {
+        rowCountElem.textContent = `Showing ${rows} of ${hours} records`;
+    }
+}
+
+/**
+ * Filter events by type
+ */
+function filterEventsByType(type) {
+    const rows = document.getElementById('eventsTable').querySelectorAll('tbody tr');
+    
+    rows.forEach(row => {
+        const eventType = row.querySelector('td:nth-child(2) .badge').textContent.toLowerCase();
+        
+        if (type === 'all' || eventType.includes(type.toLowerCase())) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
+
+/**
+ * Generate sample data with variation around a base value
+ */
+function generateSampleData(baseValue, variation, count) {
+    const data = [];
+    let currentValue = baseValue;
+    
+    for (let i = 0; i < count; i++) {
+        // Add some randomness and trend
+        const trend = Math.sin(i / 20) * variation * 0.5;
+        const random = (Math.random() - 0.5) * variation;
+        
+        currentValue = baseValue + trend + random;
+        data.push(currentValue);
+    }
+    
+    return data;
+}
+
+/**
+ * Generate sample dosing events
+ */
+function generateSampleEvents(hours, count) {
+    const events = [];
+    
+    // Initialize with null values for all hours
+    for (let i = 0; i < hours; i++) {
+        events.push(null);
+    }
+    
+    // Add random events
+    for (let i = 0; i < count; i++) {
+        const position = Math.floor(Math.random() * hours);
+        events[position] = baseValue; // Place at top of chart
+    }
+    
+    return events;
+}
+
+/**
+ * Format date for display
+ */
+function formatDateTime(date) {
+    return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+}
+
+/**
+ * Format date for datetime-local input
+ */
+function formatDateTimeForInput(date) {
+    return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}T${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
 }

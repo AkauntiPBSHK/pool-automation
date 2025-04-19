@@ -760,6 +760,310 @@
                         </div>
                     </div>
                 </div>
+
+                <div id="history-tab" class="tab-content" style="display: none;">
+                    <h3>Historical Data & Logs</h3>
+                    
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <!-- Time Range Selection -->
+                                <div class="col-md-5">
+                                    <label class="form-label">Time Range</label>
+                                    <div class="d-flex gap-2">
+                                        <select class="form-select" id="historyPresetRange">
+                                            <option value="24">Last 24 Hours</option>
+                                            <option value="48">Last 48 Hours</option>
+                                            <option value="168" selected>Last 7 Days</option>
+                                            <option value="720">Last 30 Days</option>
+                                            <option value="custom">Custom Range</option>
+                                        </select>
+                                        <button class="btn btn-outline-secondary" id="refreshHistoryBtn">
+                                            <i class="bi bi-arrow-clockwise"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Custom Date Range (initially hidden) -->
+                                <div class="col-md-7" id="customDateRange" style="display: none;">
+                                    <label class="form-label">Custom Range</label>
+                                    <div class="row g-2">
+                                        <div class="col">
+                                            <input type="datetime-local" class="form-control" id="historyStartDate">
+                                        </div>
+                                        <div class="col-auto pt-2">to</div>
+                                        <div class="col">
+                                            <input type="datetime-local" class="form-control" id="historyEndDate">
+                                        </div>
+                                        <div class="col-auto">
+                                            <button class="btn btn-primary" id="applyCustomRange">Apply</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Parameter Selection -->
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <label class="form-label">Parameters</label>
+                                    <div class="btn-group" role="group">
+                                        <input type="checkbox" class="btn-check" id="showPh" autocomplete="off" checked>
+                                        <label class="btn btn-outline-primary" for="showPh">pH</label>
+                                        
+                                        <input type="checkbox" class="btn-check" id="showOrp" autocomplete="off" checked>
+                                        <label class="btn btn-outline-primary" for="showOrp">ORP</label>
+                                        
+                                        <input type="checkbox" class="btn-check" id="showFreeChlorine" autocomplete="off" checked>
+                                        <label class="btn btn-outline-primary" for="showFreeChlorine">Free Chlorine</label>
+                                        
+                                        <input type="checkbox" class="btn-check" id="showCombinedChlorine" autocomplete="off">
+                                        <label class="btn btn-outline-primary" for="showCombinedChlorine">Combined Cl</label>
+                                        
+                                        <input type="checkbox" class="btn-check" id="showTurbidity" autocomplete="off" checked>
+                                        <label class="btn btn-outline-primary" for="showTurbidity">Turbidity</label>
+                                        
+                                        <input type="checkbox" class="btn-check" id="showTemp" autocomplete="off">
+                                        <label class="btn btn-outline-primary" for="showTemp">Temperature</label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Visualization Controls -->
+                            <div class="row mt-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Visualization</label>
+                                    <select class="form-select" id="visualizationType">
+                                        <option value="line" selected>Line Chart</option>
+                                        <option value="scatter">Scatter Plot</option>
+                                        <option value="bar">Bar Chart</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Resolution</label>
+                                    <select class="form-select" id="dataResolution">
+                                        <option value="raw">Raw Data</option>
+                                        <option value="minute">1 Minute</option>
+                                        <option value="hour" selected>1 Hour</option>
+                                        <option value="day">1 Day</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Additional Options</label>
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input" type="checkbox" id="showDosingEvents" checked>
+                                        <label class="form-check-label" for="showDosingEvents">Show Dosing Events</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Main Chart Area -->
+                    <div class="card mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">Sensor Data</h5>
+                            <div>
+                                <button class="btn btn-sm btn-outline-secondary" id="downloadChartBtn">
+                                    <i class="bi bi-download me-1"></i> Export Data
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div style="height: 400px;">
+                                <canvas id="historyChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Data Table View -->
+                    <div class="card mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">Data Table</h5>
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-secondary" id="exportCsvBtn">
+                                    <i class="bi bi-filetype-csv me-1"></i> CSV
+                                </button>
+                                <button class="btn btn-outline-secondary" id="exportJsonBtn">
+                                    <i class="bi bi-filetype-json me-1"></i> JSON
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover" id="historyDataTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Timestamp</th>
+                                            <th>pH</th>
+                                            <th>ORP</th>
+                                            <th>Free Chlorine</th>
+                                            <th>Combined Cl</th>
+                                            <th>Turbidity</th>
+                                            <th>Temperature</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Sample data rows, will be populated by JavaScript -->
+                                        <tr>
+                                            <td>2025-04-19 13:00:00</td>
+                                            <td>7.4</td>
+                                            <td>720</td>
+                                            <td>1.2</td>
+                                            <td>0.2</td>
+                                            <td>0.14</td>
+                                            <td>28.2</td>
+                                        </tr>
+                                        <tr>
+                                            <td>2025-04-19 12:00:00</td>
+                                            <td>7.3</td>
+                                            <td>715</td>
+                                            <td>1.1</td>
+                                            <td>0.2</td>
+                                            <td>0.15</td>
+                                            <td>28.1</td>
+                                        </tr>
+                                        <tr>
+                                            <td>2025-04-19 11:00:00</td>
+                                            <td>7.3</td>
+                                            <td>710</td>
+                                            <td>1.1</td>
+                                            <td>0.2</td>
+                                            <td>0.16</td>
+                                            <td>28.0</td>
+                                        </tr>
+                                        <tr>
+                                            <td>2025-04-19 10:00:00</td>
+                                            <td>7.2</td>
+                                            <td>700</td>
+                                            <td>1.0</td>
+                                            <td>0.1</td>
+                                            <td>0.17</td>
+                                            <td>27.8</td>
+                                        </tr>
+                                        <tr>
+                                            <td>2025-04-19 09:00:00</td>
+                                            <td>7.2</td>
+                                            <td>695</td>
+                                            <td>1.0</td>
+                                            <td>0.1</td>
+                                            <td>0.18</td>
+                                            <td>27.5</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <div>Showing 5 of 168 records</div>
+                                <nav aria-label="Table navigation">
+                                    <ul class="pagination pagination-sm mb-0">
+                                        <li class="page-item disabled">
+                                            <a class="page-link" href="#" aria-label="Previous">
+                                                <span aria-hidden="true">&laquo;</span>
+                                            </a>
+                                        </li>
+                                        <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                                        <li class="page-item"><a class="page-link" href="#">2</a></li>
+                                        <li class="page-item"><a class="page-link" href="#">3</a></li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="#" aria-label="Next">
+                                                <span aria-hidden="true">&raquo;</span>
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- System Events Log -->
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">System Events</h5>
+                            <div>
+                                <select class="form-select form-select-sm d-inline-block" style="width: auto;" id="eventTypeFilter">
+                                    <option value="all" selected>All Events</option>
+                                    <option value="dosing">Dosing Events</option>
+                                    <option value="alert">Alerts</option>
+                                    <option value="system">System Events</option>
+                                    <option value="user">User Actions</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover" id="eventsTable">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 180px;">Timestamp</th>
+                                            <th style="width: 100px;">Type</th>
+                                            <th>Description</th>
+                                            <th style="width: 100px;">Parameter</th>
+                                            <th style="width: 100px;">Value</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Sample events, will be populated by JavaScript -->
+                                        <tr>
+                                            <td>2025-04-19 13:30:22</td>
+                                            <td><span class="badge bg-info">System</span></td>
+                                            <td>System started in automatic mode</td>
+                                            <td>-</td>
+                                            <td>-</td>
+                                        </tr>
+                                        <tr>
+                                            <td>2025-04-19 12:45:17</td>
+                                            <td><span class="badge bg-success">Dosing</span></td>
+                                            <td>Automatic chlorine dosing</td>
+                                            <td>Free Cl</td>
+                                            <td>0.9 mg/L</td>
+                                        </tr>
+                                        <tr>
+                                            <td>2025-04-19 11:32:05</td>
+                                            <td><span class="badge bg-warning">Alert</span></td>
+                                            <td>Low chlorine level detected</td>
+                                            <td>Free Cl</td>
+                                            <td>0.7 mg/L</td>
+                                        </tr>
+                                        <tr>
+                                            <td>2025-04-19 10:15:42</td>
+                                            <td><span class="badge bg-success">Dosing</span></td>
+                                            <td>Automatic PAC dosing</td>
+                                            <td>Turbidity</td>
+                                            <td>0.22 NTU</td>
+                                        </tr>
+                                        <tr>
+                                            <td>2025-04-19 09:05:11</td>
+                                            <td><span class="badge bg-primary">User</span></td>
+                                            <td>User changed target pH range</td>
+                                            <td>pH</td>
+                                            <td>7.2-7.6</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-3">
+                                <div>Showing 5 of 42 events</div>
+                                <nav aria-label="Events navigation">
+                                    <ul class="pagination pagination-sm mb-0">
+                                        <li class="page-item disabled">
+                                            <a class="page-link" href="#" aria-label="Previous">
+                                                <span aria-hidden="true">&laquo;</span>
+                                            </a>
+                                        </li>
+                                        <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                                        <li class="page-item"><a class="page-link" href="#">2</a></li>
+                                        <li class="page-item"><a class="page-link" href="#">3</a></li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="#" aria-label="Next">
+                                                <span aria-hidden="true">&raquo;</span>
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </main>
         </div>
     </div>
