@@ -1149,236 +1149,353 @@ function initializeHistoryTab() {
     // Create initial history chart
     initializeHistoryChart();
     
+    // Initialize pagination controls
+    initializePagination();
+
     // Load initial data based on default selections
     updateHistoryChart(168); // Default: 7 days
 }
 
 /**
- * Initialize history chart
+ * Initialize history chart with better defaults
  */
 function initializeHistoryChart() {
     const ctx = document.getElementById('historyChart');
     
-    if (!ctx) return;
+    if (!ctx) {
+        console.error('Chart canvas element not found!');
+        return;
+    }
+    
+    console.log('Initializing history chart...');
     
     // Generate sample data
     const hours = 168; // 7 days
     const labels = [];
     const now = new Date();
     
-    for (let i = hours - 1; i >= 0; i--) {
+    // Generate labels with less density (every 6 hours instead of hourly)
+    for (let i = hours - 1; i >= 0; i -= 6) {
         const date = new Date(now);
         date.setHours(date.getHours() - i);
         labels.push(formatDateTime(date));
     }
     
-    // Sample data sets
-    const phData = generateSampleData(7.4, 0.2, hours);
-    const orpData = generateSampleData(720, 30, hours);
-    const freeChlorineData = generateSampleData(1.2, 0.3, hours);
-    const combinedChlorineData = generateSampleData(0.2, 0.1, hours);
-    const turbidityData = generateSampleData(0.15, 0.05, hours);
-    const temperatureData = generateSampleData(28, 1, hours);
+    // Sample data sets with smoothing
+    const phData = smoothData(generateSampleData(7.4, 0.2, Math.ceil(hours/6)));
+    const orpData = smoothData(generateSampleData(720, 30, Math.ceil(hours/6)));
+    const freeChlorineData = smoothData(generateSampleData(1.2, 0.3, Math.ceil(hours/6)));
+    const combinedChlorineData = smoothData(generateSampleData(0.2, 0.1, Math.ceil(hours/6)));
+    const turbidityData = smoothData(generateSampleData(0.15, 0.05, Math.ceil(hours/6)));
+    const temperatureData = smoothData(generateSampleData(28, 1, Math.ceil(hours/6)));
     
-    // Generate dosing events (approximately 10-15 over the period)
-    const dosingEvents = generateSampleEvents(hours, 15);
-    
-    // Create chart
-    historyChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: 'pH',
-                    data: phData,
-                    borderColor: 'rgba(13, 110, 253, 1)',
-                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                    borderWidth: 2,
-                    tension: 0.2,
-                    fill: false,
-                    yAxisID: 'y-ph'
-                },
-                {
-                    label: 'ORP',
-                    data: orpData,
-                    borderColor: 'rgba(108, 117, 125, 1)',
-                    backgroundColor: 'rgba(108, 117, 125, 0.1)',
-                    borderWidth: 2,
-                    tension: 0.2,
-                    fill: false,
-                    yAxisID: 'y-orp'
-                },
-                {
-                    label: 'Free Chlorine',
-                    data: freeChlorineData,
-                    borderColor: 'rgba(25, 135, 84, 1)',
-                    backgroundColor: 'rgba(25, 135, 84, 0.1)',
-                    borderWidth: 2,
-                    tension: 0.2,
-                    fill: false,
-                    yAxisID: 'y-chlorine'
-                },
-                {
-                    label: 'Combined Chlorine',
-                    data: combinedChlorineData,
-                    borderColor: 'rgba(25, 135, 84, 0.6)',
-                    backgroundColor: 'rgba(25, 135, 84, 0.05)',
-                    borderWidth: 1.5,
-                    borderDash: [5, 5],
-                    tension: 0.2,
-                    fill: false,
-                    hidden: true, // Initially hidden
-                    yAxisID: 'y-chlorine'
-                },
-                {
-                    label: 'Turbidity',
-                    data: turbidityData,
-                    borderColor: 'rgba(220, 53, 69, 1)',
-                    backgroundColor: 'rgba(220, 53, 69, 0.1)',
-                    borderWidth: 2,
-                    tension: 0.2,
-                    fill: false,
-                    yAxisID: 'y-turbidity'
-                },
-                {
-                    label: 'Temperature',
-                    data: temperatureData,
-                    borderColor: 'rgba(255, 193, 7, 1)',
-                    backgroundColor: 'rgba(255, 193, 7, 0.1)',
-                    borderWidth: 2,
-                    tension: 0.2,
-                    fill: false,
-                    hidden: true, // Initially hidden
-                    yAxisID: 'y-temp'
-                },
-                {
-                    label: 'Dosing Events',
-                    data: dosingEvents,
-                    borderColor: 'rgba(13, 202, 240, 0.8)',
-                    backgroundColor: 'rgba(13, 202, 240, 0.8)',
-                    borderWidth: 0,
-                    pointRadius: 6,
-                    pointStyle: 'triangle',
-                    pointRotation: 0,
-                    showLine: false,
-                    yAxisID: 'y-ph' // Positioned on pH axis for visibility
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                mode: 'nearest',
-                intersect: false
+    // Create a cleaner chart
+    try {
+        historyChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'pH',
+                        data: phData,
+                        borderColor: 'rgba(13, 110, 253, 1)',
+                        backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: false,
+                        yAxisID: 'y-ph'
+                    },
+                    {
+                        label: 'ORP',
+                        data: orpData,
+                        borderColor: 'rgba(108, 117, 125, 1)',
+                        backgroundColor: 'rgba(108, 117, 125, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: false,
+                        hidden: true, // Initially hidden
+                        yAxisID: 'y-orp'
+                    },
+                    {
+                        label: 'Free Chlorine',
+                        data: freeChlorineData,
+                        borderColor: 'rgba(25, 135, 84, 1)',
+                        backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: false,
+                        yAxisID: 'y-chlorine'
+                    },
+                    {
+                        label: 'Combined Chlorine',
+                        data: combinedChlorineData,
+                        borderColor: 'rgba(25, 135, 84, 0.6)',
+                        backgroundColor: 'rgba(25, 135, 84, 0.05)',
+                        borderWidth: 1.5,
+                        borderDash: [5, 5],
+                        tension: 0.4,
+                        fill: false,
+                        hidden: true, // Initially hidden
+                        yAxisID: 'y-chlorine'
+                    },
+                    {
+                        label: 'Turbidity',
+                        data: turbidityData,
+                        borderColor: 'rgba(220, 53, 69, 1)',
+                        backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: false,
+                        hidden: true, // Initially hidden
+                        yAxisID: 'y-turbidity'
+                    },
+                    {
+                        label: 'Temperature',
+                        data: temperatureData,
+                        borderColor: 'rgba(255, 193, 7, 1)',
+                        backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: false,
+                        hidden: true, // Initially hidden
+                        yAxisID: 'y-temp'
+                    },
+                    {
+                        label: 'Dosing Events',
+                        data: generateSimplifiedDosingEvents(Math.ceil(hours/6)),
+                        borderColor: 'rgba(13, 202, 240, 0.8)',
+                        backgroundColor: 'rgba(13, 202, 240, 0.8)',
+                        borderWidth: 0,
+                        pointRadius: 8,
+                        pointStyle: 'triangle',
+                        pointRotation: 0,
+                        showLine: false,
+                        yAxisID: 'y-ph' // Positioned on pH axis for visibility
+                    }
+                ]
             },
-            scales: {
-                x: {
-                    ticks: {
-                        maxRotation: 0,
-                        autoSkip: true,
-                        maxTicksLimit: 24
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            maxRotation: 0,
+                            autoSkip: true,
+                            maxTicksLimit: 10
+                        }
+                    },
+                    'y-ph': {
+                        type: 'linear',
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'pH'
+                        },
+                        min: 6.8,
+                        max: 8.0,
+                        grid: {
+                            drawOnChartArea: true
+                        }
+                    },
+                    'y-chlorine': {
+                        type: 'linear',
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Chlorine (mg/L)'
+                        },
+                        min: 0,
+                        max: 3,
+                        grid: {
+                            drawOnChartArea: false
+                        }
+                    },
+                    'y-orp': {
+                        type: 'linear',
+                        position: 'right',
+                        title: {
+                            display: false, // Hide by default
+                            text: 'ORP (mV)'
+                        },
+                        min: 600,
+                        max: 800,
+                        display: false // Initially hidden
+                    },
+                    'y-turbidity': {
+                        type: 'linear',
+                        position: 'right',
+                        title: {
+                            display: false, // Hide by default
+                            text: 'Turbidity (NTU)'
+                        },
+                        min: 0,
+                        max: 0.5,
+                        display: false // Initially hidden
+                    },
+                    'y-temp': {
+                        type: 'linear',
+                        position: 'right',
+                        title: {
+                            display: false, // Hide by default
+                            text: 'Temperature (°C)'
+                        },
+                        min: 22,
+                        max: 32,
+                        display: false // Initially hidden
                     }
                 },
-                'y-ph': {
-                    type: 'linear',
-                    position: 'left',
-                    title: {
-                        display: true,
-                        text: 'pH'
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true
+                        }
                     },
-                    min: 6.8,
-                    max: 8.0,
-                    grid: {
-                        drawOnChartArea: true
-                    }
-                },
-                'y-orp': {
-                    type: 'linear',
-                    position: 'right',
-                    title: {
-                        display: true,
-                        text: 'ORP (mV)'
-                    },
-                    min: 600,
-                    max: 800,
-                    grid: {
-                        drawOnChartArea: false
-                    }
-                },
-                'y-chlorine': {
-                    type: 'linear',
-                    position: 'left',
-                    title: {
-                        display: true,
-                        text: 'Chlorine (mg/L)'
-                    },
-                    min: 0,
-                    max: 3,
-                    grid: {
-                        drawOnChartArea: false
-                    }
-                },
-                'y-turbidity': {
-                    type: 'linear',
-                    position: 'right',
-                    title: {
-                        display: true,
-                        text: 'Turbidity (NTU)'
-                    },
-                    min: 0,
-                    max: 0.5,
-                    grid: {
-                        drawOnChartArea: false
-                    }
-                },
-                'y-temp': {
-                    type: 'linear',
-                    position: 'right',
-                    title: {
-                        display: true,
-                        text: 'Temperature (°C)'
-                    },
-                    min: 22,
-                    max: 32,
-                    grid: {
-                        drawOnChartArea: false
-                    }
-                }
-            },
-            plugins: {
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            let label = context.dataset.label || '';
-                            if (label) {
-                                label += ': ';
-                            }
-                            if (context.dataset.label === 'Dosing Events' && context.raw !== null) {
-                                return 'Dosing Event';
-                            }
-                            if (context.parsed.y !== null) {
-                                label += context.parsed.y.toFixed(2);
-                                if (context.dataset.label === 'pH') {
-                                    label += ' pH';
-                                } else if (context.dataset.label.includes('Chlorine')) {
-                                    label += ' mg/L';
-                                } else if (context.dataset.label === 'ORP') {
-                                    label += ' mV';
-                                } else if (context.dataset.label === 'Turbidity') {
-                                    label += ' NTU';
-                                } else if (context.dataset.label === 'Temperature') {
-                                    label += ' °C';
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
                                 }
+                                if (context.dataset.label === 'Dosing Events' && context.raw !== null) {
+                                    return 'Dosing Event';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += context.parsed.y.toFixed(2);
+                                    if (context.dataset.label === 'pH') {
+                                        label += ' pH';
+                                    } else if (context.dataset.label.includes('Chlorine')) {
+                                        label += ' mg/L';
+                                    } else if (context.dataset.label === 'ORP') {
+                                        label += ' mV';
+                                    } else if (context.dataset.label === 'Turbidity') {
+                                        label += ' NTU';
+                                    } else if (context.dataset.label === 'Temperature') {
+                                        label += ' °C';
+                                    }
+                                }
+                                return label;
                             }
-                            return label;
                         }
                     }
                 }
             }
+        });
+        console.log('Chart initialized successfully');
+        
+        // Link parameter checkboxes to chart visibility
+        linkCheckboxesToChart();
+    } catch (error) {
+        console.error('Error initializing chart:', error);
+    }
+}
+
+/**
+ * Simplified dosing events generator
+ */
+function generateSimplifiedDosingEvents(count) {
+    const events = Array(count).fill(null);
+    
+    // Add 5-8 random dosing events
+    const numEvents = 5 + Math.floor(Math.random() * 4);
+    for (let i = 0; i < numEvents; i++) {
+        const position = Math.floor(Math.random() * count);
+        events[position] = 7.9; // Position near the top of pH scale
+    }
+    
+    return events;
+}
+
+/**
+ * Apply smoothing to data
+ */
+function smoothData(data) {
+    // Simple moving average smoothing
+    const smoothed = [];
+    const windowSize = 3;
+    
+    for (let i = 0; i < data.length; i++) {
+        let sum = 0;
+        let count = 0;
+        
+        for (let j = Math.max(0, i - windowSize + 1); j <= i; j++) {
+            sum += data[j];
+            count++;
+        }
+        
+        smoothed.push(sum / count);
+    }
+    
+    return smoothed;
+}
+
+/**
+ * Link parameter checkboxes to chart visibility
+ */
+function linkCheckboxesToChart() {
+    if (!historyChart) return;
+    
+    // Map checkboxes to dataset indices
+    const checkboxMap = {
+        'showPh': 0,
+        'showOrp': 1,
+        'showFreeChlorine': 2,
+        'showCombinedChlorine': 3,
+        'showTurbidity': 4,
+        'showTemp': 5
+    };
+    
+    // Add y-axis map
+    const axisMap = {
+        'showPh': 'y-ph',
+        'showOrp': 'y-orp',
+        'showFreeChlorine': 'y-chlorine',
+        'showCombinedChlorine': 'y-chlorine',
+        'showTurbidity': 'y-turbidity',
+        'showTemp': 'y-temp'
+    };
+    
+    // Link checkbox change events
+    Object.keys(checkboxMap).forEach(checkboxId => {
+        const checkbox = document.getElementById(checkboxId);
+        if (checkbox) {
+            checkbox.addEventListener('change', function() {
+                const datasetIndex = checkboxMap[this.id];
+                const axisId = axisMap[this.id];
+                
+                // Update dataset visibility
+                historyChart.data.datasets[datasetIndex].hidden = !this.checked;
+                
+                // Update axis visibility (except for shared axes)
+                if (axisId && historyChart.options.scales[axisId]) {
+                    if (axisId !== 'y-chlorine' || 
+                        (axisId === 'y-chlorine' && 
+                         !document.getElementById('showFreeChlorine').checked && 
+                         !document.getElementById('showCombinedChlorine').checked)) {
+                        historyChart.options.scales[axisId].display = this.checked;
+                    }
+                }
+
+                historyChart.update();
+            });
         }
     });
+    
+    // Link dosing events checkbox
+    const dosingEventsCheckbox = document.getElementById('showDosingEvents');
+    if (dosingEventsCheckbox) {
+        dosingEventsCheckbox.addEventListener('change', function() {
+            historyChart.data.datasets[6].hidden = !this.checked;
+            historyChart.update();
+        });
+    }
 }
 
 /**
@@ -1652,7 +1769,7 @@ function generateSampleEvents(hours, count) {
  * Format date for display
  */
 function formatDateTime(date) {
-    return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+    return `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
 }
 
 /**
@@ -1660,4 +1777,94 @@ function formatDateTime(date) {
  */
 function formatDateTimeForInput(date) {
     return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}T${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+}
+
+/**
+ * Initialize pagination
+ */
+function initializePagination() {
+    // Add active class to first page
+    const firstPageItem = document.querySelector('.pagination .page-item:nth-child(2)');
+    if (firstPageItem) {
+        firstPageItem.classList.add('active');
+    }
+    
+    // Add click handlers to pagination links
+    document.querySelectorAll('.pagination .page-link').forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            const pageText = this.textContent;
+            if (pageText === '«' || pageText === '»') {
+                // Handle previous/next
+                const activePage = document.querySelector('.pagination .page-item.active');
+                if (!activePage) return;
+                
+                let newPage;
+                if (pageText === '«' && activePage.previousElementSibling && 
+                    activePage.previousElementSibling.classList.contains('page-item') && 
+                    !activePage.previousElementSibling.classList.contains('disabled')) {
+                    newPage = activePage.previousElementSibling;
+                } else if (pageText === '»' && activePage.nextElementSibling && 
+                           activePage.nextElementSibling.classList.contains('page-item') &&
+                           !activePage.nextElementSibling.classList.contains('disabled')) {
+                    newPage = activePage.nextElementSibling;
+                }
+                
+                if (newPage) {
+                    // Simulate click on the page link
+                    const pageLink = newPage.querySelector('.page-link');
+                    if (pageLink) pageLink.click();
+                }
+            } else {
+                // Handle direct page number click
+                document.querySelectorAll('.pagination .page-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                this.parentElement.classList.add('active');
+                
+                // Update data based on page number
+                updateTableDataForPage(parseInt(pageText));
+                
+                // Update display text
+                const countText = document.querySelector('#historyDataTable + div div');
+                if (countText) {
+                    countText.textContent = `Showing 5 of 168 records (Page ${pageText})`;
+                }
+            }
+        });
+    });
+}
+
+/**
+ * Update table data for a specific page
+ */
+function updateTableDataForPage(pageNumber) {
+    const tbody = document.querySelector('#historyDataTable tbody');
+    if (!tbody) return;
+    
+    const offset = (pageNumber - 1) * 5; // 5 records per page
+    const now = new Date();
+    
+    // Clear existing rows
+    tbody.innerHTML = '';
+    
+    // Generate new rows for this page
+    for (let i = 0; i < 5; i++) {
+        const date = new Date(now);
+        date.setHours(date.getHours() - (offset + i));
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${formatDateTime(date)}</td>
+            <td>${(7.4 + (Math.random() - 0.5) * 0.2).toFixed(2)}</td>
+            <td>${Math.round(720 + (Math.random() - 0.5) * 30)}</td>
+            <td>${(1.2 + (Math.random() - 0.5) * 0.3).toFixed(2)}</td>
+            <td>${(0.2 + (Math.random() - 0.5) * 0.1).toFixed(2)}</td>
+            <td>${(0.15 + (Math.random() - 0.5) * 0.05).toFixed(3)}</td>
+            <td>${(28 + (Math.random() - 0.5) * 1).toFixed(1)}</td>
+        `;
+        
+        tbody.appendChild(tr);
+    }
 }
