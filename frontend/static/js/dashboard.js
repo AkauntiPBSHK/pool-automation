@@ -1642,7 +1642,7 @@ function generateSampleEvents(hours, count) {
     // Add random events
     for (let i = 0; i < count; i++) {
         const position = Math.floor(Math.random() * hours);
-        events[position] = baseValue; // Place at top of chart
+        events[position] = 8.0; // Position dosing events at the top of the chart
     }
     
     return events;
