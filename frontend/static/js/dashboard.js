@@ -26,9 +26,6 @@ let chemistryChart = null;
 // DOM Ready
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Dashboard initialized');
-
-    // Initialize turbidity & PAC section
-    initializeTurbidityPACControls();
     
     // Initialize navigation
     initializeNavigation();
@@ -52,6 +49,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize water chemistry section
     initializeWaterChemistryControls();
+
+    // Initialize turbidity & PAC section
+    initializeTurbidityPACControls();
     
     // Initial data fetch
     fetchStatus();
@@ -87,6 +87,7 @@ function initializeNavigation() {
             
             // Get the target tab ID
             const targetId = this.getAttribute('href');
+            console.log('Navigating to:', targetId);
             
             // Hide all tabs
             document.querySelectorAll('.tab-content').forEach(tab => {
