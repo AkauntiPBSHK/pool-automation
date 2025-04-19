@@ -1290,10 +1290,10 @@ function initializeHistoryChart() {
                     {
                         label: 'Dosing Events',
                         data: generateSimplifiedDosingEvents(Math.ceil(hours/6)),
-                        borderColor: 'rgba(13, 202, 240, 0.8)',
-                        backgroundColor: 'rgba(13, 202, 240, 0.8)',
-                        borderWidth: 0,
-                        pointRadius: 8,
+                        borderColor: 'rgba(13, 202, 240, 1)',
+                        backgroundColor: 'rgba(13, 202, 240, 1)',
+                        borderWidth: 2,
+                        pointRadius: 12,
                         pointStyle: 'triangle',
                         pointRotation: 0,
                         showLine: false,
@@ -1434,7 +1434,7 @@ function generateSimplifiedDosingEvents(count) {
     const numEvents = 5 + Math.floor(Math.random() * 4);
     for (let i = 0; i < numEvents; i++) {
         const position = Math.floor(Math.random() * count);
-        events[position] = 7.9; // Position near the top of pH scale
+        events[position] = 7.8; // Position near the top of pH scale
     }
     
     return events;
@@ -1830,6 +1830,7 @@ function initializeTablePagination(tableId, paginationId) {
     const firstPageItem = paginationContainer.querySelector('.page-item:nth-child(2)');
     if (firstPageItem) {
         firstPageItem.classList.add('active');
+        updateActivePageNumberStyle(paginationContainer);
     }
 
     // Update the disabled state of prev/next buttons
@@ -1903,6 +1904,9 @@ function updatePaginationPage(paginationContainer, pageNumber, tableId) {
     
     // Update previous/next button states
     updatePaginationArrows(paginationContainer, pageNumber);
+
+    // Ensure page numbers are visible
+    updateActivePageNumberStyle(paginationContainer);
     
     // Update table data based on the page number
     if (tableId === 'historyDataTable') {
@@ -1989,7 +1993,7 @@ function updateTableDataForPage(tableId, pageNumber) {
     // Update the count display
     const countDisplay = document.querySelector(`#${tableId}`).closest('.card-body').querySelector('.d-flex div');
     if (countDisplay) {
-        countDisplay.textContent = `Showing ${recordsPerPage} of 168 records`;
+        countDisplay.textContent = `Showing ${recordsPerPage} of 15 records`;
     }
 }
 
@@ -2048,7 +2052,7 @@ function updateEventsDataForPage(tableId, pageNumber) {
     // Update the count display
     const countDisplay = document.querySelector(`#${tableId}`).closest('.card-body').querySelector('.d-flex div');
     if (countDisplay) {
-        countDisplay.textContent = `Showing ${recordsPerPage} of 42 events`;
+        countDisplay.textContent = `Showing ${recordsPerPage} of 15 events`;
     }
 }
 
@@ -2088,7 +2092,7 @@ function initializeTableData() {
             // Update the count display
             const countDisplay = historyTable.closest('.card-body').querySelector('.d-flex div');
             if (countDisplay) {
-                countDisplay.textContent = 'Showing 5 of 168 records';
+                countDisplay.textContent = 'Showing 5 of 15 records';
             }
         }
     }
@@ -2139,8 +2143,29 @@ function initializeTableData() {
             // Update the count display
             const countDisplay = eventsTable.closest('.card-body').querySelector('.d-flex div');
             if (countDisplay) {
-                countDisplay.textContent = 'Showing 5 of 42 events';
+                countDisplay.textContent = 'Showing 5 of 15 events';
             }
         }
     }
+}
+
+/**
+ * Ensure page numbers are visible when active
+ */
+function updateActivePageNumberStyle(paginationContainer) {
+    paginationContainer.querySelectorAll('.page-item').forEach(item => {
+        const link = item.querySelector('.page-link');
+        if (link) {
+            if (item.classList.contains('active')) {
+                // Add white text color for active page
+                link.style.color = 'white';
+                // Add the page number to make it more visible
+                if (!isNaN(parseInt(link.textContent))) {
+                    link.setAttribute('data-page', link.textContent);
+                }
+            } else {
+                link.style.color = '';
+            }
+        }
+    });
 }
