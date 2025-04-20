@@ -1482,7 +1482,6 @@ function initializeHistoryChart() {
 
 /**
  * Initialize parameter button states based on chart visibility
- * This function should be OUTSIDE the initializeHistoryChart function
  */
 function initializeParameterButtons() {
     if (!historyChart) return;
@@ -1502,24 +1501,24 @@ function initializeParameterButtons() {
         const button = document.querySelector(info.selector);
         
         if (button && historyChart) {
-            const isVisible = historyChart.isDatasetVisible(info.datasetIndex);
-            button.classList.toggle('active', isVisible);
-            button.classList.toggle('btn-primary', isVisible);
-            button.classList.toggle('btn-outline-secondary', !isVisible);
-
-            // Add click handler to toggle chart visibility
-            button.addEventListener('click', function() {
-                // Toggle dataset visibility
+            // First, remove any existing click handlers to prevent duplicates
+            button.removeEventListener('click', button._chartToggleHandler);
+            
+            // Set up a new event handler
+            button._chartToggleHandler = function() {
+                // IMPORTANT: Always check the CURRENT state from the chart
                 const currentVisibility = historyChart.isDatasetVisible(info.datasetIndex);
                 const newVisibility = !currentVisibility;
+                
+                // Update the chart visibility
                 historyChart.setDatasetVisibility(info.datasetIndex, newVisibility);
-
-                // Update button state to reflect new visibility
+                
+                // Update button visual state
                 this.classList.toggle('active', newVisibility);
                 this.classList.toggle('btn-primary', newVisibility);
                 this.classList.toggle('btn-outline-secondary', !newVisibility);
-
-                // Update checkbox
+                
+                // Update the checkbox state
                 const checkboxMap = {
                     'pH': 'showPh',
                     'ORP': 'showOrp',
@@ -1528,18 +1527,25 @@ function initializeParameterButtons() {
                     'Turbidity': 'showTurbidity',
                     'Temperature': 'showTemp'
                 };
-
+                
                 const checkbox = document.getElementById(checkboxMap[param]);
                 if (checkbox) {
                     checkbox.checked = newVisibility;
                 }
-
-                // Update axis visibility
+                
+                // Update axis visibility and refresh the chart
                 updateAllAxisVisibility();
-
-                // Update chart
                 historyChart.update();
-            });
+            };
+            
+            // Add the click handler
+            button.addEventListener('click', button._chartToggleHandler);
+            
+            // Initialize the button state based on current visibility
+            const isVisible = historyChart.isDatasetVisible(info.datasetIndex);
+            button.classList.toggle('active', isVisible);
+            button.classList.toggle('btn-primary', isVisible);
+            button.classList.toggle('btn-outline-secondary', !isVisible);
         }
     });
 }
