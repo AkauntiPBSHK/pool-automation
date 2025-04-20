@@ -2352,75 +2352,45 @@ function updateAllAxisVisibility() {
         historyChart.options.scales['y-ph'].grid.color = undefined; // Use default
     }
 }
+
 function initializeSettingsTab() {
     console.log('Initializing Settings Tab');
     
-    // Debug: Check if tab content exists
+    // Make the tab content container visible
     const tabContent = document.getElementById('settingsTabContent');
-    console.log('Tab content container:', tabContent);
+    if (tabContent) {
+        tabContent.style.display = 'block';
+    }
     
-    // Debug: Check if tab panes exist
-    const systemSettings = document.getElementById('system-settings');
-    console.log('System settings pane:', systemSettings);
-    
-    // Debug: Print all tab panes
-    const allTabPanes = document.querySelectorAll('.tab-pane');
-    console.log('All tab panes found:', allTabPanes.length);
-    allTabPanes.forEach((pane, index) => {
-        console.log(`Tab pane ${index}:`, pane.id, pane);
-    });
-    
-    // Manually setup tab switching with extensive debugging
+    // Set up click handlers for tabs
     document.querySelectorAll('#settingsTabs .nav-link').forEach(function(tabButton) {
-        console.log('Setup click handler for tab:', tabButton.textContent, tabButton);
-        
         tabButton.addEventListener('click', function() {
-            console.log('Tab clicked:', this.textContent);
+            // Remove active class from all tab buttons
+            document.querySelectorAll('#settingsTabs .nav-link').forEach(function(btn) {
+                btn.classList.remove('active');
+            });
             
-            // Get target ID
+            // Add active class to clicked button
+            this.classList.add('active');
+            
+            // Hide all tab panes
+            document.querySelectorAll('.tab-pane').forEach(function(pane) {
+                pane.style.display = 'none';
+            });
+            
+            // Show the target tab pane
             const targetId = this.getAttribute('data-bs-target');
-            console.log('Target ID:', targetId);
-            
-            // Find target pane
             const targetPane = document.querySelector(targetId);
-            console.log('Target pane found:', targetPane);
-            
             if (targetPane) {
-                // Hide all tab panes
-                document.querySelectorAll('.tab-pane').forEach(function(pane) {
-                    pane.style.display = 'none';
-                    console.log('Hiding pane:', pane.id);
-                });
-                
-                // Show the target tab pane using inline style
                 targetPane.style.display = 'block';
-                console.log('Showing pane:', targetPane.id);
-                
-                // Update button active states
-                document.querySelectorAll('#settingsTabs .nav-link').forEach(function(btn) {
-                    btn.classList.remove('active');
-                });
-                this.classList.add('active');
-            } else {
-                console.error('Target pane not found:', targetId);
             }
         });
     });
     
-    // Try forcing the system tab to be visible
-    const systemPane = document.getElementById('system-settings');
-    if (systemPane) {
-        console.log('Forcing system pane visible');
-        systemPane.style.display = 'block';
-    }
-    
-    // If all else fails, insert a visible test div
-    const settingsTab = document.getElementById('settings-tab');
-    if (settingsTab) {
-        const testDiv = document.createElement('div');
-        testDiv.innerHTML = '<div style="padding: 20px; background-color: #ff0; margin-top: 20px;"><strong>Test Content</strong><p>If you can see this, the settings tab is working but content is hidden.</p></div>';
-        settingsTab.appendChild(testDiv);
-        console.log('Added test div to settings tab');
+    // Activate System tab by default
+    const systemTab = document.querySelector('#system-tab');
+    if (systemTab) {
+        systemTab.click();
     }
 }
 
