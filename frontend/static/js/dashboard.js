@@ -2305,35 +2305,47 @@ function updateActivePageNumberStyle(paginationContainer) {
 function updateAllAxisVisibility() {
     if (!historyChart) return;
     
-    // Get actual visibility state from the chart
-    const datasets = historyChart.data.datasets;
-    const metas = historyChart.getSortedVisibleDatasetMetas();
-    const visibleDatasetIndices = metas.map(meta => meta.index);
-    
-    // Set all axes to hidden by default
+    // First, set all axes to hidden
     historyChart.options.scales['y-ph'].display = false;
-    historyChart.options.scales['y-chlorine'].display = false;
     historyChart.options.scales['y-orp'].display = false;
+    historyChart.options.scales['y-chlorine'].display = false; 
     historyChart.options.scales['y-turbidity'].display = false;
     historyChart.options.scales['y-temp'].display = false;
     
-    // Show axes for visible datasets
-    visibleDatasetIndices.forEach(index => {
-        if (index === 0) { // pH
-            historyChart.options.scales['y-ph'].display = true;
-        } else if (index === 1) { // ORP
-            historyChart.options.scales['y-orp'].display = true;
-        } else if (index === 2 || index === 3) { // Free or Combined Chlorine
-            historyChart.options.scales['y-chlorine'].display = true;
-        } else if (index === 4) { // Turbidity
-            historyChart.options.scales['y-turbidity'].display = true;
-        } else if (index === 5) { // Temperature
-            historyChart.options.scales['y-temp'].display = true;
-        }
-    });
+    // Now check each dataset and show the axis if the dataset is visible
+    const datasetToAxisMap = {
+        0: 'y-ph',          // pH
+        1: 'y-orp',         // ORP
+        2: 'y-chlorine',    // Free Chlorine
+        3: 'y-chlorine',    // Combined Chlorine (shares axis with Free Chlorine)
+        4: 'y-turbidity',   // Turbidity
+        5: 'y-temp',        // Temperature
+        6: 'y-ph'           // Dosing Events (shown on pH axis)
+    };
     
-    // Ensure y-ph is visible if dosing events are visible (since they use this axis)
-    if (visibleDatasetIndices.includes(6)) {
+    // For each dataset, check if it's visible and update its axis
+    for (let i = 0; i < historyChart.data.datasets.length; i++) {
+        if (historyChart.isDatasetVisible(i)) {
+            const axisId = datasetToAxisMap[i];
+            if (axisId) {
+                historyChart.options.scales[axisId].display = true;
+                
+                // Also ensure axis title is visible
+                historyChart.options.scales[axisId].title.display = true;
+            }
+        }
+    }
+    
+    // Special case: If dosing events is the only visible dataset on y-ph axis
+    const phDatasetVisible = historyChart.isDatasetVisible(0); // pH
+    const dosingEventsVisible = historyChart.isDatasetVisible(6); // Dosing Events
+    
+    if (!phDatasetVisible && dosingEventsVisible) {
+        // If only dosing events are visible, show pH axis for reference but with muted styling
         historyChart.options.scales['y-ph'].display = true;
+        historyChart.options.scales['y-ph'].grid.color = 'rgba(0, 0, 0, 0.1)'; // Muted grid
+    } else if (phDatasetVisible) {
+        // Reset grid color when pH dataset is visible
+        historyChart.options.scales['y-ph'].grid.color = undefined; // Use default
     }
 }
