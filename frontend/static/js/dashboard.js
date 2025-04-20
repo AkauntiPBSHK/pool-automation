@@ -2497,18 +2497,31 @@ function loadSavedSettings() {
 function saveSystemSettings(e) {
     e.preventDefault();
     
-    const settings = {
-        name: document.getElementById('systemName').value,
-        defaultMode: document.getElementById('defaultMode').value,
-        tempUnit: document.getElementById('tempUnit').value,
-        timeFormat: document.getElementById('timeFormat').value,
-        dataSamplingRate: document.getElementById('dataSamplingRate').value,
-        dataRetention: document.getElementById('dataRetention').value,
-        enableSimulation: document.getElementById('enableSimulation').checked
-    };
+    // Get the submit button and set loading state
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+    submitBtn.disabled = true;
     
-    localStorage.setItem('systemSettings', JSON.stringify(settings));
-    showToast('System settings saved successfully');
+    // Simulate API delay
+    setTimeout(() => {
+        const settings = {
+            name: document.getElementById('systemName').value,
+            defaultMode: document.getElementById('defaultMode').value,
+            tempUnit: document.getElementById('tempUnit').value,
+            timeFormat: document.getElementById('timeFormat').value,
+            dataSamplingRate: document.getElementById('dataSamplingRate').value,
+            dataRetention: document.getElementById('dataRetention').value,
+            enableSimulation: document.getElementById('enableSimulation').checked
+        };
+    
+        localStorage.setItem('systemSettings', JSON.stringify(settings));
+        showToast('System settings saved successfully');
+
+        // Restore button state
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }, 500);
 }
 
 /**
@@ -2516,46 +2529,65 @@ function saveSystemSettings(e) {
  */
 function saveParameterSettings(e) {
     e.preventDefault();
+
+    // Get the submit button and set loading state
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+    submitBtn.disabled = true;
     
-    // Get existing settings or initialize new object
-    const parameterSettings = localStorage.getItem('parameterSettings') 
-        ? JSON.parse(localStorage.getItem('parameterSettings')) 
-        : {};
+    // Simulate API delay
+    setTimeout(() => {
+        // Get existing settings or initialize new object
+        const parameterSettings = localStorage.getItem('parameterSettings') 
+            ? JSON.parse(localStorage.getItem('parameterSettings')) 
+            : {};
     
-    // Update pH settings
-    parameterSettings.ph = {
-        targetMin: parseFloat(document.getElementById('phTargetMin').value),
-        targetMax: parseFloat(document.getElementById('phTargetMax').value),
-        alertLow: parseFloat(document.getElementById('phAlertLow').value),
-        alertHigh: parseFloat(document.getElementById('phAlertHigh').value),
-        doseRate: parseInt(document.getElementById('phDoseRate').value),
-        dosingDelay: parseInt(document.getElementById('phDosingDelay').value),
-        autoDosing: document.getElementById('phAutoDosing').checked
-    };
+        // Update pH settings
+        parameterSettings.ph = {
+            targetMin: parseFloat(document.getElementById('phTargetMin').value),
+            targetMax: parseFloat(document.getElementById('phTargetMax').value),
+            alertLow: parseFloat(document.getElementById('phAlertLow').value),
+            alertHigh: parseFloat(document.getElementById('phAlertHigh').value),
+            doseRate: parseInt(document.getElementById('phDoseRate').value),
+            dosingDelay: parseInt(document.getElementById('phDosingDelay').value),
+            autoDosing: document.getElementById('phAutoDosing').checked
+        };
     
-    // Add validation for target ranges
-    if (parameterSettings.ph.targetMin >= parameterSettings.ph.targetMax) {
-        showToast('Target minimum must be less than target maximum', 'warning');
-        return;
-    }
+        // Add validation for target ranges
+        if (parameterSettings.ph.targetMin >= parameterSettings.ph.targetMax) {
+            showToast('Target minimum must be less than target maximum', 'warning');
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+            return;
+        }
     
-    if (parameterSettings.ph.alertLow >= parameterSettings.ph.targetMin) {
-        showToast('Alert low must be less than target minimum', 'warning');
-        return;
-    }
+        if (parameterSettings.ph.alertLow >= parameterSettings.ph.targetMin) {
+            showToast('Alert low must be less than target minimum', 'warning');
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+            return;
+        }
     
-    if (parameterSettings.ph.alertHigh <= parameterSettings.ph.targetMax) {
-        showToast('Alert high must be greater than target maximum', 'warning');
-        return;
-    }
+        if (parameterSettings.ph.alertHigh <= parameterSettings.ph.targetMax) {
+            showToast('Alert high must be greater than target maximum', 'warning');
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+            return;
+        }
     
-    // Save settings
-    localStorage.setItem('parameterSettings', JSON.stringify(parameterSettings));
+        // Save settings
+        localStorage.setItem('parameterSettings', JSON.stringify(parameterSettings));
     
-    // Update dashboard with new values
-    updateDashboardWithSettings();
+        // Update dashboard with new values
+        updateDashboardWithSettings();
     
-    showToast('Parameter settings saved successfully');
+        showToast('Parameter settings saved successfully');
+
+        // Restore button state
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }, 500);
 }
 
 /**
@@ -2564,44 +2596,57 @@ function saveParameterSettings(e) {
 function saveDeviceSettings(e) {
     e.preventDefault();
     
-    // Determine which form was submitted
-    const formId = e.target.id;
+    // Get the submit button and set loading state
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+    submitBtn.disabled = true;
+
+    // Simulate API delay
+    setTimeout(() => {
+        // Determine which form was submitted
+        const formId = e.target.id;
     
-    // Get existing settings or initialize new object
-    const deviceSettings = localStorage.getItem('deviceSettings') 
-        ? JSON.parse(localStorage.getItem('deviceSettings')) 
-        : {};
+        // Get existing settings or initialize new object
+        const deviceSettings = localStorage.getItem('deviceSettings') 
+            ? JSON.parse(localStorage.getItem('deviceSettings')) 
+            : {};
     
-    if (formId === 'pumpsSettingsForm') {
-        // Save pump settings
-        deviceSettings.pumps = {
-            phPumpType: document.getElementById('phPumpType').value,
-            phPumpMaxFlow: parseFloat(document.getElementById('phPumpMaxFlow').value),
-            clPumpType: document.getElementById('clPumpType').value,
-            clPumpMaxFlow: parseFloat(document.getElementById('clPumpMaxFlow').value),
-            pacPumpType: document.getElementById('pacPumpType').value,
-            pacPumpMaxFlow: parseFloat(document.getElementById('pacPumpMaxFlow').value),
-            pacTubeSize: document.getElementById('pacTubeSize').value
-        };
+        if (formId === 'pumpsSettingsForm') {
+            // Save pump settings
+            deviceSettings.pumps = {
+                phPumpType: document.getElementById('phPumpType').value,
+                phPumpMaxFlow: parseFloat(document.getElementById('phPumpMaxFlow').value),
+                clPumpType: document.getElementById('clPumpType').value,
+                clPumpMaxFlow: parseFloat(document.getElementById('clPumpMaxFlow').value),
+                pacPumpType: document.getElementById('pacPumpType').value,
+                pacPumpMaxFlow: parseFloat(document.getElementById('pacPumpMaxFlow').value),
+                pacTubeSize: document.getElementById('pacTubeSize').value
+            };
         
-        showToast('Pump settings saved successfully');
-    }
-    else if (formId === 'sensorsSettingsForm') {
-        // Save sensor settings
-        deviceSettings.sensors = {
-            turbidityModel: document.getElementById('turbidityModel').value,
-            turbidityRange: document.getElementById('turbidityRange').value,
-            steielPort: document.getElementById('steielPort').value,
-            steielAddress: parseInt(document.getElementById('steielAddress').value),
-            turbidityPort: document.getElementById('turbidityPort').value,
-            turbidityAddress: parseInt(document.getElementById('turbidityAddress').value)
-        };
+            showToast('Pump settings saved successfully');
+        }
+        else if (formId === 'sensorsSettingsForm') {
+            // Save sensor settings
+            deviceSettings.sensors = {
+                turbidityModel: document.getElementById('turbidityModel').value,
+                turbidityRange: document.getElementById('turbidityRange').value,
+                steielPort: document.getElementById('steielPort').value,
+                steielAddress: parseInt(document.getElementById('steielAddress').value),
+                turbidityPort: document.getElementById('turbidityPort').value,
+                turbidityAddress: parseInt(document.getElementById('turbidityAddress').value)
+            };
         
-        showToast('Sensor settings saved successfully');
-    }
+            showToast('Sensor settings saved successfully');
+        }
     
-    // Save settings
-    localStorage.setItem('deviceSettings', JSON.stringify(deviceSettings));
+        // Save settings
+        localStorage.setItem('deviceSettings', JSON.stringify(deviceSettings));
+
+        // Restore button state
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }, 500);
 }
 
 /**
@@ -2609,34 +2654,49 @@ function saveDeviceSettings(e) {
  */
 function saveNotificationSettings(e) {
     e.preventDefault();
+
+    // Get the submit button and set loading state
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+    submitBtn.disabled = true;
     
-    const settings = {
-        enabled: document.getElementById('enableNotifications').checked,
-        emailEnabled: document.getElementById('enableEmailNotifications').checked,
-        emailServer: document.getElementById('emailServer').value,
-        emailPort: parseInt(document.getElementById('emailPort').value),
-        emailSecurity: document.getElementById('emailSecurity').value,
-        emailUsername: document.getElementById('emailUsername').value,
-        emailPassword: document.getElementById('emailPassword').value,
-        emailFrom: document.getElementById('emailFrom').value,
-        emailTo: document.getElementById('emailTo').value,
-        notifyParameterAlerts: document.getElementById('notifyParameterAlerts').checked,
-        notifyDosingEvents: document.getElementById('notifyDosingEvents').checked,
-        notifySystemEvents: document.getElementById('notifySystemEvents').checked,
-        notifyMaintenanceReminders: document.getElementById('notifyMaintenanceReminders').checked,
-        notifyChemicalLevels: document.getElementById('notifyChemicalLevels').checked
-    };
+    // Simulate API delay
+    setTimeout(() => {
+        const settings = {
+            enabled: document.getElementById('enableNotifications').checked,
+            emailEnabled: document.getElementById('enableEmailNotifications').checked,
+            emailServer: document.getElementById('emailServer').value,
+            emailPort: parseInt(document.getElementById('emailPort').value),
+            emailSecurity: document.getElementById('emailSecurity').value,
+            emailUsername: document.getElementById('emailUsername').value,
+            emailPassword: document.getElementById('emailPassword').value,
+            emailFrom: document.getElementById('emailFrom').value,
+            emailTo: document.getElementById('emailTo').value,
+            notifyParameterAlerts: document.getElementById('notifyParameterAlerts').checked,
+            notifyDosingEvents: document.getElementById('notifyDosingEvents').checked,
+            notifySystemEvents: document.getElementById('notifySystemEvents').checked,
+            notifyMaintenanceReminders: document.getElementById('notifyMaintenanceReminders').checked,
+            notifyChemicalLevels: document.getElementById('notifyChemicalLevels').checked
+        };
     
-    // Basic validation
-    if (settings.emailEnabled) {
-        if (!settings.emailServer || !settings.emailUsername || !settings.emailPassword || !settings.emailTo) {
-            showToast('Please fill in all email settings', 'warning');
-            return;
+        // Basic validation
+        if (settings.emailEnabled) {
+            if (!settings.emailServer || !settings.emailUsername || !settings.emailPassword || !settings.emailTo) {
+                showToast('Please fill in all email settings', 'warning');
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+                return;
+            }
         }
-    }
     
-    localStorage.setItem('notificationSettings', JSON.stringify(settings));
-    showToast('Notification settings saved successfully');
+        localStorage.setItem('notificationSettings', JSON.stringify(settings));
+        showToast('Notification settings saved successfully');
+
+        // Restore button state
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }, 500);
 }
 
 /**
@@ -2644,23 +2704,36 @@ function saveNotificationSettings(e) {
  */
 function saveMaintenanceSettings(e) {
     e.preventDefault();
+
+    // Get the submit button and set loading state
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+    submitBtn.disabled = true;
     
-    const settings = {
-        backwashFrequency: document.getElementById('backwashFrequency').value,
-        backwashDay: document.getElementById('backwashDay').value,
-        backwashTime: document.getElementById('backwashTime').value,
-        enableAutoBackwash: document.getElementById('enableAutoBackwash').checked,
-        chemicalCheckFrequency: document.getElementById('chemicalCheckFrequency').value,
-        pacReorderLevel: parseInt(document.getElementById('pacReorderLevel').value),
-        phCalibrationInterval: document.getElementById('phCalibrationInterval').value,
-        turbidityCalibrationInterval: document.getElementById('turbidityCalibrationInterval').value
-    };
+    // Simulate API delay
+    setTimeout(() => {
+        const settings = {
+            backwashFrequency: document.getElementById('backwashFrequency').value,
+            backwashDay: document.getElementById('backwashDay').value,
+            backwashTime: document.getElementById('backwashTime').value,
+            enableAutoBackwash: document.getElementById('enableAutoBackwash').checked,
+            chemicalCheckFrequency: document.getElementById('chemicalCheckFrequency').value,
+            pacReorderLevel: parseInt(document.getElementById('pacReorderLevel').value),
+            phCalibrationInterval: document.getElementById('phCalibrationInterval').value,
+            turbidityCalibrationInterval: document.getElementById('turbidityCalibrationInterval').value
+        };
     
-    localStorage.setItem('maintenanceSettings', JSON.stringify(settings));
-    showToast('Maintenance settings saved successfully');
-    
-    // Update next maintenance dates
-    updateMaintenanceSchedule();
+        localStorage.setItem('maintenanceSettings', JSON.stringify(settings));
+        showToast('Maintenance settings saved successfully');
+        
+        // Update next maintenance dates
+        updateMaintenanceSchedule();
+
+        // Restore button state
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }, 500);
 }
 
 /**
@@ -2706,9 +2779,23 @@ function setupFormDependencies() {
  * Test email notification
  */
 function testEmailNotification() {
-    // In a real application, this would send a test email
-    // For this demo, we'll just show a toast
-    showToast('Test email sent successfully');
+    // Get the test button and set loading state
+    const testBtn = document.querySelector('#notificationSettingsForm button[type="button"]');
+    if (!testBtn) return;
+    
+    const originalText = testBtn.innerHTML;
+    testBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Sending...';
+    testBtn.disabled = true;
+    
+    // Simulate API delay
+    setTimeout(() => {
+        // In a real application, this would send a test email
+        showToast('Test email sent successfully', 'info');
+        
+        // Restore button state
+        testBtn.innerHTML = originalText;
+        testBtn.disabled = false;
+    }, 1000);
 }
 
 /**
@@ -2820,6 +2907,296 @@ function fixSettingsTab() {
         firstButton.click();
     }
 }
-
 // Call this function
 fixSettingsTab();
+
+// Set up form submissions
+document.addEventListener('DOMContentLoaded', function() {
+    // Wait for fixSettingsTab to complete
+    setTimeout(function() {
+        // System settings form
+        const systemSettingsForm = document.getElementById('systemSettingsForm');
+        if (systemSettingsForm) {
+            systemSettingsForm.addEventListener('submit', saveSystemSettings);
+        }
+        
+        // pH settings form
+        const phSettingsForm = document.getElementById('phSettingsForm');
+        if (phSettingsForm) {
+            phSettingsForm.addEventListener('submit', saveParameterSettings);
+        }
+        
+        // Pumps settings form
+        const pumpsSettingsForm = document.getElementById('pumpsSettingsForm');
+        if (pumpsSettingsForm) {
+            pumpsSettingsForm.addEventListener('submit', saveDeviceSettings);
+        }
+        
+        // Sensors settings form
+        const sensorsSettingsForm = document.getElementById('sensorsSettingsForm');
+        if (sensorsSettingsForm) {
+            sensorsSettingsForm.addEventListener('submit', saveDeviceSettings);
+        }
+        
+        // Notification settings form
+        const notificationSettingsForm = document.getElementById('notificationSettingsForm');
+        if (notificationSettingsForm) {
+            notificationSettingsForm.addEventListener('submit', saveNotificationSettings);
+        }
+        
+        // Maintenance settings form
+        const maintenanceSettingsForm = document.getElementById('maintenanceSettingsForm');
+        if (maintenanceSettingsForm) {
+            maintenanceSettingsForm.addEventListener('submit', saveMaintenanceSettings);
+        }
+        
+        // Load saved settings
+        loadSavedSettings();
+        
+        // Setup form dependencies
+        setupFormDependencies();
+        
+        // Add import/export and reset functionality
+        const exportSettingsBtn = document.getElementById('exportSettingsBtn');
+        if (exportSettingsBtn) {
+            exportSettingsBtn.addEventListener('click', exportSettings);
+        }
+
+        const importSettingsBtn = document.getElementById('importSettingsBtn');
+        const importSettingsFile = document.getElementById('importSettingsFile');
+        if (importSettingsBtn && importSettingsFile) {
+            importSettingsBtn.addEventListener('click', function() {
+                importSettingsFile.click();
+            });
+            
+            importSettingsFile.addEventListener('change', importSettings);
+        }
+
+        const resetSettingsBtn = document.getElementById('resetSettingsBtn');
+        if (resetSettingsBtn) {
+            resetSettingsBtn.addEventListener('click', resetAllSettings);
+        }
+
+        // Add confirmation for critical settings changes
+        const criticalSettings = [
+            { id: 'phAutoDosing', message: 'Disabling automatic pH dosing will require manual intervention. Are you sure?' },
+            { id: 'clAutoDosingEnabled', message: 'Disabling automatic chlorine dosing will require manual intervention. Are you sure?' },
+            { id: 'turbAutoDosingEnabled', message: 'Disabling automatic PAC dosing will require manual intervention. Are you sure?' },
+            { id: 'uvSystemEnabled', message: 'Disabling the UV system will reduce disinfection effectiveness. Are you sure?' },
+            { id: 'autoBackwashEnabled', message: 'Disabling automatic backwash will require manual backwashing. Are you sure?' }
+        ];
+
+        criticalSettings.forEach(setting => {
+            const element = document.getElementById(setting.id);
+            if (element) {
+                element.addEventListener('change', function() {
+                    if (!this.checked) {
+                        if (!confirm(setting.message)) {
+                            this.checked = true;
+                        }
+                    }
+                });
+            }
+        });
+
+        // Add handler for test email button
+        const testEmailButton = document.querySelector('#notificationSettingsForm button[type="button"]');
+        if (testEmailButton) {
+            testEmailButton.addEventListener('click', testEmailNotification);
+        }
+    }, 500); // Allow time for fixSettingsTab to complete
+});
+
+/**
+ * Update UI based on settings
+ */
+function updateUIWithSettings() {
+    // Update parameter displays on the overview dashboard
+    const parameterSettings = localStorage.getItem('parameterSettings') 
+        ? JSON.parse(localStorage.getItem('parameterSettings')) 
+        : {};
+    
+    // Update pH ranges if they exist in settings
+    if (parameterSettings.ph) {
+        // Update parameter cards on overview
+        const phCard = document.querySelector('#overview-tab .parameter-card[data-param="ph"]');
+        if (phCard) {
+            const rangeEl = phCard.querySelector('.parameter-range-text');
+            if (rangeEl) {
+                rangeEl.textContent = `Target: ${parameterSettings.ph.targetMin} - ${parameterSettings.ph.targetMax}`;
+            }
+        }
+    }
+    
+    // Similar updates for other parameters...
+    
+    console.log('UI updated with new settings');
+}
+
+/**
+ * Validate form values
+ */
+function validatePHSettings() {
+    const targetMin = parseFloat(document.getElementById('phTargetMin').value);
+    const targetMax = parseFloat(document.getElementById('phTargetMax').value);
+    const alertLow = parseFloat(document.getElementById('phAlertLow').value);
+    const alertHigh = parseFloat(document.getElementById('phAlertHigh').value);
+    
+    if (targetMin >= targetMax) {
+        showToast('Target minimum must be less than target maximum', 'warning');
+        return false;
+    }
+    
+    if (alertLow >= targetMin) {
+        showToast('Alert low must be less than target minimum', 'warning');
+        return false;
+    }
+    
+    if (alertHigh <= targetMax) {
+        showToast('Alert high must be greater than target maximum', 'warning');
+        return false;
+    }
+    
+    return true;
+}
+
+/**
+ * Export all settings to a JSON file
+ */
+function exportSettings() {
+    // Collect all settings from localStorage
+    const settings = {
+        systemSettings: localStorage.getItem('systemSettings') ? JSON.parse(localStorage.getItem('systemSettings')) : {},
+        parameterSettings: localStorage.getItem('parameterSettings') ? JSON.parse(localStorage.getItem('parameterSettings')) : {},
+        deviceSettings: localStorage.getItem('deviceSettings') ? JSON.parse(localStorage.getItem('deviceSettings')) : {},
+        notificationSettings: localStorage.getItem('notificationSettings') ? JSON.parse(localStorage.getItem('notificationSettings')) : {},
+        maintenanceSettings: localStorage.getItem('maintenanceSettings') ? JSON.parse(localStorage.getItem('maintenanceSettings')) : {}
+    };
+    
+    // Create a download link
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(settings, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "pool_automation_settings.json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+}
+
+/**
+ * Import settings from a JSON file
+ */
+function importSettings(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const settings = JSON.parse(e.target.result);
+            
+            // Save each settings group to localStorage
+            if (settings.systemSettings) localStorage.setItem('systemSettings', JSON.stringify(settings.systemSettings));
+            if (settings.parameterSettings) localStorage.setItem('parameterSettings', JSON.stringify(settings.parameterSettings));
+            if (settings.deviceSettings) localStorage.setItem('deviceSettings', JSON.stringify(settings.deviceSettings));
+            if (settings.notificationSettings) localStorage.setItem('notificationSettings', JSON.stringify(settings.notificationSettings));
+            if (settings.maintenanceSettings) localStorage.setItem('maintenanceSettings', JSON.stringify(settings.maintenanceSettings));
+            
+            // Reload settings
+            loadSavedSettings();
+            
+            // Update UI
+            updateUIWithSettings();
+            
+            showToast('Settings imported successfully');
+        } catch (error) {
+            console.error('Error importing settings:', error);
+            showToast('Error importing settings. Invalid file format.', 'danger');
+        }
+    };
+    reader.readAsText(file);
+}
+
+/**
+ * Export all settings to a JSON file
+ */
+function exportSettings() {
+    // Collect all settings from localStorage
+    const settings = {
+        systemSettings: localStorage.getItem('systemSettings') ? JSON.parse(localStorage.getItem('systemSettings')) : {},
+        parameterSettings: localStorage.getItem('parameterSettings') ? JSON.parse(localStorage.getItem('parameterSettings')) : {},
+        deviceSettings: localStorage.getItem('deviceSettings') ? JSON.parse(localStorage.getItem('deviceSettings')) : {},
+        notificationSettings: localStorage.getItem('notificationSettings') ? JSON.parse(localStorage.getItem('notificationSettings')) : {},
+        maintenanceSettings: localStorage.getItem('maintenanceSettings') ? JSON.parse(localStorage.getItem('maintenanceSettings')) : {}
+    };
+    
+    // Create a download link
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(settings, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "pool_automation_settings.json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+    
+    showToast('Settings exported successfully');
+}
+
+/**
+ * Import settings from a JSON file
+ */
+function importSettings(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const settings = JSON.parse(e.target.result);
+            
+            // Save each settings group to localStorage
+            if (settings.systemSettings) localStorage.setItem('systemSettings', JSON.stringify(settings.systemSettings));
+            if (settings.parameterSettings) localStorage.setItem('parameterSettings', JSON.stringify(settings.parameterSettings));
+            if (settings.deviceSettings) localStorage.setItem('deviceSettings', JSON.stringify(settings.deviceSettings));
+            if (settings.notificationSettings) localStorage.setItem('notificationSettings', JSON.stringify(settings.notificationSettings));
+            if (settings.maintenanceSettings) localStorage.setItem('maintenanceSettings', JSON.stringify(settings.maintenanceSettings));
+            
+            // Reload settings
+            loadSavedSettings();
+            
+            // Update UI
+            updateUIWithSettings();
+            
+            showToast('Settings imported successfully');
+        } catch (error) {
+            console.error('Error importing settings:', error);
+            showToast('Error importing settings. Invalid file format.', 'danger');
+        }
+    };
+    reader.readAsText(file);
+    
+    // Reset the file input so the same file can be selected again
+    event.target.value = '';
+}
+
+/**
+ * Reset all settings to defaults
+ */
+function resetAllSettings() {
+    if (confirm('Are you sure you want to reset all settings to defaults? This cannot be undone.')) {
+        // Clear all settings from localStorage
+        localStorage.removeItem('systemSettings');
+        localStorage.removeItem('parameterSettings');
+        localStorage.removeItem('deviceSettings');
+        localStorage.removeItem('notificationSettings');
+        localStorage.removeItem('maintenanceSettings');
+        
+        // Reload settings (will use defaults)
+        loadSavedSettings();
+        
+        // Update UI
+        updateUIWithSettings();
+        
+        showToast('All settings have been reset to defaults');
+    }
+}

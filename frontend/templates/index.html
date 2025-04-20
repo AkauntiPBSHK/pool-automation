@@ -1553,6 +1553,26 @@
                                             </div>
                                             
                                             <button type="submit" class="btn btn-primary">Save Maintenance Settings</button>
+
+                                            <div class="row mt-4">
+                                                <div class="col-md-12">
+                                                    <h6 class="border-bottom pb-2 mb-3">Settings Backup & Restore</h6>
+                                                    <div class="d-flex">
+                                                        <button type="button" id="exportSettingsBtn" class="btn btn-outline-primary me-2">
+                                                            <i class="bi bi-download"></i> Export Settings
+                                                        </button>
+                                                        <div class="me-2">
+                                                            <input type="file" id="importSettingsFile" accept=".json" style="display:none">
+                                                            <button type="button" id="importSettingsBtn" class="btn btn-outline-secondary">
+                                                                <i class="bi bi-upload"></i> Import Settings
+                                                            </button>
+                                                        </div>
+                                                        <button type="button" id="resetSettingsBtn" class="btn btn-outline-danger">
+                                                            <i class="bi bi-arrow-counterclockwise"></i> Reset All Settings
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </form>
                                     </div>
                                 </div>
