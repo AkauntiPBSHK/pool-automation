@@ -2732,3 +2732,94 @@ function updateMaintenanceSchedule() {
     // For now, we'll just log a message
     console.log('Updating maintenance schedule');
 }
+
+function fixSettingsTab() {
+    console.log('Fixing Settings Tab with direct DOM manipulation');
+    
+    // First, let's find the parent container
+    const settingsTab = document.getElementById('settings-tab');
+    if (!settingsTab) {
+        console.error('Settings tab not found');
+        return;
+    }
+    
+    // Make the tab fully visible with !important
+    settingsTab.setAttribute('style', 'display: block !important; visibility: visible !important;');
+    
+    // Find each tab pane and make it directly visible
+    const allPanes = settingsTab.querySelectorAll('.tab-pane');
+    console.log(`Found ${allPanes.length} tab panes`);
+    
+    // Completely replace the tab system with a simpler one
+    // First, create a new container for our content
+    const newContainer = document.createElement('div');
+    newContainer.className = 'settings-content-fix';
+    
+    // Create direct links for switching content
+    const linksBar = document.createElement('div');
+    linksBar.className = 'btn-group mb-4';
+    linksBar.setAttribute('role', 'group');
+    
+    const tabNames = ['System', 'Parameters', 'Devices', 'Notifications', 'Maintenance'];
+    const tabIds = ['system-settings', 'parameter-settings', 'device-settings', 'notification-settings', 'maintenance-settings'];
+    
+    // Create buttons
+    tabNames.forEach((name, index) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-outline-primary';
+        btn.textContent = name;
+        btn.onclick = function() {
+            // Hide all content divs
+            document.querySelectorAll('.settings-content-fix > div.content-panel').forEach(div => {
+                div.style.display = 'none';
+            });
+            
+            // Show the selected one
+            const contentDiv = document.getElementById('fixed-' + tabIds[index]);
+            if (contentDiv) {
+                contentDiv.style.display = 'block';
+            }
+            
+            // Update button states
+            document.querySelectorAll('.settings-content-fix .btn-group button').forEach(b => {
+                b.className = 'btn btn-outline-primary';
+            });
+            this.className = 'btn btn-primary';
+        };
+        linksBar.appendChild(btn);
+    });
+    
+    newContainer.appendChild(linksBar);
+    
+    // For each tab pane, create a new content panel
+    tabIds.forEach((id, index) => {
+        const pane = document.getElementById(id);
+        if (pane) {
+            // Create a new content div
+            const contentDiv = document.createElement('div');
+            contentDiv.id = 'fixed-' + id;
+            contentDiv.className = 'content-panel';
+            contentDiv.style.display = index === 0 ? 'block' : 'none'; // Show first tab by default
+            
+            // Copy content from original pane
+            contentDiv.innerHTML = pane.innerHTML;
+            
+            // Add to container
+            newContainer.appendChild(contentDiv);
+        }
+    });
+    
+    // Replace original content with our fixed version
+    settingsTab.innerHTML = '';
+    settingsTab.appendChild(newContainer);
+    
+    // Trigger click on first button to initialize
+    const firstButton = document.querySelector('.settings-content-fix .btn-group button');
+    if (firstButton) {
+        firstButton.click();
+    }
+}
+
+// Call this function
+fixSettingsTab();
