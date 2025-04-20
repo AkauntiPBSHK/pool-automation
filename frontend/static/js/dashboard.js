@@ -56,6 +56,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize history tab
     initializeHistoryTab();
 
+    // Initialize settings tab
+    initializeSettingsTab();
+
     // Initial data fetch
     fetchStatus();
     
@@ -2348,4 +2351,370 @@ function updateAllAxisVisibility() {
         // Reset grid color when pH dataset is visible
         historyChart.options.scales['y-ph'].grid.color = undefined; // Use default
     }
+}
+
+/**
+ * Initialize settings tab functionality
+ */
+function initializeSettingsTab() {
+    console.log('Initializing Settings Tab');
+    
+    // Load saved settings from localStorage or use defaults
+    loadSavedSettings();
+    
+    // Set up form submission handlers
+    document.getElementById('systemSettingsForm').addEventListener('submit', saveSystemSettings);
+    document.getElementById('phSettingsForm').addEventListener('submit', saveParameterSettings);
+    document.getElementById('pumpsSettingsForm').addEventListener('submit', saveDeviceSettings);
+    document.getElementById('sensorsSettingsForm').addEventListener('submit', saveDeviceSettings);
+    document.getElementById('notificationSettingsForm').addEventListener('submit', saveNotificationSettings);
+    document.getElementById('maintenanceSettingsForm').addEventListener('submit', saveMaintenanceSettings);
+    
+    // Set up test email button
+    const testEmailBtn = document.querySelector('#notification-settings button.btn-secondary');
+    if (testEmailBtn) {
+        testEmailBtn.addEventListener('click', testEmailNotification);
+    }
+    
+    // Set up dependent form field behavior
+    setupFormDependencies();
+}
+
+/**
+ * Load saved settings from localStorage or use defaults
+ */
+function loadSavedSettings() {
+    // System settings
+    if (localStorage.getItem('systemSettings')) {
+        const systemSettings = JSON.parse(localStorage.getItem('systemSettings'));
+        
+        document.getElementById('systemName').value = systemSettings.name || 'Pool Automation System';
+        document.getElementById('defaultMode').value = systemSettings.defaultMode || 'automatic';
+        document.getElementById('tempUnit').value = systemSettings.tempUnit || 'celsius';
+        document.getElementById('timeFormat').value = systemSettings.timeFormat || '24h';
+        document.getElementById('dataSamplingRate').value = systemSettings.dataSamplingRate || '300';
+        document.getElementById('dataRetention').value = systemSettings.dataRetention || '30';
+        document.getElementById('enableSimulation').checked = systemSettings.enableSimulation !== false;
+    }
+    
+    // Parameter settings
+    if (localStorage.getItem('parameterSettings')) {
+        const parameterSettings = JSON.parse(localStorage.getItem('parameterSettings'));
+        
+        // pH settings
+        if (parameterSettings.ph) {
+            document.getElementById('phTargetMin').value = parameterSettings.ph.targetMin || 7.2;
+            document.getElementById('phTargetMax').value = parameterSettings.ph.targetMax || 7.6;
+            document.getElementById('phAlertLow').value = parameterSettings.ph.alertLow || 7.0;
+            document.getElementById('phAlertHigh').value = parameterSettings.ph.alertHigh || 7.8;
+            document.getElementById('phDoseRate').value = parameterSettings.ph.doseRate || 100;
+            document.getElementById('phDosingDelay').value = parameterSettings.ph.dosingDelay || 5;
+            document.getElementById('phAutoDosing').checked = parameterSettings.ph.autoDosing !== false;
+        }
+        
+        // Other parameters would follow the same pattern
+    }
+    
+    // Device settings
+    if (localStorage.getItem('deviceSettings')) {
+        const deviceSettings = JSON.parse(localStorage.getItem('deviceSettings'));
+        
+        // Pump settings
+        if (deviceSettings.pumps) {
+            document.getElementById('phPumpType').value = deviceSettings.pumps.phPumpType || 'NOVA NSE155-E1504';
+            document.getElementById('phPumpMaxFlow').value = deviceSettings.pumps.phPumpMaxFlow || 15.3;
+            document.getElementById('clPumpType').value = deviceSettings.pumps.clPumpType || 'NOVA NSE155-E1504';
+            document.getElementById('clPumpMaxFlow').value = deviceSettings.pumps.clPumpMaxFlow || 15.3;
+            document.getElementById('pacPumpType').value = deviceSettings.pumps.pacPumpType || 'Chonry WP110';
+            document.getElementById('pacPumpMaxFlow').value = deviceSettings.pumps.pacPumpMaxFlow || 150;
+            document.getElementById('pacTubeSize').value = deviceSettings.pumps.pacTubeSize || '2x1';
+        }
+        
+        // Sensor settings
+        if (deviceSettings.sensors) {
+            document.getElementById('turbidityModel').value = deviceSettings.sensors.turbidityModel || 'Chemitec S461S LT';
+            document.getElementById('turbidityRange').value = deviceSettings.sensors.turbidityRange || '0-100';
+            document.getElementById('steielPort').value = deviceSettings.sensors.steielPort || '/dev/ttyUSB0';
+            document.getElementById('steielAddress').value = deviceSettings.sensors.steielAddress || 1;
+            document.getElementById('turbidityPort').value = deviceSettings.sensors.turbidityPort || '/dev/ttyUSB1';
+            document.getElementById('turbidityAddress').value = deviceSettings.sensors.turbidityAddress || 1;
+        }
+    }
+    
+    // Notification settings
+    if (localStorage.getItem('notificationSettings')) {
+        const notificationSettings = JSON.parse(localStorage.getItem('notificationSettings'));
+        
+        document.getElementById('enableNotifications').checked = notificationSettings.enabled !== false;
+        document.getElementById('enableEmailNotifications').checked = notificationSettings.emailEnabled !== false;
+        document.getElementById('emailServer').value = notificationSettings.emailServer || 'smtp.gmail.com';
+        document.getElementById('emailPort').value = notificationSettings.emailPort || 587;
+        document.getElementById('emailSecurity').value = notificationSettings.emailSecurity || 'tls';
+        document.getElementById('emailUsername').value = notificationSettings.emailUsername || '';
+        document.getElementById('emailPassword').value = notificationSettings.emailPassword || '';
+        document.getElementById('emailFrom').value = notificationSettings.emailFrom || '';
+        document.getElementById('emailTo').value = notificationSettings.emailTo || '';
+        
+        document.getElementById('notifyParameterAlerts').checked = notificationSettings.notifyParameterAlerts !== false;
+        document.getElementById('notifyDosingEvents').checked = notificationSettings.notifyDosingEvents !== false;
+        document.getElementById('notifySystemEvents').checked = notificationSettings.notifySystemEvents !== false;
+        document.getElementById('notifyMaintenanceReminders').checked = notificationSettings.notifyMaintenanceReminders !== false;
+        document.getElementById('notifyChemicalLevels').checked = notificationSettings.notifyChemicalLevels === true;
+    }
+    
+    // Maintenance settings
+    if (localStorage.getItem('maintenanceSettings')) {
+        const maintenanceSettings = JSON.parse(localStorage.getItem('maintenanceSettings'));
+        
+        document.getElementById('backwashFrequency').value = maintenanceSettings.backwashFrequency || 'weekly';
+        document.getElementById('backwashDay').value = maintenanceSettings.backwashDay || '3';
+        document.getElementById('backwashTime').value = maintenanceSettings.backwashTime || '06:00';
+        document.getElementById('enableAutoBackwash').checked = maintenanceSettings.enableAutoBackwash === true;
+        document.getElementById('chemicalCheckFrequency').value = maintenanceSettings.chemicalCheckFrequency || 'weekly';
+        document.getElementById('pacReorderLevel').value = maintenanceSettings.pacReorderLevel || 20;
+        document.getElementById('phCalibrationInterval').value = maintenanceSettings.phCalibrationInterval || 'monthly';
+        document.getElementById('turbidityCalibrationInterval').value = maintenanceSettings.turbidityCalibrationInterval || 'monthly';
+    }
+}
+
+/**
+ * Save system settings
+ */
+function saveSystemSettings(e) {
+    e.preventDefault();
+    
+    const settings = {
+        name: document.getElementById('systemName').value,
+        defaultMode: document.getElementById('defaultMode').value,
+        tempUnit: document.getElementById('tempUnit').value,
+        timeFormat: document.getElementById('timeFormat').value,
+        dataSamplingRate: document.getElementById('dataSamplingRate').value,
+        dataRetention: document.getElementById('dataRetention').value,
+        enableSimulation: document.getElementById('enableSimulation').checked
+    };
+    
+    localStorage.setItem('systemSettings', JSON.stringify(settings));
+    showToast('System settings saved successfully');
+}
+
+/**
+ * Save parameter settings
+ */
+function saveParameterSettings(e) {
+    e.preventDefault();
+    
+    // Get existing settings or initialize new object
+    const parameterSettings = localStorage.getItem('parameterSettings') 
+        ? JSON.parse(localStorage.getItem('parameterSettings')) 
+        : {};
+    
+    // Update pH settings
+    parameterSettings.ph = {
+        targetMin: parseFloat(document.getElementById('phTargetMin').value),
+        targetMax: parseFloat(document.getElementById('phTargetMax').value),
+        alertLow: parseFloat(document.getElementById('phAlertLow').value),
+        alertHigh: parseFloat(document.getElementById('phAlertHigh').value),
+        doseRate: parseInt(document.getElementById('phDoseRate').value),
+        dosingDelay: parseInt(document.getElementById('phDosingDelay').value),
+        autoDosing: document.getElementById('phAutoDosing').checked
+    };
+    
+    // Add validation for target ranges
+    if (parameterSettings.ph.targetMin >= parameterSettings.ph.targetMax) {
+        showToast('Target minimum must be less than target maximum', 'warning');
+        return;
+    }
+    
+    if (parameterSettings.ph.alertLow >= parameterSettings.ph.targetMin) {
+        showToast('Alert low must be less than target minimum', 'warning');
+        return;
+    }
+    
+    if (parameterSettings.ph.alertHigh <= parameterSettings.ph.targetMax) {
+        showToast('Alert high must be greater than target maximum', 'warning');
+        return;
+    }
+    
+    // Save settings
+    localStorage.setItem('parameterSettings', JSON.stringify(parameterSettings));
+    
+    // Update dashboard with new values
+    updateDashboardWithSettings();
+    
+    showToast('Parameter settings saved successfully');
+}
+
+/**
+ * Save device settings
+ */
+function saveDeviceSettings(e) {
+    e.preventDefault();
+    
+    // Determine which form was submitted
+    const formId = e.target.id;
+    
+    // Get existing settings or initialize new object
+    const deviceSettings = localStorage.getItem('deviceSettings') 
+        ? JSON.parse(localStorage.getItem('deviceSettings')) 
+        : {};
+    
+    if (formId === 'pumpsSettingsForm') {
+        // Save pump settings
+        deviceSettings.pumps = {
+            phPumpType: document.getElementById('phPumpType').value,
+            phPumpMaxFlow: parseFloat(document.getElementById('phPumpMaxFlow').value),
+            clPumpType: document.getElementById('clPumpType').value,
+            clPumpMaxFlow: parseFloat(document.getElementById('clPumpMaxFlow').value),
+            pacPumpType: document.getElementById('pacPumpType').value,
+            pacPumpMaxFlow: parseFloat(document.getElementById('pacPumpMaxFlow').value),
+            pacTubeSize: document.getElementById('pacTubeSize').value
+        };
+        
+        showToast('Pump settings saved successfully');
+    }
+    else if (formId === 'sensorsSettingsForm') {
+        // Save sensor settings
+        deviceSettings.sensors = {
+            turbidityModel: document.getElementById('turbidityModel').value,
+            turbidityRange: document.getElementById('turbidityRange').value,
+            steielPort: document.getElementById('steielPort').value,
+            steielAddress: parseInt(document.getElementById('steielAddress').value),
+            turbidityPort: document.getElementById('turbidityPort').value,
+            turbidityAddress: parseInt(document.getElementById('turbidityAddress').value)
+        };
+        
+        showToast('Sensor settings saved successfully');
+    }
+    
+    // Save settings
+    localStorage.setItem('deviceSettings', JSON.stringify(deviceSettings));
+}
+
+/**
+ * Save notification settings
+ */
+function saveNotificationSettings(e) {
+    e.preventDefault();
+    
+    const settings = {
+        enabled: document.getElementById('enableNotifications').checked,
+        emailEnabled: document.getElementById('enableEmailNotifications').checked,
+        emailServer: document.getElementById('emailServer').value,
+        emailPort: parseInt(document.getElementById('emailPort').value),
+        emailSecurity: document.getElementById('emailSecurity').value,
+        emailUsername: document.getElementById('emailUsername').value,
+        emailPassword: document.getElementById('emailPassword').value,
+        emailFrom: document.getElementById('emailFrom').value,
+        emailTo: document.getElementById('emailTo').value,
+        notifyParameterAlerts: document.getElementById('notifyParameterAlerts').checked,
+        notifyDosingEvents: document.getElementById('notifyDosingEvents').checked,
+        notifySystemEvents: document.getElementById('notifySystemEvents').checked,
+        notifyMaintenanceReminders: document.getElementById('notifyMaintenanceReminders').checked,
+        notifyChemicalLevels: document.getElementById('notifyChemicalLevels').checked
+    };
+    
+    // Basic validation
+    if (settings.emailEnabled) {
+        if (!settings.emailServer || !settings.emailUsername || !settings.emailPassword || !settings.emailTo) {
+            showToast('Please fill in all email settings', 'warning');
+            return;
+        }
+    }
+    
+    localStorage.setItem('notificationSettings', JSON.stringify(settings));
+    showToast('Notification settings saved successfully');
+}
+
+/**
+ * Save maintenance settings
+ */
+function saveMaintenanceSettings(e) {
+    e.preventDefault();
+    
+    const settings = {
+        backwashFrequency: document.getElementById('backwashFrequency').value,
+        backwashDay: document.getElementById('backwashDay').value,
+        backwashTime: document.getElementById('backwashTime').value,
+        enableAutoBackwash: document.getElementById('enableAutoBackwash').checked,
+        chemicalCheckFrequency: document.getElementById('chemicalCheckFrequency').value,
+        pacReorderLevel: parseInt(document.getElementById('pacReorderLevel').value),
+        phCalibrationInterval: document.getElementById('phCalibrationInterval').value,
+        turbidityCalibrationInterval: document.getElementById('turbidityCalibrationInterval').value
+    };
+    
+    localStorage.setItem('maintenanceSettings', JSON.stringify(settings));
+    showToast('Maintenance settings saved successfully');
+    
+    // Update next maintenance dates
+    updateMaintenanceSchedule();
+}
+
+/**
+ * Setup form dependencies (show/hide fields based on other selections)
+ */
+function setupFormDependencies() {
+    // Email notifications dependency
+    const enableEmailNotifications = document.getElementById('enableEmailNotifications');
+    if (enableEmailNotifications) {
+        enableEmailNotifications.addEventListener('change', function() {
+            const emailFields = document.querySelectorAll('#notificationSettingsForm input:not(#enableEmailNotifications):not([type="checkbox"]), #notificationSettingsForm select');
+            emailFields.forEach(field => {
+                field.disabled = !this.checked;
+            });
+        });
+        
+        // Initial state
+        const emailFields = document.querySelectorAll('#notificationSettingsForm input:not(#enableEmailNotifications):not([type="checkbox"]), #notificationSettingsForm select');
+        emailFields.forEach(field => {
+            field.disabled = !enableEmailNotifications.checked;
+        });
+    }
+    
+    // Enable/disable backwash day/time based on frequency
+    const backwashFrequency = document.getElementById('backwashFrequency');
+    if (backwashFrequency) {
+        backwashFrequency.addEventListener('change', function() {
+            const backwashDay = document.getElementById('backwashDay');
+            if (backwashDay) {
+                backwashDay.disabled = this.value === 'daily';
+            }
+        });
+        
+        // Initial state
+        const backwashDay = document.getElementById('backwashDay');
+        if (backwashDay) {
+            backwashDay.disabled = backwashFrequency.value === 'daily';
+        }
+    }
+}
+
+/**
+ * Test email notification
+ */
+function testEmailNotification() {
+    // In a real application, this would send a test email
+    // For this demo, we'll just show a toast
+    showToast('Test email sent successfully');
+}
+
+/**
+ * Update dashboard with new settings
+ */
+function updateDashboardWithSettings() {
+    // This function would update the dashboard based on saved settings
+    // For example, updating parameter target ranges, pump status displays, etc.
+    
+    // For now, we'll just log a message
+    console.log('Updating dashboard with new settings');
+}
+
+/**
+ * Update maintenance schedule
+ */
+function updateMaintenanceSchedule() {
+    // This function would calculate and display the next maintenance dates
+    // based on the configured settings
+    
+    // For now, we'll just log a message
+    console.log('Updating maintenance schedule');
 }
