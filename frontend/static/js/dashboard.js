@@ -1381,8 +1381,12 @@ function initializeHistoryChart() {
                         position: 'top',
                         labels: {
                             usePointStyle: true
+                        },
+                        // Make legend display-only by providing an empty click handler
+                        onClick: function(e, legendItem, legend) {
+                            // Do nothing - legend is display only
+                            return;
                         }
-                        // Remove the onClick handler here - we'll set it after chart creation
                     },
                     tooltip: {
                         callbacks: {
@@ -1415,78 +1419,12 @@ function initializeHistoryChart() {
                 }
             }
         });
+        
         console.log('Chart initialized successfully');
         
         // Link parameter checkboxes to chart visibility
         linkCheckboxesToChart();
         syncCheckboxesWithChart();
-        
-        // Also, let's fix the legend click handler to ensure it always updates the buttons correctly
-        historyChart.options.plugins.legend.onClick = function(e, legendItem, legend) {
-            console.log('Legend clicked:', legendItem.text);
-    
-            // Default legend click behavior (toggle visibility)
-            Chart.defaults.plugins.legend.onClick.call(this, e, legendItem, legend);
-    
-            // Get new visibility state after the toggle
-            const isVisible = !historyChart.getDatasetMeta(legendItem.datasetIndex).hidden;
-            console.log('New visibility from legend click:', isVisible);
-    
-            // Map dataset labels to parameter buttons
-            const labelToButtonMap = {
-                'pH': 'pH',
-                'ORP': 'ORP', 
-                'Free Chlorine': 'Free Chlorine',
-                'Combined Chlorine': 'Combined Cl',
-                'Turbidity': 'Turbidity',
-                'Temperature': 'Temperature'
-            };
-
-            // Find and update the corresponding parameter button
-            const buttonText = labelToButtonMap[legendItem.text];
-            if (buttonText) {
-                const buttons = document.querySelectorAll('.parameters button');
-                buttons.forEach(button => {
-                    if (button.textContent.trim() === buttonText) {
-                        console.log('Updating button:', buttonText);
-                        button.classList.toggle('active', isVisible);
-                        button.classList.toggle('btn-primary', isVisible);
-                        button.classList.toggle('btn-outline-secondary', !isVisible);
-                    }
-                });
-            }
-            
-            // Update checkbox state
-            if (legendItem.datasetIndex === 6) { // Dosing Events
-                const checkbox = document.getElementById('showDosingEvents');
-                if (checkbox) {
-                    checkbox.checked = isVisible;
-                }
-            } else {
-                const checkboxMap = {
-                    'pH': 'showPh',
-                    'ORP': 'showOrp',
-                    'Free Chlorine': 'showFreeChlorine',
-                    'Combined Chlorine': 'showCombinedChlorine',
-                    'Turbidity': 'showTurbidity',
-                    'Temperature': 'showTemp'
-                };
-                
-                const checkboxId = checkboxMap[legendItem.text];
-                if (checkboxId) {
-                    const checkbox = document.getElementById(checkboxId);
-                    if (checkbox) {
-                        checkbox.checked = isVisible;
-                    }
-                }
-            }
-            
-            // Update axis visibility
-            updateAllAxisVisibility();
-            
-            // Update chart
-            historyChart.update();
-        };
         
         // Initialize parameter buttons
         initializeParameterButtons();
@@ -1502,11 +1440,8 @@ function initializeHistoryChart() {
 function initializeParameterButtons() {
     if (!historyChart) return;
     
-    // First, find all parameter buttons and clear existing handlers
-    const paramButtons = document.querySelectorAll('.parameters button');
-    
-    // Create a mapping of button text/data-param to dataset index
-    const buttonToDatasetMap = {
+    // Map parameters to their dataset indices
+    const paramMap = {
         'pH': 0,
         'ORP': 1,
         'Free Chlorine': 2,
@@ -1515,33 +1450,27 @@ function initializeParameterButtons() {
         'Temperature': 5
     };
     
-    // Remove existing click handlers and add new ones
-    paramButtons.forEach(button => {
-        // Clear existing handlers by cloning and replacing the button
+    // Set up click handlers for all parameter buttons
+    document.querySelectorAll('.parameters button').forEach(button => {
+        // Remove existing click handlers by cloning the button
         const newButton = button.cloneNode(true);
         button.parentNode.replaceChild(newButton, button);
         
         // Add our new handler
         newButton.addEventListener('click', function() {
-            console.log('Parameter button clicked:', this.textContent.trim());
-            
-            // Determine which dataset this button controls
+            // Get parameter name and dataset index
             const paramName = this.textContent.trim();
-            const datasetIndex = buttonToDatasetMap[paramName];
+            const datasetIndex = paramMap[paramName];
             
             if (datasetIndex !== undefined) {
-                // Get current visibility directly from chart
+                // Toggle visibility in the chart
                 const currentVisibility = historyChart.isDatasetVisible(datasetIndex);
-                console.log('Current visibility:', currentVisibility);
-                
-                // Toggle visibility
                 const newVisibility = !currentVisibility;
-                console.log('Setting new visibility:', newVisibility);
                 
-                // Update chart
+                // Update chart visibility
                 historyChart.setDatasetVisibility(datasetIndex, newVisibility);
                 
-                // Update button visual state
+                // Update button appearance
                 this.classList.toggle('active', newVisibility);
                 this.classList.toggle('btn-primary', newVisibility);
                 this.classList.toggle('btn-outline-secondary', !newVisibility);
@@ -1550,21 +1479,18 @@ function initializeParameterButtons() {
                 const checkboxMap = {
                     'pH': 'showPh',
                     'ORP': 'showOrp',
-                    'Free Chlorine': 'showFreeChlorine', 
-                    'Combined Cl': 'showCombinedChlorine',
+                    'Free Chlorine': 'showFreeChlorine',
+                    'Combined Cl': 'showCombinedChlorine', 
                     'Turbidity': 'showTurbidity',
                     'Temperature': 'showTemp'
                 };
                 
-                const checkboxId = checkboxMap[paramName];
-                if (checkboxId) {
-                    const checkbox = document.getElementById(checkboxId);
-                    if (checkbox) {
-                        checkbox.checked = newVisibility;
-                    }
+                const checkbox = document.getElementById(checkboxMap[paramName]);
+                if (checkbox) {
+                    checkbox.checked = newVisibility;
                 }
                 
-                // Update axes visibility
+                // Update axis visibility
                 updateAllAxisVisibility();
                 
                 // Update chart
@@ -1572,9 +1498,9 @@ function initializeParameterButtons() {
             }
         });
         
-        // Set initial visual state based on chart
+        // Set initial state
         const paramName = newButton.textContent.trim();
-        const datasetIndex = buttonToDatasetMap[paramName];
+        const datasetIndex = paramMap[paramName];
         if (datasetIndex !== undefined) {
             const isVisible = historyChart.isDatasetVisible(datasetIndex);
             newButton.classList.toggle('active', isVisible);
@@ -1583,7 +1509,7 @@ function initializeParameterButtons() {
         }
     });
     
-    // Set up the "Show Dosing Events" checkbox
+    // Set up dosing events checkbox
     const dosingEventsCheckbox = document.getElementById('showDosingEvents');
     if (dosingEventsCheckbox) {
         dosingEventsCheckbox.addEventListener('change', function() {
@@ -1649,16 +1575,6 @@ function linkCheckboxesToChart() {
         'showTemp': 5
     };
     
-    // Add y-axis map
-    const axisMap = {
-        'showPh': 'y-ph',
-        'showOrp': 'y-orp',
-        'showFreeChlorine': 'y-chlorine',
-        'showCombinedChlorine': 'y-chlorine',
-        'showTurbidity': 'y-turbidity',
-        'showTemp': 'y-temp'
-    };
-    
     // Link checkbox change events
     Object.keys(checkboxMap).forEach(checkboxId => {
         const checkbox = document.getElementById(checkboxId);
@@ -1667,7 +1583,26 @@ function linkCheckboxesToChart() {
                 const datasetIndex = checkboxMap[this.id];
                 
                 // Update dataset visibility
-                historyChart.data.datasets[datasetIndex].hidden = !this.checked;
+                historyChart.setDatasetVisibility(datasetIndex, this.checked);
+                
+                // Update parameter button state
+                const buttonMap = {
+                    'showPh': 'pH',
+                    'showOrp': 'ORP',
+                    'showFreeChlorine': 'Free Chlorine',
+                    'showCombinedChlorine': 'Combined Cl',
+                    'showTurbidity': 'Turbidity',
+                    'showTemp': 'Temperature'
+                };
+                
+                const paramName = buttonMap[this.id];
+                document.querySelectorAll('.parameters button').forEach(button => {
+                    if (button.textContent.trim() === paramName) {
+                        button.classList.toggle('active', this.checked);
+                        button.classList.toggle('btn-primary', this.checked);
+                        button.classList.toggle('btn-outline-secondary', !this.checked);
+                    }
+                });
                 
                 // Update all axes visibility
                 updateAllAxisVisibility();
@@ -1682,7 +1617,7 @@ function linkCheckboxesToChart() {
     const dosingEventsCheckbox = document.getElementById('showDosingEvents');
     if (dosingEventsCheckbox) {
         dosingEventsCheckbox.addEventListener('change', function() {
-            historyChart.data.datasets[6].hidden = !this.checked;
+            historyChart.setDatasetVisibility(6, this.checked);
             updateAllAxisVisibility();
             historyChart.update();
         });
