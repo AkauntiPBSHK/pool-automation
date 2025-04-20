@@ -2352,84 +2352,75 @@ function updateAllAxisVisibility() {
         historyChart.options.scales['y-ph'].grid.color = undefined; // Use default
     }
 }
-/**
- * Initialize settings tab functionality
- */
 function initializeSettingsTab() {
     console.log('Initializing Settings Tab');
     
-    // Load saved settings from localStorage or use defaults
-    if (typeof loadSavedSettings === 'function') {
-        loadSavedSettings();
-    }
+    // Debug: Check if tab content exists
+    const tabContent = document.getElementById('settingsTabContent');
+    console.log('Tab content container:', tabContent);
     
-    // Manually setup tab switching since Bootstrap tabs aren't working
+    // Debug: Check if tab panes exist
+    const systemSettings = document.getElementById('system-settings');
+    console.log('System settings pane:', systemSettings);
+    
+    // Debug: Print all tab panes
+    const allTabPanes = document.querySelectorAll('.tab-pane');
+    console.log('All tab panes found:', allTabPanes.length);
+    allTabPanes.forEach((pane, index) => {
+        console.log(`Tab pane ${index}:`, pane.id, pane);
+    });
+    
+    // Manually setup tab switching with extensive debugging
     document.querySelectorAll('#settingsTabs .nav-link').forEach(function(tabButton) {
+        console.log('Setup click handler for tab:', tabButton.textContent, tabButton);
+        
         tabButton.addEventListener('click', function() {
-            // Remove active class from all tab buttons
-            document.querySelectorAll('#settingsTabs .nav-link').forEach(function(btn) {
-                btn.classList.remove('active');
-            });
+            console.log('Tab clicked:', this.textContent);
             
-            // Add active class to clicked button
-            this.classList.add('active');
-            
-            // Hide all tab panes
-            document.querySelectorAll('.tab-pane').forEach(function(pane) {
-                pane.classList.remove('show', 'active');
-            });
-            
-            // Show the target tab pane
+            // Get target ID
             const targetId = this.getAttribute('data-bs-target');
+            console.log('Target ID:', targetId);
+            
+            // Find target pane
             const targetPane = document.querySelector(targetId);
+            console.log('Target pane found:', targetPane);
+            
             if (targetPane) {
-                targetPane.classList.add('show', 'active');
-                console.log('Showing tab:', targetId);
+                // Hide all tab panes
+                document.querySelectorAll('.tab-pane').forEach(function(pane) {
+                    pane.style.display = 'none';
+                    console.log('Hiding pane:', pane.id);
+                });
+                
+                // Show the target tab pane using inline style
+                targetPane.style.display = 'block';
+                console.log('Showing pane:', targetPane.id);
+                
+                // Update button active states
+                document.querySelectorAll('#settingsTabs .nav-link').forEach(function(btn) {
+                    btn.classList.remove('active');
+                });
+                this.classList.add('active');
             } else {
                 console.error('Target pane not found:', targetId);
             }
         });
     });
     
-    // Activate System tab by default
-    const systemTab = document.querySelector('#system-tab');
-    if (systemTab) {
-        systemTab.click();
-    } else {
-        console.error('System tab button not found');
+    // Try forcing the system tab to be visible
+    const systemPane = document.getElementById('system-settings');
+    if (systemPane) {
+        console.log('Forcing system pane visible');
+        systemPane.style.display = 'block';
     }
     
-    // Set up form submission handlers if defined
-    if (typeof saveSystemSettings === 'function') {
-        document.getElementById('systemSettingsForm')?.addEventListener('submit', saveSystemSettings);
-    }
-    
-    if (typeof saveParameterSettings === 'function') {
-        document.getElementById('phSettingsForm')?.addEventListener('submit', saveParameterSettings);
-    }
-    
-    if (typeof saveDeviceSettings === 'function') {
-        document.getElementById('pumpsSettingsForm')?.addEventListener('submit', saveDeviceSettings);
-        document.getElementById('sensorsSettingsForm')?.addEventListener('submit', saveDeviceSettings);
-    }
-    
-    if (typeof saveNotificationSettings === 'function') {
-        document.getElementById('notificationSettingsForm')?.addEventListener('submit', saveNotificationSettings);
-    }
-    
-    if (typeof saveMaintenanceSettings === 'function') {
-        document.getElementById('maintenanceSettingsForm')?.addEventListener('submit', saveMaintenanceSettings);
-    }
-    
-    // Set up test email button
-    const testEmailBtn = document.querySelector('#notification-settings button.btn-secondary');
-    if (testEmailBtn && typeof testEmailNotification === 'function') {
-        testEmailBtn.addEventListener('click', testEmailNotification);
-    }
-    
-    // Set up dependent form field behavior
-    if (typeof setupFormDependencies === 'function') {
-        setupFormDependencies();
+    // If all else fails, insert a visible test div
+    const settingsTab = document.getElementById('settings-tab');
+    if (settingsTab) {
+        const testDiv = document.createElement('div');
+        testDiv.innerHTML = '<div style="padding: 20px; background-color: #ff0; margin-top: 20px;"><strong>Test Content</strong><p>If you can see this, the settings tab is working but content is hidden.</p></div>';
+        settingsTab.appendChild(testDiv);
+        console.log('Added test div to settings tab');
     }
 }
 
