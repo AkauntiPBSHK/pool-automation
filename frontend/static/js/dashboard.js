@@ -80,6 +80,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (getParameterByName('simulate') !== 'false') {
         setInterval(simulateDataChanges, 5000);
     }
+
+    updateDashboardWithSettings();
 });
 
 /**
@@ -2518,6 +2520,8 @@ function saveSystemSettings(e) {
         localStorage.setItem('systemSettings', JSON.stringify(settings));
         showToast('System settings saved successfully');
 
+        updateDashboardWithSettings();
+
         // Restore button state
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
@@ -2643,6 +2647,8 @@ function saveDeviceSettings(e) {
         // Save settings
         localStorage.setItem('deviceSettings', JSON.stringify(deviceSettings));
 
+        updateDashboardWithSettings();
+
         // Restore button state
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
@@ -2693,6 +2699,8 @@ function saveNotificationSettings(e) {
         localStorage.setItem('notificationSettings', JSON.stringify(settings));
         showToast('Notification settings saved successfully');
 
+        updateDashboardWithSettings();
+
         // Restore button state
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
@@ -2729,6 +2737,8 @@ function saveMaintenanceSettings(e) {
         
         // Update next maintenance dates
         updateMaintenanceSchedule();
+
+        updateDashboardWithSettings();
 
         // Restore button state
         submitBtn.innerHTML = originalText;
@@ -3198,5 +3208,91 @@ function resetAllSettings() {
         updateUIWithSettings();
         
         showToast('All settings have been reset to defaults');
+    }
+}
+
+/**
+ * Update dashboard UI elements based on current settings
+ */
+function updateDashboardWithSettings() {
+    console.log('Updating dashboard with current settings');
+    
+    // Get current settings from localStorage
+    const systemSettings = JSON.parse(localStorage.getItem('systemSettings') || '{}');
+    const parameterSettings = JSON.parse(localStorage.getItem('parameterSettings') || '{}');
+    const deviceSettings = JSON.parse(localStorage.getItem('deviceSettings') || '{}');
+    
+    // 1. Update system name in header if it exists
+    if (systemSettings.name) {
+        const dashboardTitle = document.querySelector('.navbar-brand');
+        if (dashboardTitle) {
+            dashboardTitle.textContent = systemSettings.name;
+        }
+    }
+    
+    // 2. Update parameter target ranges in overview cards
+    // pH settings
+    if (parameterSettings.ph) {
+        updateParameterTargets('ph', parameterSettings.ph.targetMin, parameterSettings.ph.targetMax);
+    }
+    
+    // Free chlorine settings
+    if (parameterSettings.chlorine) {
+        updateParameterTargets('freeChlorine', parameterSettings.chlorine.freeTarget, parameterSettings.chlorine.freeHigh);
+    }
+    
+    // ORP settings
+    if (parameterSettings.orp) {
+        updateParameterTargets('orp', parameterSettings.orp.target, parameterSettings.orp.high);
+    }
+    
+    // Turbidity settings
+    if (parameterSettings.turbidity) {
+        updateParameterTargets('turbidity', parameterSettings.turbidity.target, parameterSettings.turbidity.high);
+    }
+    
+    // 3. Update control thresholds in specific tabs
+    // PAC control thresholds
+    if (parameterSettings.turbidity) {
+        const highThreshold = document.getElementById('pacHighThreshold');
+        const lowThreshold = document.getElementById('pacLowThreshold');
+        const targetValue = document.getElementById('pacTargetValue');
+        
+        if (highThreshold && parameterSettings.turbidity.high) {
+            highThreshold.value = parameterSettings.turbidity.high;
+        }
+        
+        if (lowThreshold && parameterSettings.turbidity.low) {
+            lowThreshold.value = parameterSettings.turbidity.low;
+        }
+        
+        if (targetValue && parameterSettings.turbidity.target) {
+            targetValue.value = parameterSettings.turbidity.target;
+        }
+    }
+    
+    // 4. Update operation mode if applicable
+    if (systemSettings.defaultMode) {
+        if (systemSettings.defaultMode === 'automatic' && document.getElementById('autoMode')) {
+            document.getElementById('autoMode').click();
+        } else if (systemSettings.defaultMode === 'manual' && document.getElementById('manualMode')) {
+            document.getElementById('manualMode').click();
+        }
+    }
+    
+    console.log('Dashboard updated successfully');
+}
+
+/**
+ * Helper function to update parameter target ranges in overview cards
+ */
+function updateParameterTargets(paramId, min, max) {
+    const paramCard = document.querySelector(`.parameter-card[data-param="${paramId}"], #${paramId}Card`);
+    if (!paramCard) return;
+    
+    // Find target range element - check for various possible selectors
+    const targetEl = paramCard.querySelector('.parameter-range-text, .parameter-info .text-muted');
+    if (targetEl) {
+        targetEl.textContent = `Target: ${min} - ${max}`;
     }
 }
