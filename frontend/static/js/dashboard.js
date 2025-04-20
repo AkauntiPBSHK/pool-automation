@@ -2352,23 +2352,43 @@ function updateAllAxisVisibility() {
         historyChart.options.scales['y-ph'].grid.color = undefined; // Use default
     }
 }
-
 /**
  * Initialize settings tab functionality
  */
 function initializeSettingsTab() {
     console.log('Initializing Settings Tab');
     
+    // Make sure Bootstrap is available
+    if (typeof bootstrap === 'undefined') {
+        console.error('Bootstrap JavaScript is not loaded');
+        return;
+    }
+    
+    // Initialize tab system
+    try {
+        var triggerTabList = [].slice.call(document.querySelectorAll('#settingsTabs .nav-link'))
+        triggerTabList.forEach(function (triggerEl) {
+            var tabTrigger = new bootstrap.Tab(triggerEl)
+            
+            triggerEl.addEventListener('click', function (event) {
+                event.preventDefault()
+                tabTrigger.show()
+            })
+        })
+    } catch (error) {
+        console.error('Error initializing tabs:', error);
+    }
+    
     // Load saved settings from localStorage or use defaults
     loadSavedSettings();
     
     // Set up form submission handlers
-    document.getElementById('systemSettingsForm').addEventListener('submit', saveSystemSettings);
-    document.getElementById('phSettingsForm').addEventListener('submit', saveParameterSettings);
-    document.getElementById('pumpsSettingsForm').addEventListener('submit', saveDeviceSettings);
-    document.getElementById('sensorsSettingsForm').addEventListener('submit', saveDeviceSettings);
-    document.getElementById('notificationSettingsForm').addEventListener('submit', saveNotificationSettings);
-    document.getElementById('maintenanceSettingsForm').addEventListener('submit', saveMaintenanceSettings);
+    document.getElementById('systemSettingsForm')?.addEventListener('submit', saveSystemSettings);
+    document.getElementById('phSettingsForm')?.addEventListener('submit', saveParameterSettings);
+    document.getElementById('pumpsSettingsForm')?.addEventListener('submit', saveDeviceSettings);
+    document.getElementById('sensorsSettingsForm')?.addEventListener('submit', saveDeviceSettings);
+    document.getElementById('notificationSettingsForm')?.addEventListener('submit', saveNotificationSettings);
+    document.getElementById('maintenanceSettingsForm')?.addEventListener('submit', saveMaintenanceSettings);
     
     // Set up test email button
     const testEmailBtn = document.querySelector('#notification-settings button.btn-secondary');
