@@ -2358,46 +2358,79 @@ function updateAllAxisVisibility() {
 function initializeSettingsTab() {
     console.log('Initializing Settings Tab');
     
-    // Make sure Bootstrap is available
-    if (typeof bootstrap === 'undefined') {
-        console.error('Bootstrap JavaScript is not loaded');
-        return;
-    }
-    
-    // Initialize tab system
-    try {
-        var triggerTabList = [].slice.call(document.querySelectorAll('#settingsTabs .nav-link'))
-        triggerTabList.forEach(function (triggerEl) {
-            var tabTrigger = new bootstrap.Tab(triggerEl)
-            
-            triggerEl.addEventListener('click', function (event) {
-                event.preventDefault()
-                tabTrigger.show()
-            })
-        })
-    } catch (error) {
-        console.error('Error initializing tabs:', error);
-    }
-    
     // Load saved settings from localStorage or use defaults
-    loadSavedSettings();
+    if (typeof loadSavedSettings === 'function') {
+        loadSavedSettings();
+    }
     
-    // Set up form submission handlers
-    document.getElementById('systemSettingsForm')?.addEventListener('submit', saveSystemSettings);
-    document.getElementById('phSettingsForm')?.addEventListener('submit', saveParameterSettings);
-    document.getElementById('pumpsSettingsForm')?.addEventListener('submit', saveDeviceSettings);
-    document.getElementById('sensorsSettingsForm')?.addEventListener('submit', saveDeviceSettings);
-    document.getElementById('notificationSettingsForm')?.addEventListener('submit', saveNotificationSettings);
-    document.getElementById('maintenanceSettingsForm')?.addEventListener('submit', saveMaintenanceSettings);
+    // Manually setup tab switching since Bootstrap tabs aren't working
+    document.querySelectorAll('#settingsTabs .nav-link').forEach(function(tabButton) {
+        tabButton.addEventListener('click', function() {
+            // Remove active class from all tab buttons
+            document.querySelectorAll('#settingsTabs .nav-link').forEach(function(btn) {
+                btn.classList.remove('active');
+            });
+            
+            // Add active class to clicked button
+            this.classList.add('active');
+            
+            // Hide all tab panes
+            document.querySelectorAll('.tab-pane').forEach(function(pane) {
+                pane.classList.remove('show', 'active');
+            });
+            
+            // Show the target tab pane
+            const targetId = this.getAttribute('data-bs-target');
+            const targetPane = document.querySelector(targetId);
+            if (targetPane) {
+                targetPane.classList.add('show', 'active');
+                console.log('Showing tab:', targetId);
+            } else {
+                console.error('Target pane not found:', targetId);
+            }
+        });
+    });
+    
+    // Activate System tab by default
+    const systemTab = document.querySelector('#system-tab');
+    if (systemTab) {
+        systemTab.click();
+    } else {
+        console.error('System tab button not found');
+    }
+    
+    // Set up form submission handlers if defined
+    if (typeof saveSystemSettings === 'function') {
+        document.getElementById('systemSettingsForm')?.addEventListener('submit', saveSystemSettings);
+    }
+    
+    if (typeof saveParameterSettings === 'function') {
+        document.getElementById('phSettingsForm')?.addEventListener('submit', saveParameterSettings);
+    }
+    
+    if (typeof saveDeviceSettings === 'function') {
+        document.getElementById('pumpsSettingsForm')?.addEventListener('submit', saveDeviceSettings);
+        document.getElementById('sensorsSettingsForm')?.addEventListener('submit', saveDeviceSettings);
+    }
+    
+    if (typeof saveNotificationSettings === 'function') {
+        document.getElementById('notificationSettingsForm')?.addEventListener('submit', saveNotificationSettings);
+    }
+    
+    if (typeof saveMaintenanceSettings === 'function') {
+        document.getElementById('maintenanceSettingsForm')?.addEventListener('submit', saveMaintenanceSettings);
+    }
     
     // Set up test email button
     const testEmailBtn = document.querySelector('#notification-settings button.btn-secondary');
-    if (testEmailBtn) {
+    if (testEmailBtn && typeof testEmailNotification === 'function') {
         testEmailBtn.addEventListener('click', testEmailNotification);
     }
     
     // Set up dependent form field behavior
-    setupFormDependencies();
+    if (typeof setupFormDependencies === 'function') {
+        setupFormDependencies();
+    }
 }
 
 /**
