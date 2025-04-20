@@ -1381,36 +1381,8 @@ function initializeHistoryChart() {
                         position: 'top',
                         labels: {
                             usePointStyle: true
-                        },
-                        onClick: function(e, legendItem, legend) {
-                            // Toggle dataset visibility (default behavior)
-                            const index = legendItem.datasetIndex;
-                            const meta = this.chart.getDatasetMeta(index);
-                            meta.hidden = meta.hidden === null ? !this.chart.data.datasets[index].hidden : null;
-                            
-                            // Sync checkbox states based on dataset visibility
-                            if (index === 0) { // pH
-                                document.getElementById('showPh').checked = !meta.hidden;
-                            } else if (index === 1) { // ORP
-                                document.getElementById('showOrp').checked = !meta.hidden;
-                            } else if (index === 2) { // Free Chlorine
-                                document.getElementById('showFreeChlorine').checked = !meta.hidden;
-                            } else if (index === 3) { // Combined Chlorine
-                                document.getElementById('showCombinedChlorine').checked = !meta.hidden;
-                            } else if (index === 4) { // Turbidity
-                                document.getElementById('showTurbidity').checked = !meta.hidden;
-                            } else if (index === 5) { // Temperature
-                                document.getElementById('showTemp').checked = !meta.hidden;
-                            } else if (index === 6) { // Dosing Events
-                                document.getElementById('showDosingEvents').checked = !meta.hidden;
-                            }
-                            
-                            // Update all axis visibility
-                            updateAllAxisVisibility();
-                            
-                            // Update chart
-                            this.chart.update();
                         }
+                        // Remove the onClick handler here - we'll set it after chart creation
                     },
                     tooltip: {
                         callbacks: {
@@ -1448,43 +1420,128 @@ function initializeHistoryChart() {
         // Link parameter checkboxes to chart visibility
         linkCheckboxesToChart();
         syncCheckboxesWithChart();
-    } catch (error) {
-        console.error('Error initializing chart:', error);
-    }
-
-        // Add legend click handler to sync checkboxes
+        
+        // Set up the legend click handler now (AFTER chart creation)
         historyChart.options.plugins.legend.onClick = function(e, legendItem, legend) {
             // Default legend click behavior (toggle visibility)
             Chart.defaults.plugins.legend.onClick.call(this, e, legendItem, legend);
     
-            // Update checkbox state
-            if (legendItem.datasetIndex !== 6) { // Skip dosing events
+            // After toggling visibility in the chart, update UI components
+            setTimeout(() => {
+                // Get current visibility state
+                const isVisible = historyChart.isDatasetVisible(legendItem.datasetIndex);
+        
+                // Map dataset labels to their corresponding UI elements
                 const datasetLabels = {
+                    'pH': { checkboxId: 'showPh', buttonSelector: 'button[data-param="pH"]' },
+                    'ORP': { checkboxId: 'showOrp', buttonSelector: 'button[data-param="ORP"]' },
+                    'Free Chlorine': { checkboxId: 'showFreeChlorine', buttonSelector: 'button[data-param="Free Chlorine"]' },
+                    'Combined Chlorine': { checkboxId: 'showCombinedChlorine', buttonSelector: 'button[data-param="Combined Cl"]' },
+                    'Turbidity': { checkboxId: 'showTurbidity', buttonSelector: 'button[data-param="Turbidity"]' },
+                    'Temperature': { checkboxId: 'showTemp', buttonSelector: 'button[data-param="Temperature"]' }
+                };
+            
+                const mappedItem = datasetLabels[legendItem.text];
+                if (mappedItem) {
+                    // Update checkbox
+                    const checkbox = document.getElementById(mappedItem.checkboxId);
+                    if (checkbox) {
+                        checkbox.checked = isVisible;
+                    }
+                
+                    // Update parameter button - use querySelector instead of :contains()
+                    const paramButton = document.querySelector(mappedItem.buttonSelector);
+                    if (paramButton) {
+                        paramButton.classList.toggle('active', isVisible);
+                        paramButton.classList.toggle('btn-primary', isVisible);
+                        paramButton.classList.toggle('btn-outline-secondary', !isVisible);
+                    }
+                } else if (legendItem.text === 'Dosing Events') {
+                    // Handle dosing events
+                    const checkbox = document.getElementById('showDosingEvents');
+                    if (checkbox) {
+                        checkbox.checked = isVisible;
+                    }
+                }
+        
+                // Update all axis visibility
+                updateAllAxisVisibility();
+        
+                // Update chart
+                historyChart.update();
+            }, 0);
+        };
+        
+        // Initialize parameter buttons
+        initializeParameterButtons();
+        
+    } catch (error) {
+        console.error('Error initializing chart:', error);
+    }
+}
+
+/**
+ * Initialize parameter button states based on chart visibility
+ * This function should be OUTSIDE the initializeHistoryChart function
+ */
+function initializeParameterButtons() {
+    if (!historyChart) return;
+    
+    // Map parameters to their button elements
+    const paramMap = {
+        'pH': { datasetIndex: 0, selector: 'button[data-param="pH"]' },
+        'ORP': { datasetIndex: 1, selector: 'button[data-param="ORP"]' },
+        'Free Chlorine': { datasetIndex: 2, selector: 'button[data-param="Free Chlorine"]' },
+        'Combined Chlorine': { datasetIndex: 3, selector: 'button[data-param="Combined Cl"]' },
+        'Turbidity': { datasetIndex: 4, selector: 'button[data-param="Turbidity"]' },
+        'Temperature': { datasetIndex: 5, selector: 'button[data-param="Temperature"]' }
+    };
+
+    // Update all parameter buttons based on initial chart visibility
+    Object.entries(paramMap).forEach(([param, info]) => {
+        const button = document.querySelector(info.selector);
+        
+        if (button && historyChart) {
+            const isVisible = historyChart.isDatasetVisible(info.datasetIndex);
+            button.classList.toggle('active', isVisible);
+            button.classList.toggle('btn-primary', isVisible);
+            button.classList.toggle('btn-outline-secondary', !isVisible);
+
+            // Add click handler to toggle chart visibility
+            button.addEventListener('click', function() {
+                // Toggle dataset visibility
+                const currentVisibility = historyChart.isDatasetVisible(info.datasetIndex);
+                const newVisibility = !currentVisibility;
+                historyChart.setDatasetVisibility(info.datasetIndex, newVisibility);
+
+                // Update button state to reflect new visibility
+                this.classList.toggle('active', newVisibility);
+                this.classList.toggle('btn-primary', newVisibility);
+                this.classList.toggle('btn-outline-secondary', !newVisibility);
+
+                // Update checkbox
+                const checkboxMap = {
                     'pH': 'showPh',
                     'ORP': 'showOrp',
                     'Free Chlorine': 'showFreeChlorine',
-                    'Combined Chlorine': 'showCombinedChlorine', 
+                    'Combined Chlorine': 'showCombinedChlorine',
                     'Turbidity': 'showTurbidity',
                     'Temperature': 'showTemp'
                 };
-        
-                const checkboxId = datasetLabels[legendItem.text];
-                if (checkboxId) {
-                    const checkbox = document.getElementById(checkboxId);
-                    if (checkbox) {
-                        checkbox.checked = !historyChart.isDatasetVisible(legendItem.datasetIndex);
-                    }
-                }
-            } else {
-                // Handle dosing events
-                const checkbox = document.getElementById('showDosingEvents');
+
+                const checkbox = document.getElementById(checkboxMap[param]);
                 if (checkbox) {
-                    checkbox.checked = !historyChart.isDatasetVisible(legendItem.datasetIndex);
+                    checkbox.checked = newVisibility;
                 }
-            }
-    
-            historyChart.update();
-        };
+
+                // Update axis visibility
+                updateAllAxisVisibility();
+
+                // Update chart
+                historyChart.update();
+            });
+        }
+    });
 }
 
 /**
