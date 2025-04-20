@@ -2401,6 +2401,27 @@ function initializeSettingsTab() {
  */
 function loadSavedSettings() {
     // System settings
+    const systemSettings = localStorage.getItem('systemSettings') 
+    ? JSON.parse(localStorage.getItem('systemSettings')) 
+    : {
+        name: 'Pool Automation System',
+        defaultMode: 'automatic',
+        tempUnit: 'celsius',
+        timeFormat: '24h',
+        dataSamplingRate: '300',
+        dataRetention: '30',
+        enableSimulation: true
+    };
+
+    // Always set values, regardless of whether they were saved
+    document.getElementById('systemName').value = systemSettings.name || 'Pool Automation System';
+    document.getElementById('defaultMode').value = systemSettings.defaultMode || 'automatic';
+    document.getElementById('tempUnit').value = systemSettings.tempUnit || 'celsius';
+    document.getElementById('timeFormat').value = systemSettings.timeFormat || '24h';
+    document.getElementById('dataSamplingRate').value = systemSettings.dataSamplingRate || '300';
+    document.getElementById('dataRetention').value = systemSettings.dataRetention || '30';
+    document.getElementById('enableSimulation').checked = systemSettings.enableSimulation !== false;
+
     if (localStorage.getItem('systemSettings')) {
         const systemSettings = JSON.parse(localStorage.getItem('systemSettings'));
         
@@ -2548,14 +2569,31 @@ function saveParameterSettings(e) {
             : {};
     
         // Update pH settings
-        parameterSettings.ph = {
-            targetMin: parseFloat(document.getElementById('phTargetMin').value),
-            targetMax: parseFloat(document.getElementById('phTargetMax').value),
-            alertLow: parseFloat(document.getElementById('phAlertLow').value),
-            alertHigh: parseFloat(document.getElementById('phAlertHigh').value),
-            doseRate: parseInt(document.getElementById('phDoseRate').value),
-            dosingDelay: parseInt(document.getElementById('phDosingDelay').value),
-            autoDosing: document.getElementById('phAutoDosing').checked
+        parameterSettings = {
+            ph: {
+                targetMin: parseFloat(document.getElementById('phTargetMin').value),
+                targetMax: parseFloat(document.getElementById('phTargetMax').value),
+                alertLow: parseFloat(document.getElementById('phAlertLow').value),
+                alertHigh: parseFloat(document.getElementById('phAlertHigh').value),
+                doseRate: parseInt(document.getElementById('phDoseRate').value),
+                dosingDelay: parseInt(document.getElementById('phDosingDelay').value),
+                autoDosing: document.getElementById('phAutoDosing').checked
+            },
+
+            chlorine: {
+                freeTarget: 1.2,
+                freeHigh: 2.0,
+                combinedTarget: 0.2
+            },
+            orp: {
+                target: 720,
+                high: 750
+            },
+            turbidity: {
+                target: 0.15,
+                high: 0.25,
+                low: 0.12
+            }
         };
     
         // Add validation for target ranges
@@ -3174,8 +3212,21 @@ function resetAllSettings() {
  * Update dashboard UI elements based on current settings
  */
 function updateDashboardWithSettings() {
+    console.log("updateDashboardWithSettings called!");
+
     console.log('Updating dashboard with current settings');
     
+    console.log("Updating dashboard with settings:", {
+        systemSettings: JSON.parse(localStorage.getItem('systemSettings') || '{}'),
+        parameterSettings: JSON.parse(localStorage.getItem('parameterSettings') || '{}')
+    });
+
+    const paramCards = document.querySelectorAll('.card');
+    console.log("Found param cards:", paramCards.length);
+    paramCards.forEach((card, index) => {
+        console.log(`Card ${index}:`, card.outerHTML.substring(0, 100) + '...');
+    });
+
     // Get current settings from localStorage
     const systemSettings = JSON.parse(localStorage.getItem('systemSettings') || '{}');
     const parameterSettings = JSON.parse(localStorage.getItem('parameterSettings') || '{}');
@@ -3183,7 +3234,7 @@ function updateDashboardWithSettings() {
     
     // 1. Update system name in header if it exists
     if (systemSettings.name) {
-        const dashboardTitle = document.querySelector('.navbar-brand');
+        const dashboardTitle = document.querySelector('.sidebar-header h3');
         if (dashboardTitle) {
             dashboardTitle.textContent = systemSettings.name;
         }
@@ -3278,49 +3329,45 @@ function updateDashboardWithSettings() {
  * Helper function to update parameter target ranges in overview cards
  */
 function updateParameterTargets(paramId, min, max) {
-    // Find the parameter card
-    const paramCard = document.querySelector(`.parameter-card[data-param="${paramId}"], #${paramId}Card`);
-    if (!paramCard) return;
+    console.log(`Updating parameter ${paramId} targets: ${min} - ${max}`);
     
-    // Find target range element - check for various possible selectors
-    const targetEl = paramCard.querySelector('.parameter-range-text, .parameter-info .text-muted');
-    if (targetEl) {
-        targetEl.textContent = `Target: ${min} - ${max}`;
+    // Try multiple selector approaches
+    let paramCard = document.querySelector(`.parameter-card[data-param="${paramId}"]`);
+    if (!paramCard) {
+        paramCard = document.querySelector(`#${paramId}Card`);
     }
-    
-    // Update parameter marker position to align with target range
-    const markerEl = paramCard.querySelector('.parameter-marker');
-    if (markerEl) {
-        // Find the current value to position the marker
-        const valueEl = paramCard.querySelector(`#${paramId}Value`);
-        if (valueEl) {
-            const currentValue = parseFloat(valueEl.textContent);
-            if (!isNaN(currentValue)) {
-                // Determine min/max scale values based on parameter
-                let minScale, maxScale;
-                switch(paramId) {
-                    case 'ph': 
-                        minScale = 6.8; maxScale = 8.0; 
-                        break;
-                    case 'orp': 
-                        minScale = 600; maxScale = 800; 
-                        break;
-                    case 'freeChlorine': 
-                        minScale = 0.5; maxScale = 3.0; 
-                        break;
-                    case 'turbidity': 
-                        minScale = 0.0; maxScale = 0.5; 
-                        break;
-                    case 'temp': 
-                        minScale = 20; maxScale = 32; 
-                        break;
-                    default: 
-                        minScale = min; maxScale = max;
-                }
-                // Calculate percentage position for marker
-                const percentage = ((currentValue - minScale) / (maxScale - minScale)) * 100;
-                markerEl.style.left = `${Math.min(100, Math.max(0, percentage))}%`;
+    if (!paramCard) {
+        // Try finding by content
+        const allCards = document.querySelectorAll('.card');
+        for (const card of allCards) {
+            if (card.textContent.includes(paramId.toUpperCase()) || 
+                card.textContent.includes(paramId.charAt(0).toUpperCase() + paramId.slice(1))) {
+                paramCard = card;
+                break;
             }
         }
+    }
+    
+    if (!paramCard) {
+        console.log(`Parameter card for ${paramId} not found!`);
+        return;
+    }
+    
+    console.log(`Found parameter card for ${paramId}:`, paramCard);
+    
+    // Find target range element
+    let targetEl = paramCard.querySelector('.parameter-range-text');
+    if (!targetEl) {
+        targetEl = paramCard.querySelector('.parameter-info .text-muted');
+    }
+    if (!targetEl) {
+        targetEl = paramCard.querySelector('.text-muted');  
+    }
+    
+    if (targetEl) {
+        console.log(`Updating target element text to: Target: ${min} - ${max}`);
+        targetEl.textContent = `Target: ${min} - ${max}`;
+    } else {
+        console.log(`Target element not found in card for ${paramId}`);
     }
 }
