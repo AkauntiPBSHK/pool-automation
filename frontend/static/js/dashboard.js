@@ -2809,17 +2809,6 @@ function testEmailNotification() {
 }
 
 /**
- * Update dashboard with new settings
- */
-function updateDashboardWithSettings() {
-    // This function would update the dashboard based on saved settings
-    // For example, updating parameter target ranges, pump status displays, etc.
-    
-    // For now, we'll just log a message
-    console.log('Updating dashboard with new settings');
-}
-
-/**
  * Update maintenance schedule
  */
 function updateMaintenanceSchedule() {
@@ -3094,40 +3083,6 @@ function exportSettings() {
 }
 
 /**
- * Import settings from a JSON file
- */
-function importSettings(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const settings = JSON.parse(e.target.result);
-            
-            // Save each settings group to localStorage
-            if (settings.systemSettings) localStorage.setItem('systemSettings', JSON.stringify(settings.systemSettings));
-            if (settings.parameterSettings) localStorage.setItem('parameterSettings', JSON.stringify(settings.parameterSettings));
-            if (settings.deviceSettings) localStorage.setItem('deviceSettings', JSON.stringify(settings.deviceSettings));
-            if (settings.notificationSettings) localStorage.setItem('notificationSettings', JSON.stringify(settings.notificationSettings));
-            if (settings.maintenanceSettings) localStorage.setItem('maintenanceSettings', JSON.stringify(settings.maintenanceSettings));
-            
-            // Reload settings
-            loadSavedSettings();
-            
-            // Update UI
-            updateUIWithSettings();
-            
-            showToast('Settings imported successfully');
-        } catch (error) {
-            console.error('Error importing settings:', error);
-            showToast('Error importing settings. Invalid file format.', 'danger');
-        }
-    };
-    reader.readAsText(file);
-}
-
-/**
  * Export all settings to a JSON file
  */
 function exportSettings() {
@@ -3176,6 +3131,8 @@ function importSettings(event) {
             
             // Update UI
             updateUIWithSettings();
+
+            updateDashboardWithSettings();
             
             showToast('Settings imported successfully');
         } catch (error) {
@@ -3206,6 +3163,8 @@ function resetAllSettings() {
         
         // Update UI
         updateUIWithSettings();
+
+        updateDashboardWithSettings();
         
         showToast('All settings have been reset to defaults');
     }
@@ -3270,6 +3229,24 @@ function updateDashboardWithSettings() {
             targetValue.value = parameterSettings.turbidity.target;
         }
     }
+
+    // pH control panel (Water Chemistry tab)
+    if (parameterSettings.ph) {
+        // Update pH range progress bar if it exists
+        const phRangeEl = document.querySelector('.progress .bg-success');
+        if (phRangeEl) {
+            const rangeWidth = (parameterSettings.ph.targetMax - parameterSettings.ph.targetMin) / (8.0 - 6.8) * 100;
+            const rangeStart = (parameterSettings.ph.targetMin - 6.8) / (8.0 - 6.8) * 100;
+            phRangeEl.style.width = `${rangeWidth}%`;
+            phRangeEl.style.marginLeft = `${rangeStart}%`;
+        }
+        
+        // Update active range text
+        const phRangeText = document.querySelector('.active-range');
+        if (phRangeText) {
+            phRangeText.textContent = `${parameterSettings.ph.targetMin} - ${parameterSettings.ph.targetMax}`;
+        }
+    }
     
     // 4. Update operation mode if applicable
     if (systemSettings.defaultMode) {
@@ -3281,12 +3258,27 @@ function updateDashboardWithSettings() {
     }
     
     console.log('Dashboard updated successfully');
+
+    // 5. Update operation mode if applicable
+    if (systemSettings.defaultMode) {
+        if (systemSettings.defaultMode === 'automatic' && document.getElementById('autoMode')) {
+            // Only set if not already in this mode
+            if (!document.getElementById('autoMode').classList.contains('active')) {
+                document.getElementById('autoMode').click();
+            }
+        } else if (systemSettings.defaultMode === 'manual' && document.getElementById('manualMode')) {
+            if (!document.getElementById('manualMode').classList.contains('active')) {
+                document.getElementById('manualMode').click();
+            }
+        }
+    }
 }
 
 /**
  * Helper function to update parameter target ranges in overview cards
  */
 function updateParameterTargets(paramId, min, max) {
+    // Find the parameter card
     const paramCard = document.querySelector(`.parameter-card[data-param="${paramId}"], #${paramId}Card`);
     if (!paramCard) return;
     
@@ -3294,5 +3286,41 @@ function updateParameterTargets(paramId, min, max) {
     const targetEl = paramCard.querySelector('.parameter-range-text, .parameter-info .text-muted');
     if (targetEl) {
         targetEl.textContent = `Target: ${min} - ${max}`;
+    }
+    
+    // Update parameter marker position to align with target range
+    const markerEl = paramCard.querySelector('.parameter-marker');
+    if (markerEl) {
+        // Find the current value to position the marker
+        const valueEl = paramCard.querySelector(`#${paramId}Value`);
+        if (valueEl) {
+            const currentValue = parseFloat(valueEl.textContent);
+            if (!isNaN(currentValue)) {
+                // Determine min/max scale values based on parameter
+                let minScale, maxScale;
+                switch(paramId) {
+                    case 'ph': 
+                        minScale = 6.8; maxScale = 8.0; 
+                        break;
+                    case 'orp': 
+                        minScale = 600; maxScale = 800; 
+                        break;
+                    case 'freeChlorine': 
+                        minScale = 0.5; maxScale = 3.0; 
+                        break;
+                    case 'turbidity': 
+                        minScale = 0.0; maxScale = 0.5; 
+                        break;
+                    case 'temp': 
+                        minScale = 20; maxScale = 32; 
+                        break;
+                    default: 
+                        minScale = min; maxScale = max;
+                }
+                // Calculate percentage position for marker
+                const percentage = ((currentValue - minScale) / (maxScale - minScale)) * 100;
+                markerEl.style.left = `${Math.min(100, Math.max(0, percentage))}%`;
+            }
+        }
     }
 }
