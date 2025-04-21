@@ -2910,7 +2910,9 @@ function saveRetentionSettings() {
  */
 function confirmResetSettings() {
     if (confirm('Are you sure you want to reset all settings to default values? This cannot be undone.')) {
-        // Clear all settings from localStorage
+        console.log("Resetting settings to defaults");
+        
+        // Clear localStorage
         localStorage.removeItem('systemConfig');
         localStorage.removeItem('notificationSettings');
         localStorage.removeItem('chemistryTargets');
@@ -2918,19 +2920,16 @@ function confirmResetSettings() {
         localStorage.removeItem('turbiditySettings');
         localStorage.removeItem('retentionSettings');
         
-        // Manually reset form fields to defaults
+        // Set form fields to defaults
+        // Account for all the form fields we need to reset
+        
+        // System config defaults
         document.getElementById('systemName').value = 'Pool Automation System';
         document.getElementById('poolSize').value = '300';
         document.getElementById('refreshInterval').value = '10';
         document.getElementById('defaultModeAuto').checked = true;
-        document.getElementById('tempCelsius').checked = true;
         
-        document.getElementById('notificationEmail').value = '';
-        document.getElementById('alertNotifications').checked = true;
-        document.getElementById('warningNotifications').checked = true;
-        document.getElementById('maintenanceNotifications').checked = true;
-        document.getElementById('dailyReportNotifications').checked = false;
-        
+        // Chemistry targets defaults
         document.getElementById('phTargetMin').value = '7.2';
         document.getElementById('phTargetMax').value = '7.6';
         document.getElementById('orpTargetMin').value = '650';
@@ -2939,6 +2938,7 @@ function confirmResetSettings() {
         document.getElementById('freeClTargetMax').value = '2.0';
         document.getElementById('combinedClMax').value = '0.3';
         
+        // Pump config defaults
         document.getElementById('phPumpFlowRate').value = '120';
         document.getElementById('clPumpFlowRate').value = '150';
         document.getElementById('pacMinFlow').value = '60';
@@ -2946,23 +2946,37 @@ function confirmResetSettings() {
         document.getElementById('phMaxDoseDuration').value = '300';
         document.getElementById('clMaxDoseDuration').value = '300';
         
+        // Turbidity settings defaults
         document.getElementById('turbidityTarget').value = '0.15';
         document.getElementById('turbidityLowThreshold').value = '0.12';
         document.getElementById('turbidityHighThreshold').value = '0.25';
         document.getElementById('filterBackwashLevel').value = '70';
         document.getElementById('autoBackwashAlerts').checked = true;
         
+        // Notification settings defaults
+        document.getElementById('notificationEmail').value = '';
+        document.getElementById('alertNotifications').checked = true;
+        document.getElementById('warningNotifications').checked = true;
+        document.getElementById('maintenanceNotifications').checked = true;
+        document.getElementById('dailyReportNotifications').checked = false;
+        
+        // Retention settings defaults
         document.getElementById('dataRetention').value = '90';
         document.getElementById('eventRetention').value = '90';
-
-        const defaultSystemConfig = {
+        
+        // Now manually trigger each save function to ensure localStorage is updated and UI is refreshed
+        
+        // Save system config (simple approach without loading spinner)
+        const systemConfig = {
             systemName: 'Pool Automation System',
             poolSize: '300',
             refreshInterval: '10',
             defaultMode: 'auto'
         };
+        localStorage.setItem('systemConfig', JSON.stringify(systemConfig));
         
-        const defaultChemistryTargets = {
+        // Save chemistry targets
+        const chemistryTargets = {
             phTargetMin: '7.2',
             phTargetMax: '7.6',
             orpTargetMin: '650',
@@ -2971,23 +2985,78 @@ function confirmResetSettings() {
             freeClTargetMax: '2.0',
             combinedClMax: '0.3'
         };
+        localStorage.setItem('chemistryTargets', JSON.stringify(chemistryTargets));
         
-        const defaultTurbiditySettings = {
+        // Save pump config
+        const pumpConfig = {
+            phPumpFlowRate: '120',
+            clPumpFlowRate: '150',
+            pacMinFlow: '60',
+            pacMaxFlow: '150',
+            phMaxDoseDuration: '300',
+            clMaxDoseDuration: '300'
+        };
+        localStorage.setItem('pumpConfig', JSON.stringify(pumpConfig));
+        
+        // Save turbidity settings
+        const turbiditySettings = {
             turbidityTarget: '0.15',
             turbidityLowThreshold: '0.12',
             turbidityHighThreshold: '0.25',
             filterBackwashLevel: '70',
             autoBackwashAlerts: true
         };
+        localStorage.setItem('turbiditySettings', JSON.stringify(turbiditySettings));
         
-        // Store defaults back to localStorage
-        localStorage.setItem('systemConfig', JSON.stringify(defaultSystemConfig));
-        localStorage.setItem('chemistryTargets', JSON.stringify(defaultChemistryTargets));
-        localStorage.setItem('turbiditySettings', JSON.stringify(defaultTurbiditySettings));
+        // Save notification settings
+        const notificationSettings = {
+            notificationEmail: '',
+            alertNotifications: true,
+            warningNotifications: true,
+            maintenanceNotifications: true,
+            dailyReportNotifications: false
+        };
+        localStorage.setItem('notificationSettings', JSON.stringify(notificationSettings));
         
-        // Update UI elements
+        // Save retention settings
+        const retentionSettings = {
+            dataRetention: '90',
+            eventRetention: '90'
+        };
+        localStorage.setItem('retentionSettings', JSON.stringify(retentionSettings));
+        
+        // Update PAC dosing rate in mock data
+        if (mockData) {
+            mockData.pacDosingRate = 75; // Default value
+        }
+        
+        // Update UI
         updateUIFromSettings();
         
+        // Update other UI components
+        
+        // Update pH target display
+        const phTargetEl = document.querySelector('#phValue').closest('.d-flex').querySelector('.parameter-info .text-muted.small');
+        if (phTargetEl) {
+            phTargetEl.textContent = `Target: 7.2 - 7.6`;
+        }
+        
+        // Update ORP target display
+        const orpTargetEl = document.querySelector('#orpValue').closest('.d-flex').querySelector('.parameter-info .text-muted.small');
+        if (orpTargetEl) {
+            orpTargetEl.textContent = `mV (Target: 650 - 750)`;
+        }
+        
+        // Update chlorine target display
+        const clTargetEl = document.querySelector('#freeChlorineValue').closest('.d-flex').querySelector('.parameter-info .text-muted.small');
+        if (clTargetEl) {
+            clTargetEl.textContent = `Free (mg/L) (Target: 1.0 - 2.0)`;
+        }
+        
+        // Update system name in header
+        document.querySelector('.sidebar-header h3').textContent = 'Pool Automation System';
+        
+        console.log("Reset complete - UI should be updated");
         showToast('Settings reset to defaults');
     }
 }
