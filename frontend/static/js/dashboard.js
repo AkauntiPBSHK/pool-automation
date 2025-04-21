@@ -4077,16 +4077,6 @@ function applyLanguage(lang) {
         exportSettingsBtn.textContent = translations[lang].exportSettings;
     }
 
-    // Add to applyLanguage() function to handle data-i18n attributes
-    document.querySelectorAll('[data-i18n]').forEach(element => {
-        const key = element.getAttribute('data-i18n');
-        if (translations[lang][key]) {
-            element.textContent = translations[lang][key];
-        } else {
-            console.warn(`Missing translation for key "${key}" in language "${lang}"`);
-        }
-    });
-
     // Update time-related text in UV System card
     const uvRuntime = document.getElementById('uvRuntime');
     if (uvRuntime) {
