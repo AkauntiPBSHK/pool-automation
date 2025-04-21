@@ -61,6 +61,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Load initial data
     updateParameterDisplays(mockData);
+
+    // Apply any saved settings to the UI
+    updateUIFromSettings();
     
     // Setup socket events
     socket.on('connect', function() {
@@ -2521,6 +2524,7 @@ function saveSystemConfig(form) {
         submitButton.innerHTML = originalButtonText;
         submitButton.disabled = false;
         showToast('System settings saved successfully');
+        updateUIFromSettings();
     }, 800);
 }
 
@@ -2590,6 +2594,7 @@ function saveChemistryTargets(form) {
         submitButton.innerHTML = originalButtonText;
         submitButton.disabled = false;
         showToast('Chemistry targets saved successfully');
+        updateUIFromSettings();
     }, 800);
 }
 
@@ -2662,6 +2667,7 @@ function savePumpConfig(form) {
         submitButton.innerHTML = originalButtonText;
         submitButton.disabled = false;
         showToast('Pump settings saved successfully');
+        updateUIFromSettings();
     }, 800);
 }
 
@@ -2722,6 +2728,7 @@ function saveTurbiditySettings(form) {
         submitButton.innerHTML = originalButtonText;
         submitButton.disabled = false;
         showToast('Turbidity settings saved successfully');
+        updateUIFromSettings();
     }, 800);
 }
 
@@ -2891,7 +2898,7 @@ function saveRetentionSettings() {
     };
     
     localStorage.setItem('retentionSettings', JSON.stringify(retentionSettings));
-    
+
     // Simulated delay to show loading state
     setTimeout(function() {
         button.innerHTML = originalButtonText;
