@@ -46,9 +46,6 @@ document.addEventListener('DOMContentLoaded', function() {
         fetchStatus();
         updateParameterDisplays(mockData);
     });
-
-    // Add form validation setup
-    setupPHFormValidation();
     
     // Initialize water chemistry section
     initializeWaterChemistryControls();
@@ -59,6 +56,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize history tab
     initializeHistoryTab();
 
+    // Initialize settings tab the correct way
     fixSettingsTab();
 
     // Initial data fetch
@@ -83,7 +81,11 @@ document.addEventListener('DOMContentLoaded', function() {
         setInterval(simulateDataChanges, 5000);
     }
 
-    updateDashboardWithSettings();
+    // Give the DOM time to fully render before trying to apply settings
+    setTimeout(function() {
+        loadSavedSettings();
+        updateDashboardWithSettings();
+    }, 500);
 });
 
 /**
@@ -2361,145 +2363,201 @@ function updateAllAxisVisibility() {
  * Load saved settings from localStorage or use defaults
  */
 function loadSavedSettings() {
-    // System settings - set defaults if not exists
-    const systemSettings = localStorage.getItem('systemSettings') 
-        ? JSON.parse(localStorage.getItem('systemSettings')) 
-        : {
-            name: 'Pool Automation System',
-            defaultMode: 'automatic',
-            tempUnit: 'celsius',
-            timeFormat: '24h',
-            dataSamplingRate: '300',
-            dataRetention: '30',
-            enableSimulation: true
-        };
+    console.log('Loading saved settings with null checks');
     
-    // Always set values, regardless of whether they were saved
-    document.getElementById('systemName').value = systemSettings.name || 'Pool Automation System';
-    document.getElementById('defaultMode').value = systemSettings.defaultMode || 'automatic';
-    document.getElementById('tempUnit').value = systemSettings.tempUnit || 'celsius';
-    document.getElementById('timeFormat').value = systemSettings.timeFormat || '24h';
-    document.getElementById('dataSamplingRate').value = systemSettings.dataSamplingRate || '300';
-    document.getElementById('dataRetention').value = systemSettings.dataRetention || '30';
-    document.getElementById('enableSimulation').checked = systemSettings.enableSimulation !== false;
-
-    // Use standardized parameter settings
-    const parameterSettings = getParameterSettings();
-    
-    // Set pH settings
-    if (parameterSettings.ph) {
-        document.getElementById('phTargetMin').value = parameterSettings.ph.targetMin || 7.2;
-        document.getElementById('phTargetMax').value = parameterSettings.ph.targetMax || 7.6;
-        document.getElementById('phAlertLow').value = parameterSettings.ph.alertLow || 7.0;
-        document.getElementById('phAlertHigh').value = parameterSettings.ph.alertHigh || 7.8;
-        document.getElementById('phDoseRate').value = parameterSettings.ph.doseRate || 100;
-        document.getElementById('phDosingDelay').value = parameterSettings.ph.dosingDelay || 5;
-        document.getElementById('phAutoDosing').checked = parameterSettings.ph.autoDosing !== false;
-    }
-    
-    // Device settings - set defaults if not exists
-    const deviceSettings = localStorage.getItem('deviceSettings') 
-        ? JSON.parse(localStorage.getItem('deviceSettings')) 
-        : {
-            pumps: {
-                phPumpType: 'NOVA NSE155-E1504',
-                phPumpMaxFlow: 15.3,
-                clPumpType: 'NOVA NSE155-E1504',
-                clPumpMaxFlow: 15.3,
-                pacPumpType: 'Chonry WP110',
-                pacPumpMaxFlow: 150,
-                pacTubeSize: '2x1'
-            },
-            sensors: {
-                turbidityModel: 'Chemitec S461S LT',
-                turbidityRange: '0-100',
-                steielPort: '/dev/ttyUSB0',
-                steielAddress: 1,
-                turbidityPort: '/dev/ttyUSB1',
-                turbidityAddress: 1
+    try {
+        // System settings - set defaults if not exists
+        const systemSettings = localStorage.getItem('systemSettings') 
+            ? JSON.parse(localStorage.getItem('systemSettings')) 
+            : {
+                name: 'Pool Automation System',
+                defaultMode: 'automatic',
+                tempUnit: 'celsius',
+                timeFormat: '24h',
+                dataSamplingRate: '300',
+                dataRetention: '30',
+                enableSimulation: true
+            };
+        
+        // Helper function to safely set element values
+        function safeSetValue(id, value) {
+            const element = document.getElementById(id);
+            if (element) {
+                if (element.type === 'checkbox') {
+                    element.checked = Boolean(value);
+                } else {
+                    element.value = value;
+                }
             }
-        };
-    
-    // Set pump settings
-    if (deviceSettings.pumps) {
-        document.getElementById('phPumpType').value = deviceSettings.pumps.phPumpType || 'NOVA NSE155-E1504';
-        document.getElementById('phPumpMaxFlow').value = deviceSettings.pumps.phPumpMaxFlow || 15.3;
-        document.getElementById('clPumpType').value = deviceSettings.pumps.clPumpType || 'NOVA NSE155-E1504';
-        document.getElementById('clPumpMaxFlow').value = deviceSettings.pumps.clPumpMaxFlow || 15.3;
-        document.getElementById('pacPumpType').value = deviceSettings.pumps.pacPumpType || 'Chonry WP110';
-        document.getElementById('pacPumpMaxFlow').value = deviceSettings.pumps.pacPumpMaxFlow || 150;
-        document.getElementById('pacTubeSize').value = deviceSettings.pumps.pacTubeSize || '2x1';
+        }
+        
+        // System settings
+        safeSetValue('systemName', systemSettings.name || 'Pool Automation System');
+        safeSetValue('defaultMode', systemSettings.defaultMode || 'automatic');
+        safeSetValue('tempUnit', systemSettings.tempUnit || 'celsius');
+        safeSetValue('timeFormat', systemSettings.timeFormat || '24h');
+        safeSetValue('dataSamplingRate', systemSettings.dataSamplingRate || '300');
+        safeSetValue('dataRetention', systemSettings.dataRetention || '30');
+        safeSetValue('enableSimulation', systemSettings.enableSimulation !== false);
+        
+        // Parameter settings
+        const parameterSettings = localStorage.getItem('parameterSettings') 
+            ? JSON.parse(localStorage.getItem('parameterSettings')) 
+            : {
+                ph: {
+                    targetMin: 7.2,
+                    targetMax: 7.6,
+                    alertLow: 7.0,
+                    alertHigh: 7.8,
+                    doseRate: 100,
+                    dosingDelay: 5,
+                    autoDosing: true
+                },
+                chlorine: {
+                    freeTarget: 1.2,
+                    freeHigh: 2.0,
+                    freeLow: 1.0,
+                    combinedMax: 0.3,
+                    doseRate: 100,
+                    dosingDelay: 5,
+                    autoDosing: true
+                },
+                orp: {
+                    target: 720,
+                    high: 750,
+                    low: 650
+                },
+                turbidity: {
+                    target: 0.15,
+                    high: 0.25,
+                    low: 0.12
+                },
+                temperature: {
+                    target: 28,
+                    high: 30,
+                    low: 26
+                }
+            };
+        
+        // pH settings
+        if (parameterSettings.ph) {
+            safeSetValue('phTargetMin', parameterSettings.ph.targetMin);
+            safeSetValue('phTargetMax', parameterSettings.ph.targetMax);
+            safeSetValue('phAlertLow', parameterSettings.ph.alertLow);
+            safeSetValue('phAlertHigh', parameterSettings.ph.alertHigh);
+            safeSetValue('phDoseRate', parameterSettings.ph.doseRate);
+            safeSetValue('phDosingDelay', parameterSettings.ph.dosingDelay);
+            safeSetValue('phAutoDosing', parameterSettings.ph.autoDosing);
+        }
+        
+        // Device settings
+        const deviceSettings = localStorage.getItem('deviceSettings') 
+            ? JSON.parse(localStorage.getItem('deviceSettings')) 
+            : {
+                pumps: {
+                    phPumpType: 'NOVA NSE155-E1504',
+                    phPumpMaxFlow: 15.3,
+                    clPumpType: 'NOVA NSE155-E1504',
+                    clPumpMaxFlow: 15.3,
+                    pacPumpType: 'Chonry WP110',
+                    pacPumpMaxFlow: 150,
+                    pacTubeSize: '2x1'
+                },
+                sensors: {
+                    turbidityModel: 'Chemitec S461S LT',
+                    turbidityRange: '0-100',
+                    steielPort: '/dev/ttyUSB0',
+                    steielAddress: 1,
+                    turbidityPort: '/dev/ttyUSB1',
+                    turbidityAddress: 1
+                }
+            };
+        
+        // Pump settings
+        if (deviceSettings.pumps) {
+            safeSetValue('phPumpType', deviceSettings.pumps.phPumpType);
+            safeSetValue('phPumpMaxFlow', deviceSettings.pumps.phPumpMaxFlow);
+            safeSetValue('clPumpType', deviceSettings.pumps.clPumpType);
+            safeSetValue('clPumpMaxFlow', deviceSettings.pumps.clPumpMaxFlow);
+            safeSetValue('pacPumpType', deviceSettings.pumps.pacPumpType);
+            safeSetValue('pacPumpMaxFlow', deviceSettings.pumps.pacPumpMaxFlow);
+            safeSetValue('pacTubeSize', deviceSettings.pumps.pacTubeSize);
+        }
+        
+        // Sensor settings
+        if (deviceSettings.sensors) {
+            safeSetValue('turbidityModel', deviceSettings.sensors.turbidityModel);
+            safeSetValue('turbidityRange', deviceSettings.sensors.turbidityRange);
+            safeSetValue('steielPort', deviceSettings.sensors.steielPort);
+            safeSetValue('steielAddress', deviceSettings.sensors.steielAddress);
+            safeSetValue('turbidityPort', deviceSettings.sensors.turbidityPort);
+            safeSetValue('turbidityAddress', deviceSettings.sensors.turbidityAddress);
+        }
+        
+        // Notification settings
+        const notificationSettings = localStorage.getItem('notificationSettings') 
+            ? JSON.parse(localStorage.getItem('notificationSettings')) 
+            : {
+                enabled: true,
+                emailEnabled: false,
+                emailServer: 'smtp.gmail.com',
+                emailPort: 587,
+                emailSecurity: 'tls',
+                emailUsername: '',
+                emailPassword: '',
+                emailFrom: '',
+                emailTo: '',
+                notifyParameterAlerts: true,
+                notifyDosingEvents: true,
+                notifySystemEvents: true,
+                notifyMaintenanceReminders: true,
+                notifyChemicalLevels: false
+            };
+        
+        // Set notification settings
+        safeSetValue('enableNotifications', notificationSettings.enabled);
+        safeSetValue('enableEmailNotifications', notificationSettings.emailEnabled);
+        safeSetValue('emailServer', notificationSettings.emailServer);
+        safeSetValue('emailPort', notificationSettings.emailPort);
+        safeSetValue('emailSecurity', notificationSettings.emailSecurity);
+        safeSetValue('emailUsername', notificationSettings.emailUsername);
+        safeSetValue('emailPassword', notificationSettings.emailPassword);
+        safeSetValue('emailFrom', notificationSettings.emailFrom);
+        safeSetValue('emailTo', notificationSettings.emailTo);
+        safeSetValue('notifyParameterAlerts', notificationSettings.notifyParameterAlerts);
+        safeSetValue('notifyDosingEvents', notificationSettings.notifyDosingEvents);
+        safeSetValue('notifySystemEvents', notificationSettings.notifySystemEvents);
+        safeSetValue('notifyMaintenanceReminders', notificationSettings.notifyMaintenanceReminders);
+        safeSetValue('notifyChemicalLevels', notificationSettings.notifyChemicalLevels);
+        
+        // Maintenance settings
+        const maintenanceSettings = localStorage.getItem('maintenanceSettings') 
+            ? JSON.parse(localStorage.getItem('maintenanceSettings')) 
+            : {
+                backwashFrequency: 'weekly',
+                backwashDay: '3',
+                backwashTime: '06:00',
+                enableAutoBackwash: false,
+                chemicalCheckFrequency: 'weekly',
+                pacReorderLevel: 20,
+                phCalibrationInterval: 'monthly',
+                turbidityCalibrationInterval: 'monthly'
+            };
+        
+        // Set maintenance settings
+        safeSetValue('backwashFrequency', maintenanceSettings.backwashFrequency);
+        safeSetValue('backwashDay', maintenanceSettings.backwashDay);
+        safeSetValue('backwashTime', maintenanceSettings.backwashTime);
+        safeSetValue('enableAutoBackwash', maintenanceSettings.enableAutoBackwash);
+        safeSetValue('chemicalCheckFrequency', maintenanceSettings.chemicalCheckFrequency);
+        safeSetValue('pacReorderLevel', maintenanceSettings.pacReorderLevel);
+        safeSetValue('phCalibrationInterval', maintenanceSettings.phCalibrationInterval);
+        safeSetValue('turbidityCalibrationInterval', maintenanceSettings.turbidityCalibrationInterval);
+    } catch (error) {
+        console.error('Error in loadSavedSettings:', error);
+        // Show a toast notification to the user
+        showToast('Error loading settings. Using defaults.', 'warning');
     }
-    
-    // Set sensor settings
-    if (deviceSettings.sensors) {
-        document.getElementById('turbidityModel').value = deviceSettings.sensors.turbidityModel || 'Chemitec S461S LT';
-        document.getElementById('turbidityRange').value = deviceSettings.sensors.turbidityRange || '0-100';
-        document.getElementById('steielPort').value = deviceSettings.sensors.steielPort || '/dev/ttyUSB0';
-        document.getElementById('steielAddress').value = deviceSettings.sensors.steielAddress || 1;
-        document.getElementById('turbidityPort').value = deviceSettings.sensors.turbidityPort || '/dev/ttyUSB1';
-        document.getElementById('turbidityAddress').value = deviceSettings.sensors.turbidityAddress || 1;
-    }
-    
-    // Notification settings - set defaults if not exists
-    const notificationSettings = localStorage.getItem('notificationSettings') 
-        ? JSON.parse(localStorage.getItem('notificationSettings')) 
-        : {
-            enabled: true,
-            emailEnabled: false,
-            emailServer: 'smtp.gmail.com',
-            emailPort: 587,
-            emailSecurity: 'tls',
-            emailUsername: '',
-            emailPassword: '',
-            emailFrom: '',
-            emailTo: '',
-            notifyParameterAlerts: true,
-            notifyDosingEvents: true,
-            notifySystemEvents: true,
-            notifyMaintenanceReminders: true,
-            notifyChemicalLevels: false
-        };
-    
-    // Set notification settings
-    document.getElementById('enableNotifications').checked = notificationSettings.enabled !== false;
-    document.getElementById('enableEmailNotifications').checked = notificationSettings.emailEnabled === true;
-    document.getElementById('emailServer').value = notificationSettings.emailServer || 'smtp.gmail.com';
-    document.getElementById('emailPort').value = notificationSettings.emailPort || 587;
-    document.getElementById('emailSecurity').value = notificationSettings.emailSecurity || 'tls';
-    document.getElementById('emailUsername').value = notificationSettings.emailUsername || '';
-    document.getElementById('emailPassword').value = notificationSettings.emailPassword || '';
-    document.getElementById('emailFrom').value = notificationSettings.emailFrom || '';
-    document.getElementById('emailTo').value = notificationSettings.emailTo || '';
-    document.getElementById('notifyParameterAlerts').checked = notificationSettings.notifyParameterAlerts !== false;
-    document.getElementById('notifyDosingEvents').checked = notificationSettings.notifyDosingEvents !== false;
-    document.getElementById('notifySystemEvents').checked = notificationSettings.notifySystemEvents !== false;
-    document.getElementById('notifyMaintenanceReminders').checked = notificationSettings.notifyMaintenanceReminders !== false;
-    document.getElementById('notifyChemicalLevels').checked = notificationSettings.notifyChemicalLevels === true;
-    
-    // Maintenance settings - set defaults if not exists
-    const maintenanceSettings = localStorage.getItem('maintenanceSettings') 
-        ? JSON.parse(localStorage.getItem('maintenanceSettings')) 
-        : {
-            backwashFrequency: 'weekly',
-            backwashDay: '3',
-            backwashTime: '06:00',
-            enableAutoBackwash: false,
-            chemicalCheckFrequency: 'weekly',
-            pacReorderLevel: 20,
-            phCalibrationInterval: 'monthly',
-            turbidityCalibrationInterval: 'monthly'
-        };
-    
-    // Set maintenance settings
-    document.getElementById('backwashFrequency').value = maintenanceSettings.backwashFrequency || 'weekly';
-    document.getElementById('backwashDay').value = maintenanceSettings.backwashDay || '3';
-    document.getElementById('backwashTime').value = maintenanceSettings.backwashTime || '06:00';
-    document.getElementById('enableAutoBackwash').checked = maintenanceSettings.enableAutoBackwash === true;
-    document.getElementById('chemicalCheckFrequency').value = maintenanceSettings.chemicalCheckFrequency || 'weekly';
-    document.getElementById('pacReorderLevel').value = maintenanceSettings.pacReorderLevel || 20;
-    document.getElementById('phCalibrationInterval').value = maintenanceSettings.phCalibrationInterval || 'monthly';
-    document.getElementById('turbidityCalibrationInterval').value = maintenanceSettings.turbidityCalibrationInterval || 'monthly';
 }
 
 /**
@@ -2847,96 +2905,68 @@ function updateMaintenanceSchedule() {
 }
 
 function fixSettingsTab() {
-    console.log('Fixing Settings Tab with direct DOM manipulation');
+    console.log('Fixing Settings Tab - Simple Approach');
     
-    // Target the settings tab content area directly
+    // Make sure tab and content are visible
     const settingsTab = document.getElementById('settings-tab');
-    if (!settingsTab) {
-        console.error('Settings tab not found');
-        return;
+    if (settingsTab) {
+        settingsTab.style.display = 'block';
     }
     
-    // Find all the original content first
-    const originalContent = {};
-    const tabIds = ['system-settings', 'parameter-settings', 'device-settings', 'notification-settings', 'maintenance-settings'];
+    const tabContent = document.getElementById('settingsTabContent');
+    if (tabContent) {
+        tabContent.style.display = 'block';
+    }
     
-    // Store original content safely before modifying DOM
-    tabIds.forEach(id => {
-        const pane = document.getElementById(id);
-        if (pane) {
-            originalContent[id] = pane.innerHTML;
-            console.log(`Found original content for ${id}, length: ${originalContent[id].length}`);
-        } else {
-            console.warn(`Original pane ${id} not found`);
-        }
+    // Make the first tab active
+    const tabPanes = document.querySelectorAll('.tab-pane');
+    tabPanes.forEach(pane => {
+        pane.classList.remove('active', 'show');
     });
     
-    // Create a new container with simpler structure
-    const newContainer = document.createElement('div');
-    newContainer.className = 'settings-content-fix';
+    const firstPane = document.getElementById('system-settings');
+    if (firstPane) {
+        firstPane.classList.add('active', 'show');
+    }
     
-    // Create buttons for tab navigation
-    const buttonBar = document.createElement('div');
-    buttonBar.className = 'btn-group mb-4 w-100';
-    buttonBar.setAttribute('role', 'group');
+    // Make the first tab button active
+    const tabButtons = document.querySelectorAll('#settingsTabs .nav-link');
+    tabButtons.forEach(button => {
+        button.classList.remove('active');
+    });
     
-    const tabNames = ['System', 'Parameters', 'Devices', 'Notifications', 'Maintenance'];
+    if (tabButtons.length > 0) {
+        tabButtons[0].classList.add('active');
+    }
     
-    // Create buttons for each tab
-    tabNames.forEach((name, index) => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = index === 0 ? 'btn btn-primary' : 'btn btn-outline-primary';
-        btn.textContent = name;
-        btn.onclick = function() {
-            // Update active button
-            document.querySelectorAll('.settings-content-fix .btn-group button').forEach(b => {
-                b.className = 'btn btn-outline-primary';
-            });
-            this.className = 'btn btn-primary';
+    // Add click handlers to tab buttons
+    tabButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
             
-            // Hide all content panels
-            document.querySelectorAll('.settings-content-fix .content-panel').forEach(panel => {
-                panel.style.display = 'none';
+            // Remove active class from all tabs
+            tabButtons.forEach(btn => {
+                btn.classList.remove('active');
             });
             
-            // Show the selected panel
-            const panel = document.getElementById('fixed-' + tabIds[index]);
-            if (panel) {
-                panel.style.display = 'block';
+            // Add active class to clicked tab
+            this.classList.add('active');
+            
+            // Hide all panes
+            tabPanes.forEach(pane => {
+                pane.classList.remove('active', 'show');
+            });
+            
+            // Show selected pane
+            const targetId = this.getAttribute('data-bs-target') || this.getAttribute('href');
+            if (targetId) {
+                const targetPane = document.querySelector(targetId);
+                if (targetPane) {
+                    targetPane.classList.add('active', 'show');
+                }
             }
-        };
-        buttonBar.appendChild(btn);
+        });
     });
-    
-    newContainer.appendChild(buttonBar);
-    
-    // Create content panels with the original content
-    tabIds.forEach((id, index) => {
-        const panel = document.createElement('div');
-        panel.id = 'fixed-' + id;
-        panel.className = 'content-panel p-3 border rounded';
-        panel.style.display = index === 0 ? 'block' : 'none'; // Show first panel by default
-        
-        // Add the original content
-        if (originalContent[id]) {
-            panel.innerHTML = originalContent[id];
-        } else {
-            panel.innerHTML = `<div class="alert alert-warning">Content for ${tabNames[index]} settings not found</div>`;
-        }
-        
-        newContainer.appendChild(panel);
-    });
-    
-    // Replace the original content
-    settingsTab.innerHTML = '';
-    settingsTab.appendChild(newContainer);
-    
-    // Make sure the content is visible
-    settingsTab.style.display = 'block';
-    
-    // Re-attach event listeners to forms
-    setTimeout(attachSettingsFormListeners, 100);
 }
 
 // Call this function
