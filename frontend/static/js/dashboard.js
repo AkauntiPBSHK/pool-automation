@@ -78,6 +78,26 @@ const translations = {
         "ml/h": "ml/h",
         "NTU": "NTU",
         "mV": "mV",
+
+        "started": "started",
+        "for": "for",
+        "phDosingStop": "pH dosing stopped",
+        "clDosingStop": "Chlorine dosing stopped",
+        "pacDosingStop": "PAC dosing stopped",
+        "at": "at",
+        "justNow": "Just now",
+        "systemTitle": "Pool Automation",
+        "systemStarted": "System started in automatic mode",
+        "automaticChlorineDosing": "Automatic chlorine dosing",
+        "lowChlorineAlert": "Low chlorine level detected",
+        "automaticPACDosing": "Automatic PAC dosing",
+        "userChangedPH": "User changed target pH range",
+        "freeCl": "Free Cl",
+        "noDataAvailable": "No data available",
+        "noEventsAvailable": "No events available",
+        "clearing": "Clearing",
+        "resetComplete": "Settings reset to defaults completed",
+        "clearDataComplete": "Historical data cleared successfully",
         
         // Button actions
         "refresh": "Refresh",
@@ -151,6 +171,55 @@ const translations = {
         "last7Days": "Last 7 Days",
         "last30Days": "Last 30 Days",
         "customRange": "Custom Range",
+
+        "time": "Time",
+        "duration": "Duration",
+        "type": "Type",
+        "before": "Before",
+        "auto": "Auto",
+        "idle": "Idle",
+        "running": "Running",
+        "manualDosing": "Manual Dosing",
+        "flowRateMin": "Minimum Flow Rate",
+        "flowRateMax": "Maximum Flow Rate",
+        "phPump": "pH Pump",
+        "chlorinePump": "Chlorine Pump",
+        "pacPump": "PAC Pump",
+        "selectDuration": "Select Duration",
+        "visualizationType": "Visualization Type",
+        "dataResolution": "Data Resolution",
+        "rawData": "Raw Data",
+        "minuteAvg": "1 Minute Avg",
+        "hourAvg": "1 Hour Avg",
+        "dayAvg": "1 Day Avg",
+        "lineChart": "Line Chart",
+        "scatterPlot": "Scatter Plot",
+        "barChart": "Bar Chart",
+        "activeFilters": "Active Filters",
+        "allEvents": "All Events",
+        "dosingEvents": "Dosing Events",
+        "alertEvents": "Alerts",
+        "systemEvents": "System Events",
+        "userActions": "User Actions",
+        "enterEmail": "Enter email for alerts",
+        "criticalAlerts": "Critical Alerts",
+        "warningNotifications": "Warning Notifications",
+        "maintenanceReminders": "Maintenance Reminders",
+        "dailyReports": "Daily Status Reports",
+        "since": "since",
+        "maintenance": "maintenance",
+        "hoursSince": "hours since last maintenance",
+        "phRange": "pH Range",
+        "orpRange": "ORP Range (mV)",
+        "freeChlorineRange": "Free Chlorine Range (mg/L)",
+        "combinedChlorineMax": "Combined Chlorine Maximum (mg/L)",
+        "min": "Min",
+        "max": "Max",
+        "backupRestore": "Backup & Restore",
+        "dataRetention": "Data Retention",
+        "resetMaintenance": "Reset & Maintenance",
+        "saveRetentionSettings": "Save Retention Settings",
+        "maxDoseDuration": "Maximum Dose Duration",
         
         // System Configuration
         "systemName": "System Name",
@@ -224,6 +293,26 @@ const translations = {
         "apply": "Apliko",
         "start": "Fillo",
         "stop": "Ndalo",
+
+        "started": "filluar",
+        "for": "për",
+        "phDosingStop": "Dozimi i pH u ndërpre",
+        "clDosingStop": "Dozimi i klorit u ndërpre",
+        "pacDosingStop": "Dozimi i PAC u ndërpre",
+        "at": "me",
+        "justNow": "Tani",
+        "systemTitle": "Automatizimi i Pishinës",
+        "systemStarted": "Sistemi u nis në mënyrë automatike",
+        "automaticChlorineDosing": "Dozimi automatik i klorit",
+        "lowChlorineAlert": "U zbulua nivel i ulët i klorit",
+        "automaticPACDosing": "Dozimi automatik i PAC",
+        "userChangedPH": "Përdoruesi ndryshoi gamën e synuar të pH",
+        "freeCl": "Klori i Lirë",
+        "noDataAvailable": "Nuk ka të dhëna",
+        "noEventsAvailable": "Nuk ka ngjarje",
+        "clearing": "Duke pastruar",
+        "resetComplete": "Rivendosja e cilësimeve u krye",
+        "clearDataComplete": "Pastrimi i të dhënave historike u krye me sukses",
         
         // Form fields
         "username": "Emri i përdoruesit",
@@ -287,6 +376,55 @@ const translations = {
         "last7Days": "7 Ditët e Fundit",
         "last30Days": "30 Ditët e Fundit",
         "customRange": "Interval i Personalizuar",
+
+        "time": "Koha",
+        "duration": "Kohëzgjatja",
+        "type": "Lloji",
+        "before": "Para",
+        "auto": "Auto",
+        "idle": "Pasive",
+        "running": "Aktive",
+        "manualDosing": "Dozimi Manual",
+        "flowRateMin": "Shkalla Minimale e Rrjedhjes",
+        "flowRateMax": "Shkalla Maksimale e Rrjedhjes",
+        "phPump": "Pompa e pH",
+        "chlorinePump": "Pompa e Klorit",
+        "pacPump": "Pompa PAC",
+        "selectDuration": "Zgjidh Kohëzgjatjen",
+        "visualizationType": "Lloji i Vizualizimit",
+        "dataResolution": "Rezolucioni i të Dhënave",
+        "rawData": "Të Dhëna të Papërpunuara",
+        "minuteAvg": "Mesatare 1 Minutëshe",
+        "hourAvg": "Mesatare 1 Orëshe",
+        "dayAvg": "Mesatare 1 Ditore",
+        "lineChart": "Grafik Linear",
+        "scatterPlot": "Grafik me Pika",
+        "barChart": "Grafik me Shtylla",
+        "activeFilters": "Filtrat Aktivë",
+        "allEvents": "Të Gjitha Ngjarjet",
+        "dosingEvents": "Ngjarjet e Dozimit",
+        "alertEvents": "Alarmet",
+        "systemEvents": "Ngjarjet e Sistemit",
+        "userActions": "Veprimet e Përdoruesit",
+        "enterEmail": "Vendosni email për njoftimet",
+        "criticalAlerts": "Alarmet Kritike",
+        "warningNotifications": "Njoftimet Paralajmëruese",
+        "maintenanceReminders": "Kujtuesit e Mirëmbajtjes",
+        "dailyReports": "Raportet Ditore",
+        "since": "që nga",
+        "maintenance": "mirëmbajtja",
+        "hoursSince": "orë që nga mirëmbajtja e fundit",
+        "phRange": "Diapazoni i pH",
+        "orpRange": "Diapazoni i ORP (mV)",
+        "freeChlorineRange": "Diapazoni i Klorit të Lirë (mg/L)",
+        "combinedChlorineMax": "Maksimumi i Klorit të Kombinuar (mg/L)",
+        "min": "Min",
+        "max": "Max",
+        "backupRestore": "Rezervo & Rikthe",
+        "dataRetention": "Ruajtja e të Dhënave",
+        "resetMaintenance": "Rivendosje & Mirëmbajtje",
+        "saveRetentionSettings": "Ruaj Cilësimet e Ruajtjes",
+        "maxDoseDuration": "Kohëzgjatja Maksimale e Dozës",
         
         // System Configuration
         "systemName": "Emri i Sistemit",
@@ -386,6 +524,12 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('langEnglish').checked = true;
         }
         applyLanguage(language);
+
+        // Call testTranslationCompleteness in development mode
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            console.log("Running in development mode - testing translations");
+            setTimeout(testTranslationCompleteness, 2000); // Wait for page to fully load
+        }
 });
 
 /**
@@ -486,8 +630,9 @@ function startPHDosing(duration) {
     updatePumpStatus('phPump', true);
     updatePumpStatus('phPumpDetail', true);
     
-    // Show toast notification
-    showToast(`pH dosing started for ${duration} seconds`);
+    // Show toast notification with translated message
+    const message = `${t('doseAcid')} ${t('started')} ${t('for')} ${duration} ${t('seconds')}`;
+    showToast(message);
     
     // Auto-stop after duration
     setTimeout(() => {
@@ -503,8 +648,8 @@ function stopPHDosing() {
     updatePumpStatus('phPump', false);
     updatePumpStatus('phPumpDetail', false);
     
-    // Show toast notification
-    showToast('pH dosing stopped');
+    // Show toast notification with translated message
+    showToast(t('phDosingStop'));
 }
 
 /**
@@ -515,8 +660,9 @@ function startCLDosing(duration) {
     updatePumpStatus('clPump', true);
     updatePumpStatus('clPumpDetail', true);
     
-    // Show toast notification
-    showToast(`Chlorine dosing started for ${duration} seconds`);
+    // Show toast notification with translated message
+    const message = `${t('doseChlorine')} ${t('started')} ${t('for')} ${duration} ${t('seconds')}`;
+    showToast(message);
     
     // Auto-stop after duration
     setTimeout(() => {
@@ -532,14 +678,27 @@ function stopCLDosing() {
     updatePumpStatus('clPump', false);
     updatePumpStatus('clPumpDetail', false);
     
-    // Show toast notification
-    showToast('Chlorine dosing stopped');
+    // Show toast notification with translated message
+    showToast(t('clDosingStop'));
 }
 
 /**
  * Show a toast notification
  */
-function showToast(message) {
+function showToast(message, type = 'info') {
+    // Try to find message in translations if it's a direct key
+    if (typeof message === 'string' && translations[currentLanguage] && translations[currentLanguage][message]) {
+        message = translations[currentLanguage][message];
+    } else if (typeof message === 'string' && translations[currentLanguage]) {
+        // Check if message matches any English translation
+        for (const key in translations[currentLanguage]) {
+            if (message === translations['en'][key]) {
+                message = translations[currentLanguage][key];
+                break;
+            }
+        }
+    }
+    
     // Check if toast container exists, create if not
     let toastContainer = document.getElementById('toastContainer');
     if (!toastContainer) {
@@ -554,8 +713,8 @@ function showToast(message) {
     const toastHtml = `
     <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
         <div class="toast-header">
-            <strong class="me-auto">Pool Automation</strong>
-            <small>Just now</small>
+            <strong class="me-auto">${t('systemTitle')}</strong>
+            <small>${t('justNow')}</small>
             <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
         </div>
         <div class="toast-body">
@@ -731,8 +890,8 @@ function updateWaterChemistryDisplays() {
     // Update pH detail panel
     document.getElementById('phDetailValue').textContent = mockData.ph.toFixed(2);
     document.getElementById('phPumpDetailStatus').innerHTML = mockData.phPumpRunning ? 
-        '<i class="bi bi-droplet-fill me-1 text-primary"></i> Pump active' : 
-        '<i class="bi bi-droplet me-1"></i> Pump inactive';
+        '<i class="bi bi-droplet-fill me-1 text-primary"></i> ' + t('pumpActive') : 
+        '<i class="bi bi-droplet me-1"></i> ' + t('pumpInactive');
     
     if (mockData.phPumpRunning) {
         document.getElementById('phPumpDetailStatus').className = 'text-primary pump-active';
@@ -748,8 +907,8 @@ function updateWaterChemistryDisplays() {
     document.getElementById('freeChlorineDetailValue').textContent = mockData.freeChlorine.toFixed(2);
     document.getElementById('combinedChlorineDetailValue').textContent = mockData.combinedChlorine.toFixed(2);
     document.getElementById('clPumpDetailStatus').innerHTML = mockData.clPumpRunning ? 
-        '<i class="bi bi-droplet-fill me-1 text-primary"></i> Pump active' : 
-        '<i class="bi bi-droplet me-1"></i> Pump inactive';
+        '<i class="bi bi-droplet-fill me-1 text-primary"></i> ' + t('pumpActive') : 
+        '<i class="bi bi-droplet me-1"></i> ' + t('pumpInactive');
     
     if (mockData.clPumpRunning) {
         document.getElementById('clPumpDetailStatus').className = 'text-primary pump-active';
@@ -831,13 +990,13 @@ function updateParameter(id, value, lowThreshold, highThreshold, minValue, maxVa
     const statusEl = document.getElementById(id + 'Status');
     if (statusEl) {
         if (value >= lowThreshold && value <= highThreshold) {
-            statusEl.textContent = 'Good';
+            statusEl.textContent = t('good');
             statusEl.className = 'badge bg-success';
         } else if (value >= minValue && value <= maxValue) {
-            statusEl.textContent = 'Fair';
+            statusEl.textContent = t('fair');
             statusEl.className = 'badge bg-warning';
         } else {
-            statusEl.textContent = 'Poor';
+            statusEl.textContent = t('poor');
             statusEl.className = 'badge bg-danger';
         }
     }
@@ -858,13 +1017,13 @@ function updateChlorineStatus(freeChlorine, combinedChlorine) {
     if (!statusEl) return;
     
     if (freeChlorine >= 1.0 && freeChlorine <= 2.0 && combinedChlorine <= 0.3) {
-        statusEl.textContent = 'Good';
+        statusEl.textContent = t('good');
         statusEl.className = 'badge bg-success';
     } else if (freeChlorine >= 0.5 && freeChlorine <= 3.0 && combinedChlorine <= 0.5) {
-        statusEl.textContent = 'Fair';
+        statusEl.textContent = t('fair');
         statusEl.className = 'badge bg-warning';
     } else {
-        statusEl.textContent = 'Poor';
+        statusEl.textContent = t('poor');
         statusEl.className = 'badge bg-danger';
     }
 }
@@ -877,11 +1036,11 @@ function updatePumpStatus(id, running) {
     if (!statusEl) return;
     
     if (running) {
-        statusEl.textContent = id === 'pacPump' ? 'PAC pump active' : 'Pump active';
+        statusEl.textContent = id === 'pacPump' ? t('pacPumpActive') : t('pumpActive');
         statusEl.className = 'text-primary pump-active';
         statusEl.previousElementSibling.className = 'bi bi-droplet-fill me-2 text-primary';
     } else {
-        statusEl.textContent = id === 'pacPump' ? 'PAC pump inactive' : 'Pump inactive';
+        statusEl.textContent = id === 'pacPump' ? t('pacPumpInactive') : t('pumpInactive');
         statusEl.className = 'text-secondary';
         statusEl.previousElementSibling.className = 'bi bi-droplet me-2';
     }
@@ -1135,8 +1294,9 @@ function startPACDosing(flowRate) {
     updatePumpStatus('pacPump', true);
     updatePumpStatus('pacPumpDetail', true);
     
-    // Show toast notification
-    showToast(`PAC dosing started at ${flowRate} ml/h`);
+    // Show toast notification with translated message
+    const message = `${t('startDosing')} ${t('at')} ${flowRate} ml/h`;
+    showToast(message);
 }
 
 /**
@@ -1147,15 +1307,14 @@ function stopPACDosing() {
     updatePumpStatus('pacPump', false);
     updatePumpStatus('pacPumpDetail', false);
     
-    // Show toast notification
-    showToast('PAC dosing stopped');
+    // Show toast notification with translated message
+    showToast(t('pacDosingStop'));
 }
 
 /**
  * Update detailed turbidity and PAC displays
  */
 function updateTurbidityPACDisplays() {
-    
     // Null checks for all DOM operations
     const turbidityDetailValue = document.getElementById('turbidityDetailValue');
     if (turbidityDetailValue) {
@@ -1178,8 +1337,8 @@ function updateTurbidityPACDisplays() {
     const pacPumpDetailStatus = document.getElementById('pacPumpDetailStatus');
     if (pacPumpDetailStatus) {
         pacPumpDetailStatus.innerHTML = mockData.pacPumpRunning ? 
-            '<i class="bi bi-droplet-fill me-1 text-primary"></i> Running' : 
-            '<i class="bi bi-droplet me-1"></i> Idle';
+            '<i class="bi bi-droplet-fill me-1 text-primary"></i> ' + t('running') : 
+            '<i class="bi bi-droplet me-1"></i> ' + t('idle');
         
         pacPumpDetailStatus.className = mockData.pacPumpRunning ? 
             'text-primary pump-active' : 'text-secondary';
@@ -2165,7 +2324,7 @@ function updateHistoryTable(hours) {
     // Update row count
     const rowCountElem = document.getElementById('historyDataTable').parentNode.nextElementSibling.firstElementChild;
     if (rowCountElem) {
-        rowCountElem.textContent = `Showing ${rows} of ${hours} records`;
+        rowCountElem.textContent = `${t('showing')} ${rows} ${t('of')} ${hours} ${t('records')}`;
     }
 }
 
@@ -2431,7 +2590,7 @@ function updateTableDataForPage(tableId, pageNumber) {
     // Update the count display
     const countDisplay = document.querySelector(`#${tableId}`).closest('.card-body').querySelector('.d-flex div');
     if (countDisplay) {
-        countDisplay.textContent = `Showing ${recordsPerPage} of 15 records`;
+        countDisplay.textContent = `${t('showing')} ${recordsPerPage} ${t('of')} 15 ${t('records')}`;
     }
 }
 
@@ -2448,19 +2607,19 @@ function updateEventsDataForPage(tableId, pageNumber) {
     
     // Event types
     const eventTypes = [
-        { type: 'System', class: 'bg-info' },
-        { type: 'Dosing', class: 'bg-success' },
-        { type: 'Alert', class: 'bg-warning' },
-        { type: 'User', class: 'bg-primary' }
+        { type: t('systemEvents'), class: 'bg-info' },
+        { type: t('dosingEvents'), class: 'bg-success' },
+        { type: t('alertEvents'), class: 'bg-warning' },
+        { type: t('userActions'), class: 'bg-primary' }
     ];
     
-    // Event descriptions
+    // Event descriptions (these should also be translated in a real app)
     const descriptions = [
-        { text: 'System started in automatic mode', param: '-', value: '-' },
-        { text: 'Automatic chlorine dosing', param: 'Free Cl', value: '0.9 mg/L' },
-        { text: 'Low chlorine level detected', param: 'Free Cl', value: '0.7 mg/L' },
-        { text: 'Automatic PAC dosing', param: 'Turbidity', value: '0.22 NTU' },
-        { text: 'User changed target pH range', param: 'pH', value: '7.2-7.6' }
+        { text: t('systemStarted'), param: '-', value: '-' },
+        { text: t('automaticChlorineDosing'), param: t('freeCl'), value: '0.9 mg/L' },
+        { text: t('lowChlorineAlert'), param: t('freeCl'), value: '0.7 mg/L' },
+        { text: t('automaticPACDosing'), param: t('turbidity'), value: '0.22 NTU' },
+        { text: t('userChangedPH'), param: 'pH', value: '7.2-7.6' }
     ];
     
     // Clear existing rows
@@ -2490,7 +2649,7 @@ function updateEventsDataForPage(tableId, pageNumber) {
     // Update the count display
     const countDisplay = document.querySelector(`#${tableId}`).closest('.card-body').querySelector('.d-flex div');
     if (countDisplay) {
-        countDisplay.textContent = `Showing ${recordsPerPage} of 15 events`;
+        countDisplay.textContent = `${t('showing')} ${recordsPerPage} ${t('of')} 15 ${t('events')}`;
     }
 }
 
@@ -3223,7 +3382,11 @@ function saveRetentionSettings() {
  * Confirm reset of all settings to defaults
  */
 function confirmResetSettings() {
-    if (confirm('Are you sure you want to reset all settings to default values? This cannot be undone.')) {
+    const confirmMsg = currentLanguage === 'sq' ? 
+        'A jeni i sigurt që dëshironi të rivendosni të gjitha cilësimet në vlerat e parazgjedhura? Ky veprim nuk mund të zhbëhet.' : 
+        'Are you sure you want to reset all settings to default values? This cannot be undone.';
+        
+    if (confirm(confirmMsg)) {
         console.log("Resetting settings to defaults");
         
         // Clear localStorage
@@ -3380,7 +3543,8 @@ function confirmResetSettings() {
         document.querySelector('.sidebar-header h3').textContent = 'Pool Automation System';
         
         console.log("Reset complete - UI should be updated");
-        showToast('Settings reset to defaults');
+        // Show toast in current language
+        showToast(t('resetComplete'));
     }
 }
 
@@ -3388,11 +3552,15 @@ function confirmResetSettings() {
  * Confirm clearing of historical data
  */
 function confirmClearData() {
-    if (confirm('Are you sure you want to clear all historical data? This cannot be undone.')) {
+    const confirmMsg = currentLanguage === 'sq' ? 
+        'A jeni i sigurt që dëshironi të pastroni të gjitha të dhënat historike? Ky veprim nuk mund të zhbëhet.' : 
+        'Are you sure you want to clear all historical data? This cannot be undone.';
+        
+    if (confirm(confirmMsg)) {
         // Show loading indicator
         const button = document.getElementById('clearDataBtn');
         const originalButtonText = button.innerHTML;
-        button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Clearing...';
+        button.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ${t('clearing')}...`;
         button.disabled = true;
         
         // In a real app, this would call an API to clear data
@@ -3412,15 +3580,15 @@ function confirmClearData() {
             // Clear table data (if we're on the history tab)
             const historyTable = document.getElementById('historyDataTable');
             if (historyTable && historyTable.querySelector('tbody')) {
-                historyTable.querySelector('tbody').innerHTML = '<tr><td colspan="7" class="text-center">No data available</td></tr>';
+                historyTable.querySelector('tbody').innerHTML = `<tr><td colspan="7" class="text-center">${t('noDataAvailable')}</td></tr>`;
             }
             
             const eventsTable = document.getElementById('eventsTable');
             if (eventsTable && eventsTable.querySelector('tbody')) {
-                eventsTable.querySelector('tbody').innerHTML = '<tr><td colspan="5" class="text-center">No events available</td></tr>';
+                eventsTable.querySelector('tbody').innerHTML = `<tr><td colspan="5" class="text-center">${t('noEventsAvailable')}</td></tr>`;
             }
             
-            showToast('Historical data cleared successfully');
+            showToast(t('clearDataComplete'));
         }, 1500);
     }
 }
@@ -3711,6 +3879,141 @@ function applyLanguage(lang) {
             text.textContent = translations[lang].noAlerts;
         }
     });
+
+    // Update time-related text in UV System card
+    const uvRuntime = document.getElementById('uvRuntime');
+    if (uvRuntime) {
+        const hours = uvRuntime.textContent.match(/\d+,?\d*/);
+        if (hours) {
+            uvRuntime.textContent = `${hours[0]} ${translations[lang].hoursSince}`;
+        }
+    }
+
+    // Update table headings in Water Chemistry tab
+    document.querySelectorAll('#phDosingHistory thead tr, #clDosingHistory thead tr').forEach(row => {
+        const headings = row.querySelectorAll('th');
+        if (headings.length >= 4) {
+            headings[0].textContent = translations[lang].time;
+            headings[1].textContent = translations[lang].duration;
+            headings[2].textContent = translations[lang].type;
+            // Special case for pH and chlorine
+            if (row.closest('#phDosingHistory')) {
+                headings[3].textContent = `pH ${translations[lang].before}`;
+            } else if (row.closest('#clDosingHistory')) {
+                headings[3].textContent = `Cl ${translations[lang].before}`;
+            }
+        }
+    });
+
+    // Update table headings in PAC tab
+    document.querySelectorAll('#pacDosingHistory thead tr').forEach(row => {
+        const headings = row.querySelectorAll('th');
+        if (headings.length >= 4) {
+            headings[0].textContent = translations[lang].time;
+            headings[1].textContent = translations[lang].duration;
+            headings[2].textContent = translations[lang].flowRate;
+            headings[3].textContent = translations[lang].type;
+        }
+    });
+
+    // Update manual control headings
+    document.querySelectorAll('h6').forEach(heading => {
+        const text = heading.textContent.trim();
+        if (text === 'Manual Control' || text === 'Kontrolli Manual') {
+            heading.textContent = translations[lang].manualControl;
+        } else if (text === 'Recent Dosing' || text === 'Dozimi i Fundit') {
+            heading.textContent = translations[lang].recentDosing;
+        } else if (text === 'Control Thresholds' || text === 'Pragjet e Kontrollit') {
+            heading.textContent = translations[lang].controlThresholds;
+        } else if (text === 'Filter Status' || text === 'Statusi i Filtrit') {
+            heading.textContent = translations[lang].filterStatus;
+        } else if (text === 'Backup & Restore' || text === 'Rezervo & Rikthe') {
+            heading.textContent = translations[lang].backupRestore;
+        } else if (text === 'Data Retention' || text === 'Ruajtja e të Dhënave') {
+            heading.textContent = translations[lang].dataRetention;
+        } else if (text === 'Reset & Maintenance' || text === 'Rivendosje & Mirëmbajtje') {
+            heading.textContent = translations[lang].resetMaintenance;
+        }
+    });
+
+    // Update text in visualizations area
+    document.querySelectorAll('label.form-label').forEach(label => {
+        const text = label.textContent.trim();
+        if (text === 'Visualization' || text === 'Vizualizimi') {
+            label.textContent = translations[lang].visualizationType;
+        } else if (text === 'Resolution' || text === 'Rezolucioni') {
+            label.textContent = translations[lang].dataResolution;
+        } else if (text === 'Time Range' || text === 'Intervali Kohor') {
+            label.textContent = translations[lang].timeRange;
+        } else if (text === 'Parameters' || text === 'Parametrat') {
+            label.textContent = translations[lang].parameters;
+        }
+    });
+
+    // Update text in data resolution dropdown
+    document.querySelectorAll('#dataResolution option').forEach(option => {
+        const text = option.textContent.trim();
+        if (text === 'Raw Data' || text === 'Të Dhëna të Papërpunuara') {
+            option.textContent = translations[lang].rawData;
+        } else if (text === '1 Minute' || text === 'Mesatare 1 Minutëshe') {
+            option.textContent = translations[lang].minuteAvg;
+        } else if (text === '1 Hour' || text === 'Mesatare 1 Orëshe') {
+            option.textContent = translations[lang].hourAvg;
+        } else if (text === '1 Day' || text === 'Mesatare 1 Ditore') {
+            option.textContent = translations[lang].dayAvg;
+        }
+    });
+
+    // Update visualization type dropdown
+    document.querySelectorAll('#visualizationType option').forEach(option => {
+        const text = option.textContent.trim();
+        if (text === 'Line Chart' || text === 'Grafik Linear') {
+            option.textContent = translations[lang].lineChart;
+        } else if (text === 'Scatter Plot' || text === 'Grafik me Pika') {
+            option.textContent = translations[lang].scatterPlot;
+        } else if (text === 'Bar Chart' || text === 'Grafik me Shtylla') {
+            option.textContent = translations[lang].barChart;
+        }
+    });
+
+    // Update event type filter dropdown
+    document.querySelectorAll('#eventTypeFilter option').forEach(option => {
+        const text = option.textContent.trim();
+        if (text === 'All Events' || text === 'Të Gjitha Ngjarjet') {
+            option.textContent = translations[lang].allEvents;
+        } else if (text === 'Dosing Events' || text === 'Ngjarjet e Dozimit') {
+            option.textContent = translations[lang].dosingEvents;
+        } else if (text === 'Alerts' || text === 'Alarmet') {
+            option.textContent = translations[lang].alertEvents;
+        } else if (text === 'System Events' || text === 'Ngjarjet e Sistemit') {
+            option.textContent = translations[lang].systemEvents;
+        } else if (text === 'User Actions' || text === 'Veprimet e Përdoruesit') {
+            option.textContent = translations[lang].userActions;
+        }
+    });
+
+    // Update form placeholder texts
+    document.querySelectorAll('input[placeholder]').forEach(input => {
+        const placeholder = input.getAttribute('placeholder');
+        if (placeholder.includes('Enter email') || placeholder.includes('Vendosni email')) {
+            input.setAttribute('placeholder', translations[lang].enterEmail);
+        } else if (placeholder.includes('Enter current password') || placeholder.includes('Vendosni fjalëkalimin aktual')) {
+            input.setAttribute('placeholder', `${translations[lang].enterCurrent} ${translations[lang].password}`);
+        } else if (placeholder.includes('Enter new password') || placeholder.includes('Vendosni fjalëkalimin e ri')) {
+            input.setAttribute('placeholder', `${translations[lang].enterNew} ${translations[lang].password}`);
+        } else if (placeholder.includes('Confirm new password') || placeholder.includes('Konfirmoni fjalëkalimin e ri')) {
+            input.setAttribute('placeholder', `${translations[lang].confirm} ${translations[lang].password}`);
+        }
+    });
+
+    // Update min/max labels
+    document.querySelectorAll('.input-group-text').forEach(text => {
+        if (text.textContent === 'Min' || text.textContent === 'Min') {
+            text.textContent = translations[lang].min;
+        } else if (text.textContent === 'Max' || text.textContent === 'Max') {
+            text.textContent = translations[lang].max;
+        }
+    });
     
     // Update form labels
     document.querySelectorAll('.form-label').forEach(label => {
@@ -3731,6 +4034,16 @@ function applyLanguage(lang) {
             label.textContent = translations[lang].password;
         } else if (text.includes('Email') || text.includes('Email')) {
             label.textContent = translations[lang].email;
+        }
+            // Check for specific labels with common text patterns
+        if (text.includes('pH Range') || text.includes('Diapazoni i pH')) {
+            label.textContent = translations[lang].phRange;
+        } else if (text.includes('ORP Range') || text.includes('Diapazoni i ORP')) {
+            label.textContent = translations[lang].orpRange;
+        } else if (text.includes('Free Chlorine Range') || text.includes('Diapazoni i Klorit')) {
+            label.textContent = translations[lang].freeChlorineRange;
+        } else if (text.includes('Combined Chlorine') || text.includes('Klorit të Kombinuar')) {
+            label.textContent = translations[lang].combinedChlorineMax;
         }
     });
     
@@ -3846,6 +4159,19 @@ function applyLanguage(lang) {
             }
         }
     });
+
+    // Update chart translations
+    if (chemistryChart) {
+        updateChartTranslations(chemistryChart, lang);
+    }
+
+    if (turbidityChart) {
+        updateChartTranslations(turbidityChart, lang);
+    }
+
+    if (historyChart) {
+        updateChartTranslations(historyChart, lang);
+    }
     
     // Update radio buttons based on current language
     if (lang === 'sq') {
@@ -3886,4 +4212,137 @@ function t(key) {
         return key;
     }
     return translations[currentLanguage][key] || key;
+}
+
+/**
+ * Update chart labels and options with translations
+ * @param {object} chart - Chart.js chart instance
+ * @param {string} lang - Language code ('en' or 'sq')
+ */
+function updateChartTranslations(chart, lang) {
+    if (!chart) return;
+    
+    // Update axis titles
+    if (chart.options.scales['y-ph']) {
+        chart.options.scales['y-ph'].title.text = 'pH';
+    }
+    
+    if (chart.options.scales['y-chlorine']) {
+        chart.options.scales['y-chlorine'].title.text = `${translations[lang].chlorineTitle} (mg/L)`;
+    }
+    
+    if (chart.options.scales['y-orp']) {
+        chart.options.scales['y-orp'].title.text = `ORP (mV)`;
+    }
+    
+    if (chart.options.scales['y-turbidity']) {
+        chart.options.scales['y-turbidity'].title.text = `${translations[lang].turbidityTitle} (NTU)`;
+    }
+    
+    if (chart.options.scales['y-temp']) {
+        chart.options.scales['y-temp'].title.text = `${translations[lang].temperatureTitle} (°C)`;
+    }
+    
+    // Update dataset labels
+    chart.data.datasets.forEach(dataset => {
+        if (dataset.label === 'pH' || dataset.label === 'pH') {
+            dataset.label = 'pH';
+        } else if (dataset.label === 'ORP' || dataset.label === 'ORP') {
+            dataset.label = 'ORP';
+        } else if (dataset.label === 'Free Chlorine' || dataset.label === 'Klori i Lirë') {
+            dataset.label = translations[lang].chlorineTitle;
+        } else if (dataset.label === 'Combined Chlorine' || dataset.label === 'Klori i Kombinuar') {
+            dataset.label = translations[lang].combinedChlorineTitle;
+        } else if (dataset.label === 'Turbidity' || dataset.label === 'Turbullira') {
+            dataset.label = translations[lang].turbidityTitle;
+        } else if (dataset.label === 'Temperature' || dataset.label === 'Temperatura') {
+            dataset.label = translations[lang].temperatureTitle;
+        } else if (dataset.label === 'Dosing Events' || dataset.label === 'Ngjarjet e Dozimit') {
+            dataset.label = translations[lang].dosingEvents;
+        }
+    });
+    
+    // Update chart
+    chart.update();
+}
+
+/**
+ * Test translation completeness
+ * Logs any missing translations to the console
+ */
+function testTranslationCompleteness() {
+    console.log("Testing translation completeness...");
+    
+    // Check for missing translations in Albanian compared to English
+    const missingKeys = [];
+    for (const key in translations.en) {
+        if (!translations.sq[key]) {
+            missingKeys.push(key);
+        }
+    }
+    
+    // Check for extra keys in Albanian not in English
+    const extraKeys = [];
+    for (const key in translations.sq) {
+        if (!translations.en[key]) {
+            extraKeys.push(key);
+        }
+    }
+    
+    if (missingKeys.length > 0) {
+        console.warn("Missing translations in Albanian:", missingKeys);
+    } else {
+        console.log("All English keys have Albanian translations ✓");
+    }
+    
+    if (extraKeys.length > 0) {
+        console.warn("Extra keys in Albanian not in English:", extraKeys);
+    }
+    
+    // Check DOM elements for translation coverage
+    const missingElements = [];
+    document.querySelectorAll('button, h1, h2, h3, h4, h5, h6, label, .card-title, .badge').forEach(el => {
+        const text = el.textContent.trim();
+        if (text && text.length > 1 && !/^\d+(\.\d+)?$/.test(text)) {
+            // Skip numbers and very short texts
+            let found = false;
+            for (const key in translations.en) {
+                if (translations.en[key] === text || translations.sq[key] === text) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                missingElements.push({
+                    element: el.tagName,
+                    text: text,
+                    path: getElementPath(el)
+                });
+            }
+        }
+    });
+    
+    if (missingElements.length > 0) {
+        console.warn("UI elements without translations:", missingElements);
+    } else {
+        console.log("All checked UI elements have translations ✓");
+    }
+}
+
+/**
+ * Get simplified path to element for debugging
+ */
+function getElementPath(el) {
+    let path = [];
+    while (el && el.nodeType === Node.ELEMENT_NODE) {
+        let selector = el.nodeName.toLowerCase();
+        if (el.id) {
+            selector += '#' + el.id;
+        } else if (el.className) {
+            selector += '.' + el.className.replace(/\s+/g, '.');
+        }
+        path.unshift(selector);
+        el = el.parentNode;
+    }
+    return path.join(' > ');
 }
