@@ -220,6 +220,41 @@ const translations = {
         "resetMaintenance": "Reset & Maintenance",
         "saveRetentionSettings": "Save Retention Settings",
         "maxDoseDuration": "Maximum Dose Duration",
+
+        "poolAutomationTitle": "Pool Automation",
+        "dashboard": "Dashboard",
+        "active": "Active", 
+        "historicalData": "Historical Data",
+        "turbidityHistory": "Turbidity History",
+        "freeChlorine": "Free Chlorine",
+        "combinedCl": "Combined Cl",
+        "additionalOptions": "Additional Options",
+        "sensorData": "Sensor Data",
+        "csv": "CSV",
+        "json": "JSON",
+        "systemEvent": "System",
+        "dosingEvent": "Dosing",
+        "alertEvent": "Alert",
+        "userEvent": "User",
+        "notificationPreferences": "Notification Preferences",
+        "saveSystemSettings": "Save System Settings",
+        "phPumpFlowRate": "pH Pump Flow Rate (ml/h)",
+        "chlorinePumpFlowRate": "Chlorine Pump Flow Rate (ml/h)",
+        "pacPumpFlowConfig": "PAC Pump Flow Rate Configuration",
+        "minimumMlh": "Minimum (ml/h)",
+        "maximumMlh": "Maximum (ml/h)",
+        "maxDoseDurations": "Maximum Dose Durations",
+        "phPumpSeconds": "pH Pump (seconds)",
+        "chlorinePumpSeconds": "Chlorine Pump (seconds)",
+        "turbidityTargetNTU": "Turbidity Target (NTU)",
+        "pacDosingThresholds": "PAC Dosing Thresholds",
+        "lowNTU": "Low (NTU)",
+        "highNTU": "High (NTU)",
+        "filterBackwashLevel": "Filter Backwash Alert Level (%)",
+        "enableAutoBackwash": "Enable Automatic Backwash Alerts",
+        "exportSettings": "Export Settings",
+        "sensorReadingsRetention": "Sensor Readings Retention",
+        "systemEventsRetention": "System Events Retention",
         
         // System Configuration
         "systemName": "System Name",
@@ -313,6 +348,41 @@ const translations = {
         "clearing": "Duke pastruar",
         "resetComplete": "Rivendosja e cilësimeve u krye",
         "clearDataComplete": "Pastrimi i të dhënave historike u krye me sukses",
+
+        "poolAutomationTitle": "Automatizimi i Pishinës",
+        "dashboard": "Paneli",
+        "active": "Aktive",
+        "historicalData": "Të Dhënat Historike",
+        "turbidityHistory": "Historia e Turbullirës",
+        "freeChlorine": "Klori i Lirë",
+        "combinedCl": "Klori i Kombinuar",
+        "additionalOptions": "Opsione Shtesë",
+        "sensorData": "Të Dhënat e Sensorëve",
+        "csv": "CSV",
+        "json": "JSON",
+        "systemEvent": "Sistemi",
+        "dosingEvent": "Dozimi",
+        "alertEvent": "Alarm",
+        "userEvent": "Përdoruesi",
+        "notificationPreferences": "Preferencat e Njoftimeve",
+        "saveSystemSettings": "Ruaj Cilësimet e Sistemit",
+        "phPumpFlowRate": "Rrjedhja e Pompës së pH (ml/h)",
+        "chlorinePumpFlowRate": "Rrjedhja e Pompës së Klorit (ml/h)",
+        "pacPumpFlowConfig": "Konfigurimi i Rrjedhjes së Pompës PAC",
+        "minimumMlh": "Minimumi (ml/h)",
+        "maximumMlh": "Maksimumi (ml/h)",
+        "maxDoseDurations": "Kohëzgjatja Maksimale e Dozimit",
+        "phPumpSeconds": "Pompa e pH (sekonda)",
+        "chlorinePumpSeconds": "Pompa e Klorit (sekonda)",
+        "turbidityTargetNTU": "Vlera e Synuar e Turbullirës (NTU)",
+        "pacDosingThresholds": "Pragjet e Dozimit PAC",
+        "lowNTU": "I Ulët (NTU)",
+        "highNTU": "I Lartë (NTU)",
+        "filterBackwashLevel": "Niveli i Alarmit për Shplarjen e Filtrit (%)",
+        "enableAutoBackwash": "Aktivizo Alarmet Automatike të Shplarjes",
+        "exportSettings": "Eksporto Cilësimet",
+        "sensorReadingsRetention": "Ruajtja e Leximeve të Sensorëve",
+        "systemEventsRetention": "Ruajtja e Ngjarjeve të Sistemit",
         
         // Form fields
         "username": "Emri i përdoruesit",
@@ -3877,6 +3947,143 @@ function applyLanguage(lang) {
     document.querySelectorAll('.card-text.text-muted').forEach(text => {
         if (text.textContent.includes('No alerts') || text.textContent.includes('Nuk ka njoftime')) {
             text.textContent = translations[lang].noAlerts;
+        }
+    });
+
+    // Add to your applyLanguage function
+
+    // Update main title
+    const mainTitle = document.querySelector('.sidebar-header h3');
+    if (mainTitle) {
+        mainTitle.textContent = translations[lang].poolAutomationTitle;
+    }
+
+    // Update dashboard title
+    const dashTitle = document.querySelector('main h1.h2');
+    if (dashTitle) {
+        dashTitle.textContent = translations[lang].dashboard;
+    }
+
+    // Update UV status
+    const uvStatus = document.getElementById('uvStatus');
+    if (uvStatus) {
+        uvStatus.textContent = translations[lang].active;
+    }
+
+    // Update chart titles
+    document.querySelectorAll('h5.card-title').forEach(title => {
+        const text = title.textContent.trim();
+        if (text.includes('Historical Data')) {
+            title.textContent = translations[lang].historicalData;
+        } else if (text.includes('Turbidity History')) {
+            title.textContent = translations[lang].turbidityHistory;
+        } else if (text.includes('Sensor Data')) {
+            title.textContent = translations[lang].sensorData;
+        }
+    });
+
+    // Update parameter buttons
+    document.querySelectorAll('.btn-group label.btn').forEach(btn => {
+        const text = btn.textContent.trim();
+        if (text === 'Free Chlorine' || text === 'Klori i Lirë') {
+            btn.textContent = translations[lang].freeChlorine;
+        } else if (text === 'Combined Cl' || text === 'Klori i Kombinuar') {
+            btn.textContent = translations[lang].combinedCl;
+        }
+    });
+
+    // Update export buttons
+    const csvBtn = document.getElementById('exportCsvBtn');
+    if (csvBtn) {
+        csvBtn.textContent = translations[lang].csv;
+    }
+
+    const jsonBtn = document.getElementById('exportJsonBtn');
+    if (jsonBtn) {
+        jsonBtn.textContent = translations[lang].json;
+    }
+
+    // Update event type badges
+    document.querySelectorAll('.badge').forEach(badge => {
+        const text = badge.textContent.trim();
+        if (text === 'System' || text === 'Sistemi') {
+            badge.textContent = translations[lang].systemEvent;
+        } else if (text === 'Dosing' || text === 'Dozimi') {
+            badge.textContent = translations[lang].dosingEvent;
+        } else if (text === 'Alert' || text === 'Alarm') {
+            badge.textContent = translations[lang].alertEvent;
+        } else if (text === 'User' || text === 'Përdoruesi') {
+            badge.textContent = translations[lang].userEvent;
+        }
+    });
+
+    // Update form labels
+    document.querySelectorAll('label.form-label').forEach(label => {
+        const text = label.textContent.trim();
+        if (text.includes('Notification Preferences')) {
+            label.textContent = translations[lang].notificationPreferences;
+        } else if (text.includes('pH Pump Flow Rate')) {
+            label.textContent = translations[lang].phPumpFlowRate;
+        } else if (text.includes('Chlorine Pump Flow Rate')) {
+            label.textContent = translations[lang].chlorinePumpFlowRate;
+        } else if (text.includes('PAC Pump Flow Rate Configuration')) {
+            label.textContent = translations[lang].pacPumpFlowConfig;
+        } else if (text.includes('Minimum (ml/h)')) {
+            label.textContent = translations[lang].minimumMlh;
+        } else if (text.includes('Maximum (ml/h)')) {
+            label.textContent = translations[lang].maximumMlh;
+        } else if (text.includes('Maximum Dose Durations')) {
+            label.textContent = translations[lang].maxDoseDurations;
+        } else if (text.includes('pH Pump (seconds)')) {
+            label.textContent = translations[lang].phPumpSeconds;
+        } else if (text.includes('Chlorine Pump (seconds)')) {
+            label.textContent = translations[lang].chlorinePumpSeconds;
+        } else if (text.includes('Turbidity Target (NTU)')) {
+            label.textContent = translations[lang].turbidityTargetNTU;
+        } else if (text.includes('PAC Dosing Thresholds')) {
+            label.textContent = translations[lang].pacDosingThresholds;
+        } else if (text.includes('Low (NTU)')) {
+            label.textContent = translations[lang].lowNTU;
+        } else if (text.includes('High (NTU)')) {
+            label.textContent = translations[lang].highNTU;
+        } else if (text.includes('Filter Backwash Alert Level')) {
+            label.textContent = translations[lang].filterBackwashLevel;
+        } else if (text.includes('Sensor Readings Retention')) {
+            label.textContent = translations[lang].sensorReadingsRetention;
+        } else if (text.includes('System Events Retention')) {
+            label.textContent = translations[lang].systemEventsRetention;
+        } else if (text.includes('Additional Options')) {
+            label.textContent = translations[lang].additionalOptions;
+        }
+    });
+
+    // Update checkbox labels
+    document.querySelectorAll('.form-check-label').forEach(label => {
+        const text = label.textContent.trim();
+        if (text.includes('Enable Automatic Backwash Alerts')) {
+            label.textContent = translations[lang].enableAutoBackwash;
+        }
+    });
+
+    // Update system settings save button
+    const saveSystemBtn = document.querySelector('#systemConfigForm button.btn-primary');
+    if (saveSystemBtn) {
+        saveSystemBtn.textContent = translations[lang].saveSystemSettings;
+    }
+
+    // Update export settings button
+    const exportSettingsBtn = document.getElementById('exportSettingsBtn');
+    if (exportSettingsBtn) {
+        exportSettingsBtn.textContent = translations[lang].exportSettings;
+    }
+
+    // Add to applyLanguage() function to handle data-i18n attributes
+    document.querySelectorAll('[data-i18n]').forEach(element => {
+        const key = element.getAttribute('data-i18n');
+        if (translations[lang][key]) {
+            element.textContent = translations[lang][key];
+        } else {
+            console.warn(`Missing translation for key "${key}" in language "${lang}"`);
         }
     });
 
