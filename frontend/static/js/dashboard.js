@@ -3467,18 +3467,21 @@ function applyLanguage(lang) {
     });
     
     // Update alerts section
-    const alertsTitle = document.querySelector('#overview-tab .card-title:contains("Current Alerts"), #overview-tab .card-title:contains("Njoftimet Aktuale")');
-    if (alertsTitle) {
-        alertsTitle.textContent = translations[lang].currentAlerts;
-    }
+    document.querySelectorAll('#overview-tab .card-title').forEach(title => {
+        if (title.textContent.includes('Current Alerts') || title.textContent.includes('Njoftimet Aktuale')) {
+            title.textContent = translations[lang].currentAlerts;
+        }
+    });
     
-    const alertsBadge = document.querySelector('#overview-tab .badge:contains("All Systems Normal"), #overview-tab .badge:contains("Të Gjitha Sistemet Normale")');
-    if (alertsBadge) {
-        alertsBadge.textContent = translations[lang].allSystemsNormal;
-    }
+    document.querySelectorAll('#overview-tab .badge').forEach(badge => {
+        if (badge.textContent.includes('All Systems Normal') || badge.textContent.includes('Të Gjitha Sistemet Normale')) {
+            badge.textContent = translations[lang].allSystemsNormal;
+        }
+    });
     
-    const alertsText = document.querySelector('#overview-tab .text-muted:contains("No alerts"), #overview-tab .text-muted:contains("Nuk ka njoftime")');
-    if (alertsText) {
-        alertsText.textContent = translations[lang].noAlerts;
-    }
+    document.querySelectorAll('#overview-tab .text-muted').forEach(text => {
+        if (text.textContent.includes('No alerts') || text.textContent.includes('Nuk ka njoftime')) {
+            text.textContent = translations[lang].noAlerts;
+        }
+    });
 }
