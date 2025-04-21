@@ -30,6 +30,8 @@
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="#history-tab">History</a>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#settings-tab">Settings</a>
                         </li>
                     </ul>
                 </div>
@@ -1054,6 +1056,366 @@
                                         </li>
                                     </ul>
                                 </nav>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="settings-tab" class="tab-content" style="display: none;">
+                    <h3>Settings</h3>
+                    
+                    <!-- Account & Notifications Section -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0">Account Settings</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="accountSettingsForm">
+                                        <div class="mb-3">
+                                            <label class="form-label">Username</label>
+                                            <input type="text" class="form-control" id="username" value="admin" disabled>
+                                            <div class="form-text">Username cannot be changed. Contact administrator if needed.</div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Current Password</label>
+                                            <input type="password" class="form-control" id="currentPassword" placeholder="Enter current password">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">New Password</label>
+                                            <input type="password" class="form-control" id="newPassword" placeholder="Enter new password">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Confirm New Password</label>
+                                            <input type="password" class="form-control" id="confirmPassword" placeholder="Confirm new password">
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">Change Password</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0">Notification Settings</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="notificationSettingsForm">
+                                        <div class="mb-3">
+                                            <label class="form-label">Email Address</label>
+                                            <input type="email" class="form-control" id="notificationEmail" placeholder="Enter email for alerts">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Notification Preferences</label>
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" id="alertNotifications" checked>
+                                                <label class="form-check-label" for="alertNotifications">Critical Alerts</label>
+                                            </div>
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" id="warningNotifications" checked>
+                                                <label class="form-check-label" for="warningNotifications">Warning Notifications</label>
+                                            </div>
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" id="maintenanceNotifications" checked>
+                                                <label class="form-check-label" for="maintenanceNotifications">Maintenance Reminders</label>
+                                            </div>
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="dailyReportNotifications">
+                                                <label class="form-check-label" for="dailyReportNotifications">Daily Status Reports</label>
+                                            </div>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">Save Notification Settings</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- System Parameters Section -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0">System Configuration</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="systemConfigForm">
+                                        <div class="mb-3">
+                                            <label class="form-label">System Name</label>
+                                            <input type="text" class="form-control" id="systemName" value="Pool Automation System">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Pool Size (m³)</label>
+                                            <input type="number" class="form-control" id="poolSize" value="300">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Data Refresh Interval</label>
+                                            <select class="form-select" id="refreshInterval">
+                                                <option value="5">5 seconds</option>
+                                                <option value="10" selected>10 seconds</option>
+                                                <option value="30">30 seconds</option>
+                                                <option value="60">1 minute</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Default Operation Mode</label>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="defaultMode" id="defaultModeAuto" checked>
+                                                <label class="form-check-label" for="defaultModeAuto">
+                                                    Automatic
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="defaultMode" id="defaultModeManual">
+                                                <label class="form-check-label" for="defaultModeManual">
+                                                    Manual
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Temperature Unit</label>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="tempUnit" id="tempCelsius" checked>
+                                                <label class="form-check-label" for="tempCelsius">
+                                                    Celsius (°C)
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="tempUnit" id="tempFahrenheit">
+                                                <label class="form-check-label" for="tempFahrenheit">
+                                                    Fahrenheit (°F)
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">Save System Settings</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0">Water Chemistry Targets</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="chemistryTargetsForm">
+                                        <div class="mb-3">
+                                            <label class="form-label">pH Range</label>
+                                            <div class="row g-2">
+                                                <div class="col">
+                                                    <div class="input-group">
+                                                        <span class="input-group-text">Min</span>
+                                                        <input type="number" class="form-control" id="phTargetMin" value="7.2" step="0.1" min="6.5" max="8.0">
+                                                    </div>
+                                                </div>
+                                                <div class="col">
+                                                    <div class="input-group">
+                                                        <span class="input-group-text">Max</span>
+                                                        <input type="number" class="form-control" id="phTargetMax" value="7.6" step="0.1" min="6.5" max="8.0">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">ORP Range (mV)</label>
+                                            <div class="row g-2">
+                                                <div class="col">
+                                                    <div class="input-group">
+                                                        <span class="input-group-text">Min</span>
+                                                        <input type="number" class="form-control" id="orpTargetMin" value="650" step="10" min="500" max="900">
+                                                    </div>
+                                                </div>
+                                                <div class="col">
+                                                    <div class="input-group">
+                                                        <span class="input-group-text">Max</span>
+                                                        <input type="number" class="form-control" id="orpTargetMax" value="750" step="10" min="500" max="900">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Free Chlorine Range (mg/L)</label>
+                                            <div class="row g-2">
+                                                <div class="col">
+                                                    <div class="input-group">
+                                                        <span class="input-group-text">Min</span>
+                                                        <input type="number" class="form-control" id="freeClTargetMin" value="1.0" step="0.1" min="0.5" max="5.0">
+                                                    </div>
+                                                </div>
+                                                <div class="col">
+                                                    <div class="input-group">
+                                                        <span class="input-group-text">Max</span>
+                                                        <input type="number" class="form-control" id="freeClTargetMax" value="2.0" step="0.1" min="0.5" max="5.0">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Combined Chlorine Maximum (mg/L)</label>
+                                            <input type="number" class="form-control" id="combinedClMax" value="0.3" step="0.1" min="0" max="1.0">
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">Save Chemistry Settings</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Device Configuration Section -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0">Dosing Pump Configuration</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="pumpConfigForm">
+                                        <div class="mb-3">
+                                            <label class="form-label">pH Pump Flow Rate (ml/h)</label>
+                                            <input type="number" class="form-control" id="phPumpFlowRate" value="120" min="10" max="500">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Chlorine Pump Flow Rate (ml/h)</label>
+                                            <input type="number" class="form-control" id="clPumpFlowRate" value="150" min="10" max="500">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">PAC Pump Flow Rate Configuration</label>
+                                            <div class="row g-2">
+                                                <div class="col-6">
+                                                    <label class="form-label small">Minimum (ml/h)</label>
+                                                    <input type="number" class="form-control" id="pacMinFlow" value="60" min="10" max="100">
+                                                </div>
+                                                <div class="col-6">
+                                                    <label class="form-label small">Maximum (ml/h)</label>
+                                                    <input type="number" class="form-control" id="pacMaxFlow" value="150" min="100" max="500">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Maximum Dose Durations</label>
+                                            <div class="row g-2">
+                                                <div class="col-6">
+                                                    <label class="form-label small">pH Pump (seconds)</label>
+                                                    <input type="number" class="form-control" id="phMaxDoseDuration" value="300" min="30" max="1800">
+                                                </div>
+                                                <div class="col-6">
+                                                    <label class="form-label small">Chlorine Pump (seconds)</label>
+                                                    <input type="number" class="form-control" id="clMaxDoseDuration" value="300" min="30" max="1800">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">Save Pump Settings</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0">Turbidity Control Settings</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="turbiditySettingsForm">
+                                        <div class="mb-3">
+                                            <label class="form-label">Turbidity Target (NTU)</label>
+                                            <input type="number" class="form-control" id="turbidityTarget" value="0.15" step="0.01" min="0.05" max="0.3">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">PAC Dosing Thresholds</label>
+                                            <div class="row g-2">
+                                                <div class="col">
+                                                    <label class="form-label small">Low (NTU)</label>
+                                                    <input type="number" class="form-control" id="turbidityLowThreshold" value="0.12" step="0.01" min="0.05" max="0.3">
+                                                </div>
+                                                <div class="col">
+                                                    <label class="form-label small">High (NTU)</label>
+                                                    <input type="number" class="form-control" id="turbidityHighThreshold" value="0.25" step="0.01" min="0.1" max="0.5">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Filter Backwash Alert Level (%)</label>
+                                            <input type="number" class="form-control" id="filterBackwashLevel" value="70" min="50" max="90">
+                                        </div>
+                                        <div class="mb-3">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="autoBackwashAlerts" checked>
+                                                <label class="form-check-label" for="autoBackwashAlerts">Enable Automatic Backwash Alerts</label>
+                                            </div>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">Save Turbidity Settings</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Data Management Section -->
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0">Data Management</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row mb-4">
+                                        <div class="col-md-6">
+                                            <h6>Backup & Restore</h6>
+                                            <p class="text-muted small">Export or import all system settings</p>
+                                            <div class="d-flex gap-2 mb-3">
+                                                <button class="btn btn-outline-primary" id="exportSettingsBtn">
+                                                    <i class="bi bi-download me-1"></i> Export Settings
+                                                </button>
+                                                <div class="btn btn-outline-secondary position-relative">
+                                                    <i class="bi bi-upload me-1"></i> Import Settings
+                                                    <input type="file" id="importSettingsFile" class="position-absolute top-0 start-0 opacity-0" style="width:100%; height:100%; cursor:pointer;">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6>Data Retention</h6>
+                                            <p class="text-muted small">Configure how long to keep historical data</p>
+                                            <div class="mb-3">
+                                                <label class="form-label">Sensor Readings Retention</label>
+                                                <select class="form-select" id="dataRetention">
+                                                    <option value="30">30 days</option>
+                                                    <option value="90" selected>90 days</option>
+                                                    <option value="180">180 days</option>
+                                                    <option value="365">1 year</option>
+                                                </select>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">System Events Retention</label>
+                                                <select class="form-select" id="eventRetention">
+                                                    <option value="30">30 days</option>
+                                                    <option value="90" selected>90 days</option>
+                                                    <option value="180">180 days</option>
+                                                    <option value="365">1 year</option>
+                                                </select>
+                                            </div>
+                                            <button class="btn btn-primary" id="saveRetentionBtn">Save Retention Settings</button>
+                                        </div>
+                                    </div>
+                                    <hr>
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <h6>Reset & Maintenance</h6>
+                                            <p class="text-muted small">Advanced system maintenance options</p>
+                                            <div class="d-flex gap-2">
+                                                <button class="btn btn-warning" id="resetSettingsBtn">
+                                                    <i class="bi bi-arrow-counterclockwise me-1"></i> Reset to Defaults
+                                                </button>
+                                                <button class="btn btn-danger" id="clearDataBtn">
+                                                    <i class="bi bi-trash me-1"></i> Clear Historical Data
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

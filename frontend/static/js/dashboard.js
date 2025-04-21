@@ -77,6 +77,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (getParameterByName('simulate') !== 'false') {
         setInterval(simulateDataChanges, 5000);
     }
+
+    // Initialize settings tab
+    initializeSettingsTab();
 });
 
 /**
@@ -2347,5 +2350,560 @@ function updateAllAxisVisibility() {
     } else if (phDatasetVisible) {
         // Reset grid color when pH dataset is visible
         historyChart.options.scales['y-ph'].grid.color = undefined; // Use default
+    }
+}
+
+/**
+ * Initialize settings tab functionality
+ */
+function initializeSettingsTab() {
+    console.log('Initializing Settings Tab');
+    
+    // Form submission handlers
+    document.getElementById('accountSettingsForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveAccountSettings(this);
+    });
+    
+    document.getElementById('notificationSettingsForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveNotificationSettings(this);
+    });
+    
+    document.getElementById('systemConfigForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveSystemConfig(this);
+    });
+    
+    document.getElementById('chemistryTargetsForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveChemistryTargets(this);
+    });
+    
+    document.getElementById('pumpConfigForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        savePumpConfig(this);
+    });
+    
+    document.getElementById('turbiditySettingsForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveTurbiditySettings(this);
+    });
+    
+    // Data management buttons
+    document.getElementById('exportSettingsBtn').addEventListener('click', exportSettings);
+    document.getElementById('importSettingsFile').addEventListener('change', importSettings);
+    document.getElementById('saveRetentionBtn').addEventListener('click', saveRetentionSettings);
+    document.getElementById('resetSettingsBtn').addEventListener('click', confirmResetSettings);
+    document.getElementById('clearDataBtn').addEventListener('click', confirmClearData);
+    
+    // Load saved settings if available
+    loadSavedSettings();
+}
+
+/**
+ * Save account settings with password change
+ */
+function saveAccountSettings(form) {
+    // Get form elements
+    const currentPassword = document.getElementById('currentPassword');
+    const newPassword = document.getElementById('newPassword');
+    const confirmPassword = document.getElementById('confirmPassword');
+    const submitButton = form.querySelector('button[type="submit"]');
+    
+    // Set loading state
+    const originalButtonText = submitButton.innerHTML;
+    submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+    submitButton.disabled = true;
+    
+    // Validate passwords
+    if (!currentPassword.value) {
+        showToast('Please enter your current password', 'warning');
+        submitButton.innerHTML = originalButtonText;
+        submitButton.disabled = false;
+        return;
+    }
+    
+    if (newPassword.value !== confirmPassword.value) {
+        showToast('New passwords do not match', 'warning');
+        submitButton.innerHTML = originalButtonText;
+        submitButton.disabled = false;
+        return;
+    }
+    
+    // For demo, we'll just simulate an API call with a timeout
+    setTimeout(function() {
+        // In a real app, you would send this to an API
+        console.log('Password change saved');
+        
+        // Reset form and button
+        form.reset();
+        submitButton.innerHTML = originalButtonText;
+        submitButton.disabled = false;
+        
+        showToast('Password changed successfully');
+    }, 1000);
+}
+
+/**
+ * Save notification settings
+ */
+function saveNotificationSettings(form) {
+    // Get form elements
+    const submitButton = form.querySelector('button[type="submit"]');
+    
+    // Set loading state
+    const originalButtonText = submitButton.innerHTML;
+    submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+    submitButton.disabled = true;
+    
+    // Get settings
+    const notificationEmail = document.getElementById('notificationEmail').value;
+    const alertNotifications = document.getElementById('alertNotifications').checked;
+    const warningNotifications = document.getElementById('warningNotifications').checked;
+    const maintenanceNotifications = document.getElementById('maintenanceNotifications').checked;
+    const dailyReportNotifications = document.getElementById('dailyReportNotifications').checked;
+    
+    // Save to localStorage for demo
+    const notificationSettings = {
+        notificationEmail,
+        alertNotifications,
+        warningNotifications,
+        maintenanceNotifications,
+        dailyReportNotifications
+    };
+    
+    localStorage.setItem('notificationSettings', JSON.stringify(notificationSettings));
+    
+    // Simulated delay to show loading state
+    setTimeout(function() {
+        submitButton.innerHTML = originalButtonText;
+        submitButton.disabled = false;
+        showToast('Notification settings saved successfully');
+    }, 800);
+}
+
+/**
+ * Save system configuration
+ */
+function saveSystemConfig(form) {
+    // Get form elements
+    const submitButton = form.querySelector('button[type="submit"]');
+    
+    // Set loading state
+    const originalButtonText = submitButton.innerHTML;
+    submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+    submitButton.disabled = true;
+    
+    // Get settings
+    const systemName = document.getElementById('systemName').value;
+    const poolSize = document.getElementById('poolSize').value;
+    const refreshInterval = document.getElementById('refreshInterval').value;
+    const defaultMode = document.getElementById('defaultModeAuto').checked ? 'auto' : 'manual';
+    const tempUnit = document.getElementById('tempCelsius').checked ? 'celsius' : 'fahrenheit';
+    
+    // Save to localStorage for demo
+    const systemConfig = {
+        systemName,
+        poolSize,
+        refreshInterval,
+        defaultMode,
+        tempUnit
+    };
+    
+    localStorage.setItem('systemConfig', JSON.stringify(systemConfig));
+    
+    // Update UI elements that depend on these settings
+    document.querySelector('.sidebar-header h3').textContent = systemName;
+    
+    // Simulated delay to show loading state
+    setTimeout(function() {
+        submitButton.innerHTML = originalButtonText;
+        submitButton.disabled = false;
+        showToast('System settings saved successfully');
+    }, 800);
+}
+
+/**
+ * Save chemistry targets
+ */
+function saveChemistryTargets(form) {
+    // Get form elements
+    const submitButton = form.querySelector('button[type="submit"]');
+    
+    // Set loading state
+    const originalButtonText = submitButton.innerHTML;
+    submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+    submitButton.disabled = true;
+    
+    // Get settings
+    const phTargetMin = document.getElementById('phTargetMin').value;
+    const phTargetMax = document.getElementById('phTargetMax').value;
+    const orpTargetMin = document.getElementById('orpTargetMin').value;
+    const orpTargetMax = document.getElementById('orpTargetMax').value;
+    const freeClTargetMin = document.getElementById('freeClTargetMin').value;
+    const freeClTargetMax = document.getElementById('freeClTargetMax').value;
+    const combinedClMax = document.getElementById('combinedClMax').value;
+    
+    // Validate ranges
+    if (parseFloat(phTargetMin) >= parseFloat(phTargetMax)) {
+        showToast('pH minimum must be lower than maximum', 'warning');
+        submitButton.innerHTML = originalButtonText;
+        submitButton.disabled = false;
+        return;
+    }
+    
+    if (parseFloat(orpTargetMin) >= parseFloat(orpTargetMax)) {
+        showToast('ORP minimum must be lower than maximum', 'warning');
+        submitButton.innerHTML = originalButtonText;
+        submitButton.disabled = false;
+        return;
+    }
+    
+    if (parseFloat(freeClTargetMin) >= parseFloat(freeClTargetMax)) {
+        showToast('Chlorine minimum must be lower than maximum', 'warning');
+        submitButton.innerHTML = originalButtonText;
+        submitButton.disabled = false;
+        return;
+    }
+    
+    // Save to localStorage for demo
+    const chemistryTargets = {
+        phTargetMin,
+        phTargetMax,
+        orpTargetMin,
+        orpTargetMax,
+        freeClTargetMin,
+        freeClTargetMax,
+        combinedClMax
+    };
+    
+    localStorage.setItem('chemistryTargets', JSON.stringify(chemistryTargets));
+    
+    // Update UI elements that display target ranges
+    document.querySelector('#phValue').closest('.d-flex').querySelector('.parameter-info .text-muted.small').textContent = `Target: ${phTargetMin} - ${phTargetMax}`;
+    document.querySelector('#orpValue').closest('.d-flex').querySelector('.parameter-info .text-muted.small').textContent = `mV (Target: ${orpTargetMin} - ${orpTargetMax})`;
+    document.querySelector('#freeChlorineValue').closest('.d-flex').querySelector('.parameter-info .text-muted.small').textContent = `Free (mg/L) (Target: ${freeClTargetMin} - ${freeClTargetMax})`;
+    
+    // Simulated delay to show loading state
+    setTimeout(function() {
+        submitButton.innerHTML = originalButtonText;
+        submitButton.disabled = false;
+        showToast('Chemistry targets saved successfully');
+    }, 800);
+}
+
+/**
+ * Save pump configuration
+ */
+function savePumpConfig(form) {
+    // Get form elements
+    const submitButton = form.querySelector('button[type="submit"]');
+    
+    // Set loading state
+    const originalButtonText = submitButton.innerHTML;
+    submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+    submitButton.disabled = true;
+    
+    // Get settings
+    const phPumpFlowRate = document.getElementById('phPumpFlowRate').value;
+    const clPumpFlowRate = document.getElementById('clPumpFlowRate').value;
+    const pacMinFlow = document.getElementById('pacMinFlow').value;
+    const pacMaxFlow = document.getElementById('pacMaxFlow').value;
+    const phMaxDoseDuration = document.getElementById('phMaxDoseDuration').value;
+    const clMaxDoseDuration = document.getElementById('clMaxDoseDuration').value;
+    
+    // Validate values
+    if (parseInt(pacMinFlow) >= parseInt(pacMaxFlow)) {
+        showToast('PAC minimum flow must be lower than maximum', 'warning');
+        submitButton.innerHTML = originalButtonText;
+        submitButton.disabled = false;
+        return;
+    }
+    
+    // Save to localStorage for demo
+    const pumpConfig = {
+        phPumpFlowRate,
+        clPumpFlowRate,
+        pacMinFlow,
+        pacMaxFlow,
+        phMaxDoseDuration,
+        clMaxDoseDuration
+    };
+    
+    localStorage.setItem('pumpConfig', JSON.stringify(pumpConfig));
+    
+    // Update mock data for simulation
+    if (mockData) {
+        mockData.pacDosingRate = parseInt(pacMinFlow) + Math.floor(Math.random() * (parseInt(pacMaxFlow) - parseInt(pacMinFlow)));
+    }
+    
+    // Simulated delay to show loading state
+    setTimeout(function() {
+        submitButton.innerHTML = originalButtonText;
+        submitButton.disabled = false;
+        showToast('Pump settings saved successfully');
+    }, 800);
+}
+
+/**
+ * Save turbidity settings
+ */
+function saveTurbiditySettings(form) {
+    // Get form elements
+    const submitButton = form.querySelector('button[type="submit"]');
+    
+    // Set loading state
+    const originalButtonText = submitButton.innerHTML;
+    submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+    submitButton.disabled = true;
+    
+    // Get settings
+    const turbidityTarget = document.getElementById('turbidityTarget').value;
+    const turbidityLowThreshold = document.getElementById('turbidityLowThreshold').value;
+    const turbidityHighThreshold = document.getElementById('turbidityHighThreshold').value;
+    const filterBackwashLevel = document.getElementById('filterBackwashLevel').value;
+    const autoBackwashAlerts = document.getElementById('autoBackwashAlerts').checked;
+    
+    // Validate thresholds
+    if (parseFloat(turbidityLowThreshold) >= parseFloat(turbidityHighThreshold)) {
+        showToast('Low threshold must be lower than high threshold', 'warning');
+        submitButton.innerHTML = originalButtonText;
+        submitButton.disabled = false;
+        return;
+    }
+    
+    if (parseFloat(turbidityTarget) <= parseFloat(turbidityLowThreshold) || 
+        parseFloat(turbidityTarget) >= parseFloat(turbidityHighThreshold)) {
+        showToast('Target must be between low and high thresholds', 'warning');
+        submitButton.innerHTML = originalButtonText;
+        submitButton.disabled = false;
+        return;
+    }
+    
+    // Save to localStorage for demo
+    const turbiditySettings = {
+        turbidityTarget,
+        turbidityLowThreshold,
+        turbidityHighThreshold,
+        filterBackwashLevel,
+        autoBackwashAlerts
+    };
+    
+    localStorage.setItem('turbiditySettings', JSON.stringify(turbiditySettings));
+    
+    // Update UI elements
+    document.getElementById('pacTargetValue').value = turbidityTarget;
+    document.getElementById('pacLowThreshold').value = turbidityLowThreshold;
+    document.getElementById('pacHighThreshold').value = turbidityHighThreshold;
+    
+    // Simulated delay to show loading state
+    setTimeout(function() {
+        submitButton.innerHTML = originalButtonText;
+        submitButton.disabled = false;
+        showToast('Turbidity settings saved successfully');
+    }, 800);
+}
+
+/**
+ * Export settings as a JSON file
+ */
+function exportSettings() {
+    // Collect all settings from localStorage
+    const allSettings = {
+        systemConfig: JSON.parse(localStorage.getItem('systemConfig') || '{}'),
+        notificationSettings: JSON.parse(localStorage.getItem('notificationSettings') || '{}'),
+        chemistryTargets: JSON.parse(localStorage.getItem('chemistryTargets') || '{}'),
+        pumpConfig: JSON.parse(localStorage.getItem('pumpConfig') || '{}'),
+        turbiditySettings: JSON.parse(localStorage.getItem('turbiditySettings') || '{}')
+    };
+    
+    // Create a blob and download link
+    const blob = new Blob([JSON.stringify(allSettings, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pool_settings_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    
+    // Clean up
+    setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    }, 0);
+    
+    showToast('Settings exported successfully');
+}
+
+/**
+ * Import settings from a JSON file
+ */
+function importSettings(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const settings = JSON.parse(e.target.result);
+            
+            // Save each settings group to localStorage
+            if (settings.systemConfig) {
+                localStorage.setItem('systemConfig', JSON.stringify(settings.systemConfig));
+            }
+            
+            if (settings.notificationSettings) {
+                localStorage.setItem('notificationSettings', JSON.stringify(settings.notificationSettings));
+            }
+            
+            if (settings.chemistryTargets) {
+                localStorage.setItem('chemistryTargets', JSON.stringify(settings.chemistryTargets));
+            }
+            
+            if (settings.pumpConfig) {
+                localStorage.setItem('pumpConfig', JSON.stringify(settings.pumpConfig));
+            }
+            
+            if (settings.turbiditySettings) {
+                localStorage.setItem('turbiditySettings', JSON.stringify(settings.turbiditySettings));
+            }
+            
+            // Load settings into forms
+            loadSavedSettings();
+            
+            showToast('Settings imported successfully');
+        } catch (error) {
+            console.error('Error importing settings:', error);
+            showToast('Error importing settings. Invalid file format.', 'warning');
+        }
+    };
+    
+    reader.readAsText(file);
+    
+    // Clear the file input for future imports
+    event.target.value = '';
+}
+
+/**
+ * Save data retention settings
+ */
+function saveRetentionSettings() {
+    const dataRetention = document.getElementById('dataRetention').value;
+    const eventRetention = document.getElementById('eventRetention').value;
+    
+    localStorage.setItem('retentionSettings', JSON.stringify({
+        dataRetention,
+        eventRetention
+    }));
+    
+    showToast('Data retention settings saved');
+}
+
+/**
+ * Confirm reset of all settings to defaults
+ */
+function confirmResetSettings() {
+    if (confirm('Are you sure you want to reset all settings to default values? This cannot be undone.')) {
+        // Clear all settings from localStorage
+        localStorage.removeItem('systemConfig');
+        localStorage.removeItem('notificationSettings');
+        localStorage.removeItem('chemistryTargets');
+        localStorage.removeItem('pumpConfig');
+        localStorage.removeItem('turbiditySettings');
+        localStorage.removeItem('retentionSettings');
+        
+        // Reload default settings into forms
+        loadSavedSettings();
+        
+        showToast('Settings reset to defaults');
+    }
+}
+
+/**
+ * Confirm clearing of historical data
+ */
+function confirmClearData() {
+    if (confirm('Are you sure you want to clear all historical data? This cannot be undone.')) {
+        // In a real app, this would call an API to clear data
+        console.log('Clearing historical data');
+        
+        // For demo, we'll just show a toast
+        showToast('Historical data cleared');
+    }
+}
+
+/**
+ * Load saved settings from localStorage
+ */
+function loadSavedSettings() {
+    // Load notification settings
+    const notificationSettings = JSON.parse(localStorage.getItem('notificationSettings'));
+    if (notificationSettings) {
+        document.getElementById('notificationEmail').value = notificationSettings.notificationEmail || '';
+        document.getElementById('alertNotifications').checked = notificationSettings.alertNotifications !== false;
+        document.getElementById('warningNotifications').checked = notificationSettings.warningNotifications !== false;
+        document.getElementById('maintenanceNotifications').checked = notificationSettings.maintenanceNotifications !== false;
+        document.getElementById('dailyReportNotifications').checked = notificationSettings.dailyReportNotifications === true;
+    }
+    
+    // Load system configuration
+    const systemConfig = JSON.parse(localStorage.getItem('systemConfig'));
+    if (systemConfig) {
+        document.getElementById('systemName').value = systemConfig.systemName || 'Pool Automation System';
+        document.getElementById('poolSize').value = systemConfig.poolSize || '300';
+        document.getElementById('refreshInterval').value = systemConfig.refreshInterval || '10';
+        
+        if (systemConfig.defaultMode === 'manual') {
+            document.getElementById('defaultModeManual').checked = true;
+        } else {
+            document.getElementById('defaultModeAuto').checked = true;
+        }
+        
+        if (systemConfig.tempUnit === 'fahrenheit') {
+            document.getElementById('tempFahrenheit').checked = true;
+        } else {
+            document.getElementById('tempCelsius').checked = true;
+        }
+    }
+    
+    // Load chemistry targets
+    const chemistryTargets = JSON.parse(localStorage.getItem('chemistryTargets'));
+    if (chemistryTargets) {
+        document.getElementById('phTargetMin').value = chemistryTargets.phTargetMin || '7.2';
+        document.getElementById('phTargetMax').value = chemistryTargets.phTargetMax || '7.6';
+        document.getElementById('orpTargetMin').value = chemistryTargets.orpTargetMin || '650';
+        document.getElementById('orpTargetMax').value = chemistryTargets.orpTargetMax || '750';
+        document.getElementById('freeClTargetMin').value = chemistryTargets.freeClTargetMin || '1.0';
+        document.getElementById('freeClTargetMax').value = chemistryTargets.freeClTargetMax || '2.0';
+        document.getElementById('combinedClMax').value = chemistryTargets.combinedClMax || '0.3';
+    }
+    
+    // Load pump configuration
+    const pumpConfig = JSON.parse(localStorage.getItem('pumpConfig'));
+    if (pumpConfig) {
+        document.getElementById('phPumpFlowRate').value = pumpConfig.phPumpFlowRate || '120';
+        document.getElementById('clPumpFlowRate').value = pumpConfig.clPumpFlowRate || '150';
+        document.getElementById('pacMinFlow').value = pumpConfig.pacMinFlow || '60';
+        document.getElementById('pacMaxFlow').value = pumpConfig.pacMaxFlow || '150';
+        document.getElementById('phMaxDoseDuration').value = pumpConfig.phMaxDoseDuration || '300';
+        document.getElementById('clMaxDoseDuration').value = pumpConfig.clMaxDoseDuration || '300';
+    }
+    
+    // Load turbidity settings
+    const turbiditySettings = JSON.parse(localStorage.getItem('turbiditySettings'));
+    if (turbiditySettings) {
+        document.getElementById('turbidityTarget').value = turbiditySettings.turbidityTarget || '0.15';
+        document.getElementById('turbidityLowThreshold').value = turbiditySettings.turbidityLowThreshold || '0.12';
+        document.getElementById('turbidityHighThreshold').value = turbiditySettings.turbidityHighThreshold || '0.25';
+        document.getElementById('filterBackwashLevel').value = turbiditySettings.filterBackwashLevel || '70';
+        document.getElementById('autoBackwashAlerts').checked = turbiditySettings.autoBackwashAlerts !== false;
+    }
+    
+    // Load retention settings
+    const retentionSettings = JSON.parse(localStorage.getItem('retentionSettings'));
+    if (retentionSettings) {
+        document.getElementById('dataRetention').value = retentionSettings.dataRetention || '90';
+        document.getElementById('eventRetention').value = retentionSettings.eventRetention || '90';
     }
 }
