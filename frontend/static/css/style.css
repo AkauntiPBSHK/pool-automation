@@ -307,3 +307,16 @@ main {
     box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
     font-weight: bold;
 }
+
+/* Blue indicator balls for water chemistry tab */
+.blue-indicator {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background-color: #0d6efd;
+    border-radius: 50%;
+    top: -15px;
+    transform: translateX(-50%);
+    box-shadow: 0 0 3px rgba(13, 110, 253, 0.5);
+    z-index: 15;
+}
