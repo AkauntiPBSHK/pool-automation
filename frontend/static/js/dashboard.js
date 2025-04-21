@@ -46,6 +46,9 @@ document.addEventListener('DOMContentLoaded', function() {
         fetchStatus();
         updateParameterDisplays(mockData);
     });
+
+    // Add form validation setup
+    setupPHFormValidation();
     
     // Initialize water chemistry section
     initializeWaterChemistryControls();
@@ -56,8 +59,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize history tab
     initializeHistoryTab();
 
-    // Initialize settings tab
-    initializeSettingsTab();
+    fixSettingsTab();
 
     // Initial data fetch
     fetchStatus();
@@ -2355,64 +2357,23 @@ function updateAllAxisVisibility() {
     }
 }
 
-function initializeSettingsTab() {
-    console.log('Initializing Settings Tab');
-    
-    // Make the tab content container visible
-    const tabContent = document.getElementById('settingsTabContent');
-    if (tabContent) {
-        tabContent.style.display = 'block';
-    }
-    
-    // Set up click handlers for tabs
-    document.querySelectorAll('#settingsTabs .nav-link').forEach(function(tabButton) {
-        tabButton.addEventListener('click', function() {
-            // Remove active class from all tab buttons
-            document.querySelectorAll('#settingsTabs .nav-link').forEach(function(btn) {
-                btn.classList.remove('active');
-            });
-            
-            // Add active class to clicked button
-            this.classList.add('active');
-            
-            // Hide all tab panes
-            document.querySelectorAll('.tab-pane').forEach(function(pane) {
-                pane.style.display = 'none';
-            });
-            
-            // Show the target tab pane
-            const targetId = this.getAttribute('data-bs-target');
-            const targetPane = document.querySelector(targetId);
-            if (targetPane) {
-                targetPane.style.display = 'block';
-            }
-        });
-    });
-    
-    // Activate System tab by default
-    const systemTab = document.querySelector('#system-tab');
-    if (systemTab) {
-        systemTab.click();
-    }
-}
-
 /**
  * Load saved settings from localStorage or use defaults
  */
 function loadSavedSettings() {
-    // System settings
+    // System settings - set defaults if not exists
     const systemSettings = localStorage.getItem('systemSettings') 
-    ? JSON.parse(localStorage.getItem('systemSettings')) 
-    : {
-        name: 'Pool Automation System',
-        defaultMode: 'automatic',
-        tempUnit: 'celsius',
-        timeFormat: '24h',
-        dataSamplingRate: '300',
-        dataRetention: '30',
-        enableSimulation: true
-    };
-
+        ? JSON.parse(localStorage.getItem('systemSettings')) 
+        : {
+            name: 'Pool Automation System',
+            defaultMode: 'automatic',
+            tempUnit: 'celsius',
+            timeFormat: '24h',
+            dataSamplingRate: '300',
+            dataRetention: '30',
+            enableSimulation: true
+        };
+    
     // Always set values, regardless of whether they were saved
     document.getElementById('systemName').value = systemSettings.name || 'Pool Automation System';
     document.getElementById('defaultMode').value = systemSettings.defaultMode || 'automatic';
@@ -2422,96 +2383,123 @@ function loadSavedSettings() {
     document.getElementById('dataRetention').value = systemSettings.dataRetention || '30';
     document.getElementById('enableSimulation').checked = systemSettings.enableSimulation !== false;
 
-    if (localStorage.getItem('systemSettings')) {
-        const systemSettings = JSON.parse(localStorage.getItem('systemSettings'));
-        
-        document.getElementById('systemName').value = systemSettings.name || 'Pool Automation System';
-        document.getElementById('defaultMode').value = systemSettings.defaultMode || 'automatic';
-        document.getElementById('tempUnit').value = systemSettings.tempUnit || 'celsius';
-        document.getElementById('timeFormat').value = systemSettings.timeFormat || '24h';
-        document.getElementById('dataSamplingRate').value = systemSettings.dataSamplingRate || '300';
-        document.getElementById('dataRetention').value = systemSettings.dataRetention || '30';
-        document.getElementById('enableSimulation').checked = systemSettings.enableSimulation !== false;
+    // Use standardized parameter settings
+    const parameterSettings = getParameterSettings();
+    
+    // Set pH settings
+    if (parameterSettings.ph) {
+        document.getElementById('phTargetMin').value = parameterSettings.ph.targetMin || 7.2;
+        document.getElementById('phTargetMax').value = parameterSettings.ph.targetMax || 7.6;
+        document.getElementById('phAlertLow').value = parameterSettings.ph.alertLow || 7.0;
+        document.getElementById('phAlertHigh').value = parameterSettings.ph.alertHigh || 7.8;
+        document.getElementById('phDoseRate').value = parameterSettings.ph.doseRate || 100;
+        document.getElementById('phDosingDelay').value = parameterSettings.ph.dosingDelay || 5;
+        document.getElementById('phAutoDosing').checked = parameterSettings.ph.autoDosing !== false;
     }
     
-    // Parameter settings
-    if (localStorage.getItem('parameterSettings')) {
-        const parameterSettings = JSON.parse(localStorage.getItem('parameterSettings'));
-        
-        // pH settings
-        if (parameterSettings.ph) {
-            document.getElementById('phTargetMin').value = parameterSettings.ph.targetMin || 7.2;
-            document.getElementById('phTargetMax').value = parameterSettings.ph.targetMax || 7.6;
-            document.getElementById('phAlertLow').value = parameterSettings.ph.alertLow || 7.0;
-            document.getElementById('phAlertHigh').value = parameterSettings.ph.alertHigh || 7.8;
-            document.getElementById('phDoseRate').value = parameterSettings.ph.doseRate || 100;
-            document.getElementById('phDosingDelay').value = parameterSettings.ph.dosingDelay || 5;
-            document.getElementById('phAutoDosing').checked = parameterSettings.ph.autoDosing !== false;
-        }
-        
-        // Other parameters would follow the same pattern
+    // Device settings - set defaults if not exists
+    const deviceSettings = localStorage.getItem('deviceSettings') 
+        ? JSON.parse(localStorage.getItem('deviceSettings')) 
+        : {
+            pumps: {
+                phPumpType: 'NOVA NSE155-E1504',
+                phPumpMaxFlow: 15.3,
+                clPumpType: 'NOVA NSE155-E1504',
+                clPumpMaxFlow: 15.3,
+                pacPumpType: 'Chonry WP110',
+                pacPumpMaxFlow: 150,
+                pacTubeSize: '2x1'
+            },
+            sensors: {
+                turbidityModel: 'Chemitec S461S LT',
+                turbidityRange: '0-100',
+                steielPort: '/dev/ttyUSB0',
+                steielAddress: 1,
+                turbidityPort: '/dev/ttyUSB1',
+                turbidityAddress: 1
+            }
+        };
+    
+    // Set pump settings
+    if (deviceSettings.pumps) {
+        document.getElementById('phPumpType').value = deviceSettings.pumps.phPumpType || 'NOVA NSE155-E1504';
+        document.getElementById('phPumpMaxFlow').value = deviceSettings.pumps.phPumpMaxFlow || 15.3;
+        document.getElementById('clPumpType').value = deviceSettings.pumps.clPumpType || 'NOVA NSE155-E1504';
+        document.getElementById('clPumpMaxFlow').value = deviceSettings.pumps.clPumpMaxFlow || 15.3;
+        document.getElementById('pacPumpType').value = deviceSettings.pumps.pacPumpType || 'Chonry WP110';
+        document.getElementById('pacPumpMaxFlow').value = deviceSettings.pumps.pacPumpMaxFlow || 150;
+        document.getElementById('pacTubeSize').value = deviceSettings.pumps.pacTubeSize || '2x1';
     }
     
-    // Device settings
-    if (localStorage.getItem('deviceSettings')) {
-        const deviceSettings = JSON.parse(localStorage.getItem('deviceSettings'));
-        
-        // Pump settings
-        if (deviceSettings.pumps) {
-            document.getElementById('phPumpType').value = deviceSettings.pumps.phPumpType || 'NOVA NSE155-E1504';
-            document.getElementById('phPumpMaxFlow').value = deviceSettings.pumps.phPumpMaxFlow || 15.3;
-            document.getElementById('clPumpType').value = deviceSettings.pumps.clPumpType || 'NOVA NSE155-E1504';
-            document.getElementById('clPumpMaxFlow').value = deviceSettings.pumps.clPumpMaxFlow || 15.3;
-            document.getElementById('pacPumpType').value = deviceSettings.pumps.pacPumpType || 'Chonry WP110';
-            document.getElementById('pacPumpMaxFlow').value = deviceSettings.pumps.pacPumpMaxFlow || 150;
-            document.getElementById('pacTubeSize').value = deviceSettings.pumps.pacTubeSize || '2x1';
-        }
-        
-        // Sensor settings
-        if (deviceSettings.sensors) {
-            document.getElementById('turbidityModel').value = deviceSettings.sensors.turbidityModel || 'Chemitec S461S LT';
-            document.getElementById('turbidityRange').value = deviceSettings.sensors.turbidityRange || '0-100';
-            document.getElementById('steielPort').value = deviceSettings.sensors.steielPort || '/dev/ttyUSB0';
-            document.getElementById('steielAddress').value = deviceSettings.sensors.steielAddress || 1;
-            document.getElementById('turbidityPort').value = deviceSettings.sensors.turbidityPort || '/dev/ttyUSB1';
-            document.getElementById('turbidityAddress').value = deviceSettings.sensors.turbidityAddress || 1;
-        }
+    // Set sensor settings
+    if (deviceSettings.sensors) {
+        document.getElementById('turbidityModel').value = deviceSettings.sensors.turbidityModel || 'Chemitec S461S LT';
+        document.getElementById('turbidityRange').value = deviceSettings.sensors.turbidityRange || '0-100';
+        document.getElementById('steielPort').value = deviceSettings.sensors.steielPort || '/dev/ttyUSB0';
+        document.getElementById('steielAddress').value = deviceSettings.sensors.steielAddress || 1;
+        document.getElementById('turbidityPort').value = deviceSettings.sensors.turbidityPort || '/dev/ttyUSB1';
+        document.getElementById('turbidityAddress').value = deviceSettings.sensors.turbidityAddress || 1;
     }
     
-    // Notification settings
-    if (localStorage.getItem('notificationSettings')) {
-        const notificationSettings = JSON.parse(localStorage.getItem('notificationSettings'));
-        
-        document.getElementById('enableNotifications').checked = notificationSettings.enabled !== false;
-        document.getElementById('enableEmailNotifications').checked = notificationSettings.emailEnabled !== false;
-        document.getElementById('emailServer').value = notificationSettings.emailServer || 'smtp.gmail.com';
-        document.getElementById('emailPort').value = notificationSettings.emailPort || 587;
-        document.getElementById('emailSecurity').value = notificationSettings.emailSecurity || 'tls';
-        document.getElementById('emailUsername').value = notificationSettings.emailUsername || '';
-        document.getElementById('emailPassword').value = notificationSettings.emailPassword || '';
-        document.getElementById('emailFrom').value = notificationSettings.emailFrom || '';
-        document.getElementById('emailTo').value = notificationSettings.emailTo || '';
-        
-        document.getElementById('notifyParameterAlerts').checked = notificationSettings.notifyParameterAlerts !== false;
-        document.getElementById('notifyDosingEvents').checked = notificationSettings.notifyDosingEvents !== false;
-        document.getElementById('notifySystemEvents').checked = notificationSettings.notifySystemEvents !== false;
-        document.getElementById('notifyMaintenanceReminders').checked = notificationSettings.notifyMaintenanceReminders !== false;
-        document.getElementById('notifyChemicalLevels').checked = notificationSettings.notifyChemicalLevels === true;
-    }
+    // Notification settings - set defaults if not exists
+    const notificationSettings = localStorage.getItem('notificationSettings') 
+        ? JSON.parse(localStorage.getItem('notificationSettings')) 
+        : {
+            enabled: true,
+            emailEnabled: false,
+            emailServer: 'smtp.gmail.com',
+            emailPort: 587,
+            emailSecurity: 'tls',
+            emailUsername: '',
+            emailPassword: '',
+            emailFrom: '',
+            emailTo: '',
+            notifyParameterAlerts: true,
+            notifyDosingEvents: true,
+            notifySystemEvents: true,
+            notifyMaintenanceReminders: true,
+            notifyChemicalLevels: false
+        };
     
-    // Maintenance settings
-    if (localStorage.getItem('maintenanceSettings')) {
-        const maintenanceSettings = JSON.parse(localStorage.getItem('maintenanceSettings'));
-        
-        document.getElementById('backwashFrequency').value = maintenanceSettings.backwashFrequency || 'weekly';
-        document.getElementById('backwashDay').value = maintenanceSettings.backwashDay || '3';
-        document.getElementById('backwashTime').value = maintenanceSettings.backwashTime || '06:00';
-        document.getElementById('enableAutoBackwash').checked = maintenanceSettings.enableAutoBackwash === true;
-        document.getElementById('chemicalCheckFrequency').value = maintenanceSettings.chemicalCheckFrequency || 'weekly';
-        document.getElementById('pacReorderLevel').value = maintenanceSettings.pacReorderLevel || 20;
-        document.getElementById('phCalibrationInterval').value = maintenanceSettings.phCalibrationInterval || 'monthly';
-        document.getElementById('turbidityCalibrationInterval').value = maintenanceSettings.turbidityCalibrationInterval || 'monthly';
-    }
+    // Set notification settings
+    document.getElementById('enableNotifications').checked = notificationSettings.enabled !== false;
+    document.getElementById('enableEmailNotifications').checked = notificationSettings.emailEnabled === true;
+    document.getElementById('emailServer').value = notificationSettings.emailServer || 'smtp.gmail.com';
+    document.getElementById('emailPort').value = notificationSettings.emailPort || 587;
+    document.getElementById('emailSecurity').value = notificationSettings.emailSecurity || 'tls';
+    document.getElementById('emailUsername').value = notificationSettings.emailUsername || '';
+    document.getElementById('emailPassword').value = notificationSettings.emailPassword || '';
+    document.getElementById('emailFrom').value = notificationSettings.emailFrom || '';
+    document.getElementById('emailTo').value = notificationSettings.emailTo || '';
+    document.getElementById('notifyParameterAlerts').checked = notificationSettings.notifyParameterAlerts !== false;
+    document.getElementById('notifyDosingEvents').checked = notificationSettings.notifyDosingEvents !== false;
+    document.getElementById('notifySystemEvents').checked = notificationSettings.notifySystemEvents !== false;
+    document.getElementById('notifyMaintenanceReminders').checked = notificationSettings.notifyMaintenanceReminders !== false;
+    document.getElementById('notifyChemicalLevels').checked = notificationSettings.notifyChemicalLevels === true;
+    
+    // Maintenance settings - set defaults if not exists
+    const maintenanceSettings = localStorage.getItem('maintenanceSettings') 
+        ? JSON.parse(localStorage.getItem('maintenanceSettings')) 
+        : {
+            backwashFrequency: 'weekly',
+            backwashDay: '3',
+            backwashTime: '06:00',
+            enableAutoBackwash: false,
+            chemicalCheckFrequency: 'weekly',
+            pacReorderLevel: 20,
+            phCalibrationInterval: 'monthly',
+            turbidityCalibrationInterval: 'monthly'
+        };
+    
+    // Set maintenance settings
+    document.getElementById('backwashFrequency').value = maintenanceSettings.backwashFrequency || 'weekly';
+    document.getElementById('backwashDay').value = maintenanceSettings.backwashDay || '3';
+    document.getElementById('backwashTime').value = maintenanceSettings.backwashTime || '06:00';
+    document.getElementById('enableAutoBackwash').checked = maintenanceSettings.enableAutoBackwash === true;
+    document.getElementById('chemicalCheckFrequency').value = maintenanceSettings.chemicalCheckFrequency || 'weekly';
+    document.getElementById('pacReorderLevel').value = maintenanceSettings.pacReorderLevel || 20;
+    document.getElementById('phCalibrationInterval').value = maintenanceSettings.phCalibrationInterval || 'monthly';
+    document.getElementById('turbidityCalibrationInterval').value = maintenanceSettings.turbidityCalibrationInterval || 'monthly';
 }
 
 /**
@@ -2564,7 +2552,7 @@ function saveParameterSettings(e) {
     // Simulate API delay
     setTimeout(() => {
         // Get existing settings or initialize new object
-        const parameterSettings = localStorage.getItem('parameterSettings') 
+        let parameterSettings = localStorage.getItem('parameterSettings') 
             ? JSON.parse(localStorage.getItem('parameterSettings')) 
             : {};
     
@@ -2579,17 +2567,18 @@ function saveParameterSettings(e) {
                 dosingDelay: parseInt(document.getElementById('phDosingDelay').value),
                 autoDosing: document.getElementById('phAutoDosing').checked
             },
-
-            chlorine: {
+            // Keep other properties
+            chlorine: parameterSettings.chlorine || {
                 freeTarget: 1.2,
                 freeHigh: 2.0,
-                combinedTarget: 0.2
+                freeLow: 1.0,
+                combinedMax: 0.3
             },
-            orp: {
+            orp: parameterSettings.orp || {
                 target: 720,
                 high: 750
             },
-            turbidity: {
+            turbidity: parameterSettings.turbidity || {
                 target: 0.15,
                 high: 0.25,
                 low: 0.12
@@ -3118,29 +3107,6 @@ function exportSettings() {
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
-}
-
-/**
- * Export all settings to a JSON file
- */
-function exportSettings() {
-    // Collect all settings from localStorage
-    const settings = {
-        systemSettings: localStorage.getItem('systemSettings') ? JSON.parse(localStorage.getItem('systemSettings')) : {},
-        parameterSettings: localStorage.getItem('parameterSettings') ? JSON.parse(localStorage.getItem('parameterSettings')) : {},
-        deviceSettings: localStorage.getItem('deviceSettings') ? JSON.parse(localStorage.getItem('deviceSettings')) : {},
-        notificationSettings: localStorage.getItem('notificationSettings') ? JSON.parse(localStorage.getItem('notificationSettings')) : {},
-        maintenanceSettings: localStorage.getItem('maintenanceSettings') ? JSON.parse(localStorage.getItem('maintenanceSettings')) : {}
-    };
-    
-    // Create a download link
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(settings, null, 2));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "pool_automation_settings.json");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
     
     showToast('Settings exported successfully');
 }
@@ -3212,25 +3178,16 @@ function resetAllSettings() {
  * Update dashboard UI elements based on current settings
  */
 function updateDashboardWithSettings() {
-    console.log("updateDashboardWithSettings called!");
-
     console.log('Updating dashboard with current settings');
+
+    // Get current settings using safe methods
+    const systemSettings = safeGetItem('systemSettings', {
+        name: 'Pool Automation System',
+        defaultMode: 'automatic'
+    });
     
-    console.log("Updating dashboard with settings:", {
-        systemSettings: JSON.parse(localStorage.getItem('systemSettings') || '{}'),
-        parameterSettings: JSON.parse(localStorage.getItem('parameterSettings') || '{}')
-    });
-
-    const paramCards = document.querySelectorAll('.card');
-    console.log("Found param cards:", paramCards.length);
-    paramCards.forEach((card, index) => {
-        console.log(`Card ${index}:`, card.outerHTML.substring(0, 100) + '...');
-    });
-
-    // Get current settings from localStorage
-    const systemSettings = JSON.parse(localStorage.getItem('systemSettings') || '{}');
-    const parameterSettings = JSON.parse(localStorage.getItem('parameterSettings') || '{}');
-    const deviceSettings = JSON.parse(localStorage.getItem('deviceSettings') || '{}');
+    const parameterSettings = safeGetItem('parameterSettings', getDefaultParameterSettings());
+    const deviceSettings = safeGetItem('deviceSettings', {});
     
     // 1. Update system name in header if it exists
     if (systemSettings.name) {
@@ -3307,8 +3264,6 @@ function updateDashboardWithSettings() {
             document.getElementById('manualMode').click();
         }
     }
-    
-    console.log('Dashboard updated successfully');
 
     // 5. Update operation mode if applicable
     if (systemSettings.defaultMode) {
@@ -3323,6 +3278,7 @@ function updateDashboardWithSettings() {
             }
         }
     }
+    console.log('Dashboard updated successfully');
 }
 
 /**
@@ -3331,43 +3287,242 @@ function updateDashboardWithSettings() {
 function updateParameterTargets(paramId, min, max) {
     console.log(`Updating parameter ${paramId} targets: ${min} - ${max}`);
     
-    // Try multiple selector approaches
-    let paramCard = document.querySelector(`.parameter-card[data-param="${paramId}"]`);
+    // Try different reliable selector strategies
+    let paramCard;
+    
+    // Strategy 1: By data-param attribute
+    paramCard = document.querySelector(`.card[data-param="${paramId}"]`);
+    
+    // Strategy 2: By ID
     if (!paramCard) {
-        paramCard = document.querySelector(`#${paramId}Card`);
-    }
-    if (!paramCard) {
-        // Try finding by content
-        const allCards = document.querySelectorAll('.card');
-        for (const card of allCards) {
-            if (card.textContent.includes(paramId.toUpperCase()) || 
-                card.textContent.includes(paramId.charAt(0).toUpperCase() + paramId.slice(1))) {
-                paramCard = card;
+        const idVariants = [
+            `${paramId}Card`, 
+            `${paramId.toLowerCase()}Card`,
+            `card-${paramId}`
+        ];
+        
+        for (const id of idVariants) {
+            const element = document.getElementById(id);
+            if (element) {
+                paramCard = element;
                 break;
             }
         }
     }
     
+    // Strategy 3: Find by card title content
     if (!paramCard) {
-        console.log(`Parameter card for ${paramId} not found!`);
+        // Map of parameter IDs to possible title texts
+        const titleMap = {
+            'ph': ['ph'],
+            'orp': ['orp', 'redox'],
+            'freeChlorine': ['free chlorine', 'chlorine'],
+            'turbidity': ['turbidity'],
+            'temp': ['temperature', 'temp']
+        };
+        
+        // Look for titles matching our parameter
+        const possibleTitles = titleMap[paramId] || [paramId];
+        
+        document.querySelectorAll('.card-title').forEach(title => {
+            if (possibleTitles.some(t => title.textContent.toLowerCase().includes(t))) {
+                paramCard = title.closest('.card');
+            }
+        });
+    }
+    
+    if (!paramCard) {
+        console.warn(`Parameter card for ${paramId} not found. Check HTML structure.`);
         return;
     }
     
-    console.log(`Found parameter card for ${paramId}:`, paramCard);
+    // Find or add a data-param attribute for future use
+    if (!paramCard.hasAttribute('data-param')) {
+        paramCard.setAttribute('data-param', paramId);
+    }
     
-    // Find target range element
+    // Find target range element with multiple fallback strategies
     let targetEl = paramCard.querySelector('.parameter-range-text');
+    if (!targetEl) targetEl = paramCard.querySelector('.parameter-info .text-muted');
+    if (!targetEl) targetEl = paramCard.querySelector('.text-muted');
+    
     if (!targetEl) {
-        targetEl = paramCard.querySelector('.parameter-info .text-muted');
-    }
-    if (!targetEl) {
-        targetEl = paramCard.querySelector('.text-muted');  
+        // If we can't find it, try to find the parameter info section and add a target element
+        const paramInfo = paramCard.querySelector('.parameter-info');
+        if (paramInfo) {
+            targetEl = document.createElement('div');
+            targetEl.className = 'text-muted small parameter-range-text';
+            paramInfo.appendChild(targetEl);
+        } else {
+            console.warn(`Target element not found in card for ${paramId}. Check HTML structure.`);
+            return;
+        }
     }
     
-    if (targetEl) {
-        console.log(`Updating target element text to: Target: ${min} - ${max}`);
-        targetEl.textContent = `Target: ${min} - ${max}`;
-    } else {
-        console.log(`Target element not found in card for ${paramId}`);
+    // Add a consistent class for future reference
+    targetEl.classList.add('parameter-range-text');
+    
+    // Update the content
+    targetEl.textContent = `Target: ${min} - ${max}`;
+}
+
+/**
+ * Get default parameter settings structure
+ * @returns {Object} Default parameter settings 
+ */
+function getDefaultParameterSettings() {
+    return {
+        ph: {
+            targetMin: 7.2,
+            targetMax: 7.6,
+            alertLow: 7.0,
+            alertHigh: 7.8,
+            doseRate: 100,
+            dosingDelay: 5,
+            autoDosing: true
+        },
+        chlorine: {
+            freeTarget: 1.2,
+            freeHigh: 2.0,
+            freeLow: 1.0,
+            combinedMax: 0.3,
+            doseRate: 100,
+            dosingDelay: 5,
+            autoDosing: true
+        },
+        orp: {
+            target: 720,
+            high: 750,
+            low: 650,
+            doseRate: 100,
+            dosingDelay: 5
+        },
+        turbidity: {
+            target: 0.15,
+            high: 0.25,
+            low: 0.12,
+            doseRate: 100,
+            flowRate: 75,
+            autoDosing: true
+        },
+        temperature: {
+            target: 28,
+            high: 30,
+            low: 26
+        }
+    };
+}
+
+/**
+ * Get parameter settings from localStorage or defaults
+ * @returns {Object} Parameter settings
+ */
+function getParameterSettings() {
+    const defaults = getDefaultParameterSettings();
+    let saved = {};
+    
+    try {
+        saved = localStorage.getItem('parameterSettings') 
+            ? JSON.parse(localStorage.getItem('parameterSettings')) 
+            : {};
+    } catch (e) {
+        console.error('Error parsing parameter settings:', e);
+        showToast('Error loading parameter settings', 'warning');
     }
+    
+    // Merge saved settings with defaults (deep merge)
+    return {
+        ph: { ...defaults.ph, ...(saved.ph || {}) },
+        chlorine: { ...defaults.chlorine, ...(saved.chlorine || {}) },
+        orp: { ...defaults.orp, ...(saved.orp || {}) },
+        turbidity: { ...defaults.turbidity, ...(saved.turbidity || {}) },
+        temperature: { ...defaults.temperature, ...(saved.temperature || {}) }
+    };
+}
+
+/**
+ * Safe localStorage getter with error handling
+ * @param {string} key - The key to retrieve
+ * @param {*} defaultValue - Default value if key doesn't exist or on error
+ * @returns {*} The stored value or default
+ */
+function safeGetItem(key, defaultValue = null) {
+    try {
+        const item = localStorage.getItem(key);
+        return item ? JSON.parse(item) : defaultValue;
+    } catch (error) {
+        console.error(`Error retrieving ${key} from localStorage:`, error);
+        showToast(`Error loading settings. Using defaults.`, 'warning');
+        return defaultValue;
+    }
+}
+
+/**
+ * Safe localStorage setter with error handling
+ * @param {string} key - The key to set
+ * @param {*} value - The value to store
+ * @returns {boolean} Success status
+ */
+function safeSetItem(key, value) {
+    try {
+        localStorage.setItem(key, JSON.stringify(value));
+        return true;
+    } catch (error) {
+        console.error(`Error saving ${key} to localStorage:`, error);
+        showToast(`Error saving settings. Browser storage may be full.`, 'danger');
+        return false;
+    }
+}
+
+/**
+ * Set up real-time validation for pH form
+ */
+function setupPHFormValidation() {
+    const phTargetMin = document.getElementById('phTargetMin');
+    const phTargetMax = document.getElementById('phTargetMax');
+    const phAlertLow = document.getElementById('phAlertLow');
+    const phAlertHigh = document.getElementById('phAlertHigh');
+    
+    if (!phTargetMin || !phTargetMax || !phAlertLow || !phAlertHigh) {
+        return; // Elements not found
+    }
+    
+    // Function to validate min/max relationship
+    function validateRange() {
+        const min = parseFloat(phTargetMin.value);
+        const max = parseFloat(phTargetMax.value);
+        const alertLow = parseFloat(phAlertLow.value);
+        const alertHigh = parseFloat(phAlertHigh.value);
+        
+        // Validate target range
+        if (min >= max) {
+            phTargetMin.classList.add('is-invalid');
+            phTargetMax.classList.add('is-invalid');
+        } else {
+            phTargetMin.classList.remove('is-invalid');
+            phTargetMax.classList.remove('is-invalid');
+        }
+        
+        // Validate alert thresholds
+        if (alertLow >= min) {
+            phAlertLow.classList.add('is-invalid');
+        } else {
+            phAlertLow.classList.remove('is-invalid');
+        }
+        
+        if (alertHigh <= max) {
+            phAlertHigh.classList.add('is-invalid');
+        } else {
+            phAlertHigh.classList.remove('is-invalid');
+        }
+    }
+    
+    // Add event listeners
+    phTargetMin.addEventListener('input', validateRange);
+    phTargetMax.addEventListener('input', validateRange);
+    phAlertLow.addEventListener('input', validateRange);
+    phAlertHigh.addEventListener('input', validateRange);
+    
+    // Initial validation
+    validateRange();
 }
