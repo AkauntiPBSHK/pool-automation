@@ -3083,6 +3083,7 @@ function confirmResetSettings() {
         // Now manually trigger each save function to ensure localStorage is updated and UI is refreshed
         
         // Save system config (simple approach without loading spinner)
+        // Update systemConfig with language
         const systemConfig = {
             systemName: 'Pool Automation System',
             poolSize: '300',
@@ -3259,7 +3260,7 @@ function loadSavedSettings() {
         if (systemConfig.language === 'sq') {
             document.getElementById('langAlbanian').checked = true;
         } else {
-                    document.getElementById('langEnglish').checked = true;
+            document.getElementById('langEnglish').checked = true;
         }
     }
     
