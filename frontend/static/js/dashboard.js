@@ -2607,7 +2607,7 @@ function saveAccountSettings(form) {
         submitButton.innerHTML = originalButtonText;
         submitButton.disabled = false;
         
-        showLocalizedToast('passwordChanged');
+        showLocalizedToast('settingsSaved');
     }, 1000);
 }
 
@@ -2765,7 +2765,7 @@ function saveChemistryTargets(form) {
     setTimeout(function() {
         submitButton.innerHTML = originalButtonText;
         submitButton.disabled = false;
-        showLocalizedToast('targetsSaved');
+        showLocalizedToast('settingsSaved');
         updateUIFromSettings();
     }, 800);
 }
