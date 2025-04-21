@@ -65,7 +65,38 @@ const translations = {
         "waterChemistry": "Water Chemistry",
         "turbidityPac": "Turbidity & PAC",
         "history": "History",
-        "settings": "Settings"
+        "settings": "Settings",
+
+        // Units and common terms
+        "seconds": "seconds",
+        "minutes": "minutes",
+        "hours": "hours",
+        "days": "days",
+        "target": "Target",
+        "minimum": "Min",
+        "maximum": "Max",
+        "ml/h": "ml/h",
+        "NTU": "NTU",
+        "mV": "mV",
+        
+        // Button actions
+        "refresh": "Refresh",
+        "automatic": "Automatic",
+        "manual": "Manual",
+        "export": "Export",
+        "import": "Import",
+        "apply": "Apply",
+        "start": "Start",
+        "stop": "Stop",
+        
+        // Form fields
+        "username": "Username",
+        "password": "Password",
+        "email": "Email",
+        
+        // Toast messages
+        "settingsSaved": "Settings saved successfully",
+        "dataRefreshed": "Data refreshed"
     },
     sq: {
         // Overview Tab
@@ -107,7 +138,38 @@ const translations = {
         "waterChemistry": "Kimia e Ujit",
         "turbidityPac": "Turbullira & PAC",
         "history": "Historiku",
-        "settings": "Cilësimet"
+        "settings": "Cilësimet",
+
+        // Units and common terms
+        "seconds": "sekonda",
+        "minutes": "minuta",
+        "hours": "orë",
+        "days": "ditë",
+        "target": "Objektivi",
+        "minimum": "Min",
+        "maximum": "Max",
+        "ml/h": "ml/h",
+        "NTU": "NTU",
+        "mV": "mV",
+        
+        // Button actions
+        "refresh": "Rifresko",
+        "automatic": "Automatik",
+        "manual": "Manual",
+        "export": "Eksporto",
+        "import": "Importo",
+        "apply": "Apliko",
+        "start": "Fillo",
+        "stop": "Ndalo",
+        
+        // Form fields
+        "username": "Emri i përdoruesit",
+        "password": "Fjalëkalimi",
+        "email": "Email",
+        
+        // Toast messages
+        "settingsSaved": "Cilësimet u ruajtën me sukses",
+        "dataRefreshed": "Të dhënat u rifreskuan"
     }
 };
 
@@ -2545,7 +2607,7 @@ function saveAccountSettings(form) {
         submitButton.innerHTML = originalButtonText;
         submitButton.disabled = false;
         
-        showToast('Password changed successfully');
+        showLocalizedToast('passwordChanged');
     }, 1000);
 }
 
@@ -2583,7 +2645,7 @@ function saveNotificationSettings(form) {
     setTimeout(function() {
         submitButton.innerHTML = originalButtonText;
         submitButton.disabled = false;
-        showToast('Notification settings saved successfully');
+        showLocalizedToast('settingsSaved');
     }, 800);
 }
 
@@ -2631,9 +2693,9 @@ function saveSystemConfig(form) {
         
         // Show toast in current language
         if (language === 'en') {
-            showToast('System settings saved successfully');
+            showLocalizedToast('settingsSaved');
         } else {
-            showToast('Cilësimet e sistemit u ruajtën me sukses');
+            showLocalizedToast('Cilësimet u ruajtën');
         }
     }, 800);
 }
@@ -2703,7 +2765,7 @@ function saveChemistryTargets(form) {
     setTimeout(function() {
         submitButton.innerHTML = originalButtonText;
         submitButton.disabled = false;
-        showToast('Chemistry targets saved successfully');
+        showLocalizedToast('targetsSaved');
         updateUIFromSettings();
     }, 800);
 }
@@ -2776,7 +2838,7 @@ function savePumpConfig(form) {
     setTimeout(function() {
         submitButton.innerHTML = originalButtonText;
         submitButton.disabled = false;
-        showToast('Pump settings saved successfully');
+        showLocalizedToast('settingsSaved');
         updateUIFromSettings();
     }, 800);
 }
@@ -2837,7 +2899,7 @@ function saveTurbiditySettings(form) {
     setTimeout(function() {
         submitButton.innerHTML = originalButtonText;
         submitButton.disabled = false;
-        showToast('Turbidity settings saved successfully');
+        showLocalizedToast('settingsSaved');
         updateUIFromSettings();
     }, 800);
 }
@@ -3013,7 +3075,7 @@ function saveRetentionSettings() {
     setTimeout(function() {
         button.innerHTML = originalButtonText;
         button.disabled = false;
-        showToast('Data retention settings saved');
+        showLocalizedToast('settingsSaved');
     }, 800);
 }
 
@@ -3366,6 +3428,65 @@ function applyLanguage(lang) {
     currentLanguage = lang;
     console.log(`Applying language: ${lang}`);
     
+    // Update main buttons
+    document.querySelectorAll('#autoMode, button:contains("Automatic"), button:contains("Automatik")').forEach(btn => {
+        btn.textContent = translations[lang].automatic;
+    });
+    
+    document.querySelectorAll('#manualMode, button:contains("Manual")').forEach(btn => {
+        btn.textContent = translations[lang].manual;
+    });
+    
+    document.querySelectorAll('#refreshBtn, button:contains("Refresh"), button:contains("Rifresko")').forEach(btn => {
+        btn.textContent = translations[lang].refresh;
+    });
+    
+    // Update tab headings
+    document.querySelectorAll('#overview-tab h3').forEach(h3 => {
+        h3.textContent = translations[lang].systemOverview;
+    });
+    
+    document.querySelectorAll('#water-chemistry-tab h3').forEach(h3 => {
+        h3.textContent = translations[lang].waterChemistry;
+    });
+    
+    document.querySelectorAll('#turbidity-pac-tab h3').forEach(h3 => {
+        h3.textContent = translations[lang].turbidityPac;
+    });
+    
+    document.querySelectorAll('#history-tab h3').forEach(h3 => {
+        h3.textContent = translations[lang].historicalData;
+    });
+    
+    document.querySelectorAll('#settings-tab h3').forEach(h3 => {
+        h3.textContent = translations[lang].settings;
+    });
+    
+    // Update select options for time durations
+    document.querySelectorAll('select option').forEach(option => {
+        if (option.textContent.includes('seconds') || option.textContent.includes('sekonda')) {
+            const value = option.value;
+            option.textContent = `${value} ${translations[lang].seconds}`;
+        } else if (option.textContent.includes('minute') || option.textContent.includes('minuta')) {
+            const value = option.value;
+            option.textContent = `${value} ${translations[lang].minutes}`;
+        }
+    });
+    
+    // Update form labels in all sections
+    document.querySelectorAll('.form-label').forEach(label => {
+        const text = label.textContent.trim();
+        
+        // Handle common form labels
+        if (text.includes('Username') || text.includes('Emri i përdoruesit')) {
+            label.textContent = translations[lang].username;
+        } else if (text.includes('Password') || text.includes('Fjalëkalimi')) {
+            label.textContent = translations[lang].password;
+        } else if (text.includes('Email')) {
+            label.textContent = translations[lang].email;
+        }
+    });
+
     // Update navigation links
     document.querySelectorAll('#sidebar .nav-link').forEach(link => {
         const href = link.getAttribute('href');
@@ -3484,4 +3605,13 @@ function applyLanguage(lang) {
             text.textContent = translations[lang].noAlerts;
         }
     });
+}
+
+function showLocalizedToast(messageKey, type = 'success') {
+    const message = translations[currentLanguage][messageKey] || messageKey;
+    showToast(message, type);
+}
+
+function t(key) {
+    return translations[currentLanguage][key] || key;
 }
