@@ -23,6 +23,97 @@ const socket = io();
 // Global variables for charts
 let chemistryChart = null;
 
+// Language translations
+const translations = {
+    en: {
+        // Overview Tab
+        "systemOverview": "System Overview",
+        "currentAlerts": "Current Alerts",
+        "allSystemsNormal": "All Systems Normal",
+        "noAlerts": "No alerts at this time",
+        
+        // Parameters
+        "pHTitle": "pH",
+        "ORPTitle": "ORP",
+        "chlorineTitle": "Chlorine",
+        "turbidityTitle": "Turbidity",
+        "temperatureTitle": "Temperature",
+        "uvSystemTitle": "UV System",
+        
+        // Status
+        "good": "Good",
+        "fair": "Fair",
+        "poor": "Poor",
+        "pumpActive": "Pump active",
+        "pumpInactive": "Pump inactive",
+        "pacPumpActive": "PAC pump active",
+        "pacPumpInactive": "PAC pump inactive",
+        
+        // Settings
+        "accountSettings": "Account Settings",
+        "notificationSettings": "Notification Settings",
+        "systemConfiguration": "System Configuration",
+        "waterChemistryTargets": "Water Chemistry Targets",
+        "dosingPumpConfiguration": "Dosing Pump Configuration",
+        "turbidityControlSettings": "Turbidity Control Settings",
+        "dataManagement": "Data Management",
+        "saveSettings": "Save Settings",
+        "changePassword": "Change Password",
+        
+        // Navigation
+        "overview": "Overview",
+        "waterChemistry": "Water Chemistry",
+        "turbidityPac": "Turbidity & PAC",
+        "history": "History",
+        "settings": "Settings"
+    },
+    sq: {
+        // Overview Tab
+        "systemOverview": "Përmbledhja e Sistemit",
+        "currentAlerts": "Njoftimet Aktuale",
+        "allSystemsNormal": "Të Gjitha Sistemet Normale",
+        "noAlerts": "Nuk ka njoftime për momentin",
+        
+        // Parameters
+        "pHTitle": "pH",
+        "ORPTitle": "ORP",
+        "chlorineTitle": "Klori",
+        "turbidityTitle": "Turbullira",
+        "temperatureTitle": "Temperatura",
+        "uvSystemTitle": "Sistemi UV",
+        
+        // Status
+        "good": "Mirë",
+        "fair": "Mesatar",
+        "poor": "Dobët",
+        "pumpActive": "Pompa aktive",
+        "pumpInactive": "Pompa joaktive",
+        "pacPumpActive": "Pompa PAC aktive",
+        "pacPumpInactive": "Pompa PAC joaktive",
+        
+        // Settings
+        "accountSettings": "Cilësimet e Llogarisë",
+        "notificationSettings": "Cilësimet e Njoftimeve",
+        "systemConfiguration": "Konfigurimi i Sistemit",
+        "waterChemistryTargets": "Objektivat e Kimisë së Ujit",
+        "dosingPumpConfiguration": "Konfigurimi i Pompës së Dozimit",
+        "turbidityControlSettings": "Cilësimet e Kontrollit të Turbullirës",
+        "dataManagement": "Menaxhimi i Të Dhënave",
+        "saveSettings": "Ruaj Cilësimet",
+        "changePassword": "Ndrysho Fjalëkalimin",
+        
+        // Navigation
+        "overview": "Përmbledhje",
+        "waterChemistry": "Kimia e Ujit",
+        "turbidityPac": "Turbullira & PAC",
+        "history": "Historiku",
+        "settings": "Cilësimet"
+    }
+};
+
+// Current language (initialized during page load)
+let currentLanguage = 'en';
+
 // DOM Ready
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Dashboard initialized');
@@ -62,6 +153,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load initial data
     updateParameterDisplays(mockData);
 
+    // Initialize settings tab
+    initializeSettingsTab();
+
     // Apply any saved settings to the UI
     updateUIFromSettings();
     
@@ -81,8 +175,15 @@ document.addEventListener('DOMContentLoaded', function() {
         setInterval(simulateDataChanges, 5000);
     }
 
-    // Initialize settings tab
-    initializeSettingsTab();
+    // Initialize language
+    const systemConfig = JSON.parse(localStorage.getItem('systemConfig') || '{}');
+    const language = systemConfig.language || 'en';
+    if (language === 'sq') {
+        document.getElementById('langAlbanian').checked = true;
+    } else {
+        document.getElementById('langEnglish').checked = true;
+    }
+    applyLanguage(language);
 });
 
 /**
@@ -2512,17 +2613,26 @@ function saveSystemConfig(form) {
         defaultMode,
     };
     
+    console.log("Saving system config:", systemConfig); // Debug
     localStorage.setItem('systemConfig', JSON.stringify(systemConfig));
     
     // Update UI elements that depend on these settings
     document.querySelector('.sidebar-header h3').textContent = systemName;
+
+    // Apply language change
+    applyLanguage(language);
     
     // Simulated delay to show loading state
     setTimeout(function() {
         submitButton.innerHTML = originalButtonText;
         submitButton.disabled = false;
-        showToast('System settings saved successfully');
-        updateUIFromSettings();
+        
+        // Show toast in current language
+        if (language === 'en') {
+            showToast('System settings saved successfully');
+        } else {
+            showToast('Cilësimet e sistemit u ruajtën me sukses');
+        }
     }, 800);
 }
 
@@ -2963,6 +3073,10 @@ function confirmResetSettings() {
         // Retention settings defaults
         document.getElementById('dataRetention').value = '90';
         document.getElementById('eventRetention').value = '90';
+
+        // Default to English language
+        document.getElementById('langEnglish').checked = true;
+        document.getElementById('langAlbanian').checked = false;
         
         // Now manually trigger each save function to ensure localStorage is updated and UI is refreshed
         
@@ -2971,7 +3085,8 @@ function confirmResetSettings() {
             systemName: 'Pool Automation System',
             poolSize: '300',
             refreshInterval: '10',
-            defaultMode: 'auto'
+            defaultMode: 'auto',
+            language: 'en'  // Default to English
         };
         localStorage.setItem('systemConfig', JSON.stringify(systemConfig));
         
@@ -3030,6 +3145,9 @@ function confirmResetSettings() {
             mockData.pacDosingRate = 75; // Default value
         }
         
+        // Apply English language
+        applyLanguage('en');
+
         // Update UI
         updateUIFromSettings();
         
@@ -3134,6 +3252,13 @@ function loadSavedSettings() {
         } else {
             document.getElementById('tempCelsius').checked = true;
         }
+
+        // Add this for language
+        if (systemConfig.language === 'sq') {
+            document.getElementById('langAlbanian').checked = true;
+        } else {
+                    document.getElementById('langEnglish').checked = true;
+        }
     }
     
     // Load chemistry targets
@@ -3221,5 +3346,136 @@ function updateUIFromSettings() {
     
     if (turbiditySettings.turbidityHighThreshold) {
         document.getElementById('pacHighThreshold').value = turbiditySettings.turbidityHighThreshold;
+    }
+}
+
+/**
+ * Apply language translations to the UI
+ */
+function applyLanguage(lang) {
+    // Validate language
+    if (!translations[lang]) {
+        console.error(`Language ${lang} not supported`);
+        return;
+    }
+    
+    // Store current language
+    currentLanguage = lang;
+    console.log(`Applying language: ${lang}`);
+    
+    // Update navigation links
+    document.querySelectorAll('#sidebar .nav-link').forEach(link => {
+        const href = link.getAttribute('href');
+        if (href === '#overview-tab') {
+            link.textContent = translations[lang].overview;
+        } else if (href === '#water-chemistry-tab') {
+            link.textContent = translations[lang].waterChemistry;
+        } else if (href === '#turbidity-pac-tab') {
+            link.textContent = translations[lang].turbidityPac;
+        } else if (href === '#history-tab') {
+            link.textContent = translations[lang].history;
+        } else if (href === '#settings-tab') {
+            link.textContent = translations[lang].settings;
+        }
+    });
+    
+    // Update overview tab headings
+    const overviewTitle = document.querySelector('#overview-tab h3');
+    if (overviewTitle) {
+        overviewTitle.textContent = translations[lang].systemOverview;
+    }
+    
+    // Update status badges
+    document.querySelectorAll('.badge').forEach(badge => {
+        if (badge.textContent === 'Good' || badge.textContent === 'Mirë') {
+            badge.textContent = translations[lang].good;
+        } else if (badge.textContent === 'Fair' || badge.textContent === 'Mesatar') {
+            badge.textContent = translations[lang].fair;
+        } else if (badge.textContent === 'Poor' || badge.textContent === 'Dobët') {
+            badge.textContent = translations[lang].poor;
+        }
+    });
+    
+    // Update parameter card titles
+    document.querySelectorAll('.card-title').forEach(title => {
+        const text = title.textContent.trim();
+        if (text === 'pH') {
+            title.textContent = translations[lang].pHTitle;
+        } else if (text === 'ORP') {
+            title.textContent = translations[lang].ORPTitle;
+        } else if (text === 'Chlorine' || text === 'Klori') {
+            title.textContent = translations[lang].chlorineTitle;
+        } else if (text === 'Turbidity' || text === 'Turbullira') {
+            title.textContent = translations[lang].turbidityTitle;
+        } else if (text === 'Temperature' || text === 'Temperatura') {
+            title.textContent = translations[lang].temperatureTitle;
+        } else if (text === 'UV System' || text === 'Sistemi UV') {
+            title.textContent = translations[lang].uvSystemTitle;
+        }
+    });
+    
+    // Update settings tab card titles
+    if (document.querySelector('#settings-tab')) {
+        document.querySelectorAll('#settings-tab .card-title').forEach(title => {
+            const text = title.textContent.trim();
+            if (text === 'Account Settings' || text === 'Cilësimet e Llogarisë') {
+                title.textContent = translations[lang].accountSettings;
+            } else if (text === 'Notification Settings' || text === 'Cilësimet e Njoftimeve') {
+                title.textContent = translations[lang].notificationSettings;
+            } else if (text === 'System Configuration' || text === 'Konfigurimi i Sistemit') {
+                title.textContent = translations[lang].systemConfiguration;
+            } else if (text === 'Water Chemistry Targets' || text === 'Objektivat e Kimisë së Ujit') {
+                title.textContent = translations[lang].waterChemistryTargets;
+            } else if (text === 'Dosing Pump Configuration' || text === 'Konfigurimi i Pompës së Dozimit') {
+                title.textContent = translations[lang].dosingPumpConfiguration;
+            } else if (text === 'Turbidity Control Settings' || text === 'Cilësimet e Kontrollit të Turbullirës') {
+                title.textContent = translations[lang].turbidityControlSettings;
+            } else if (text === 'Data Management' || text === 'Menaxhimi i Të Dhënave') {
+                title.textContent = translations[lang].dataManagement;
+            }
+        });
+        
+        // Update button text
+        const saveButtons = document.querySelectorAll('#settings-tab button[type="submit"]');
+        saveButtons.forEach(button => {
+            if (button.textContent.includes('Save') || button.textContent.includes('Ruaj')) {
+                button.textContent = translations[lang].saveSettings;
+            } else if (button.textContent.includes('Change Password') || button.textContent.includes('Ndrysho')) {
+                button.textContent = translations[lang].changePassword;
+            }
+        });
+    }
+    
+    // Update pump status text
+    document.querySelectorAll('[id$="PumpStatus"]').forEach(status => {
+        if (status.textContent.includes('active') || status.textContent.includes('aktive')) {
+            if (status.id === 'pacPumpStatus') {
+                status.textContent = translations[lang].pacPumpActive;
+            } else {
+                status.textContent = translations[lang].pumpActive;
+            }
+        } else if (status.textContent.includes('inactive') || status.textContent.includes('joaktive')) {
+            if (status.id === 'pacPumpStatus') {
+                status.textContent = translations[lang].pacPumpInactive;
+            } else {
+                status.textContent = translations[lang].pumpInactive;
+            }
+        }
+    });
+    
+    // Update alerts section
+    const alertsTitle = document.querySelector('#overview-tab .card-title:contains("Current Alerts"), #overview-tab .card-title:contains("Njoftimet Aktuale")');
+    if (alertsTitle) {
+        alertsTitle.textContent = translations[lang].currentAlerts;
+    }
+    
+    const alertsBadge = document.querySelector('#overview-tab .badge:contains("All Systems Normal"), #overview-tab .badge:contains("Të Gjitha Sistemet Normale")');
+    if (alertsBadge) {
+        alertsBadge.textContent = translations[lang].allSystemsNormal;
+    }
+    
+    const alertsText = document.querySelector('#overview-tab .text-muted:contains("No alerts"), #overview-tab .text-muted:contains("Nuk ka njoftime")');
+    if (alertsText) {
+        alertsText.textContent = translations[lang].noAlerts;
     }
 }
