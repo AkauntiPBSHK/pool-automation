@@ -2849,90 +2849,96 @@ function updateMaintenanceSchedule() {
 function fixSettingsTab() {
     console.log('Fixing Settings Tab with direct DOM manipulation');
     
-    // First, let's find the parent container
+    // Target the settings tab content area directly
     const settingsTab = document.getElementById('settings-tab');
     if (!settingsTab) {
         console.error('Settings tab not found');
         return;
     }
     
-    // Make the tab fully visible with !important
-    settingsTab.setAttribute('style', 'display: block !important; visibility: visible !important;');
+    // Find all the original content first
+    const originalContent = {};
+    const tabIds = ['system-settings', 'parameter-settings', 'device-settings', 'notification-settings', 'maintenance-settings'];
     
-    // Find each tab pane and make it directly visible
-    const allPanes = settingsTab.querySelectorAll('.tab-pane');
-    console.log(`Found ${allPanes.length} tab panes`);
+    // Store original content safely before modifying DOM
+    tabIds.forEach(id => {
+        const pane = document.getElementById(id);
+        if (pane) {
+            originalContent[id] = pane.innerHTML;
+            console.log(`Found original content for ${id}, length: ${originalContent[id].length}`);
+        } else {
+            console.warn(`Original pane ${id} not found`);
+        }
+    });
     
-    // Completely replace the tab system with a simpler one
-    // First, create a new container for our content
+    // Create a new container with simpler structure
     const newContainer = document.createElement('div');
     newContainer.className = 'settings-content-fix';
     
-    // Create direct links for switching content
-    const linksBar = document.createElement('div');
-    linksBar.className = 'btn-group mb-4';
-    linksBar.setAttribute('role', 'group');
+    // Create buttons for tab navigation
+    const buttonBar = document.createElement('div');
+    buttonBar.className = 'btn-group mb-4 w-100';
+    buttonBar.setAttribute('role', 'group');
     
     const tabNames = ['System', 'Parameters', 'Devices', 'Notifications', 'Maintenance'];
-    const tabIds = ['system-settings', 'parameter-settings', 'device-settings', 'notification-settings', 'maintenance-settings'];
     
-    // Create buttons
+    // Create buttons for each tab
     tabNames.forEach((name, index) => {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'btn btn-outline-primary';
+        btn.className = index === 0 ? 'btn btn-primary' : 'btn btn-outline-primary';
         btn.textContent = name;
         btn.onclick = function() {
-            // Hide all content divs
-            document.querySelectorAll('.settings-content-fix > div.content-panel').forEach(div => {
-                div.style.display = 'none';
-            });
-            
-            // Show the selected one
-            const contentDiv = document.getElementById('fixed-' + tabIds[index]);
-            if (contentDiv) {
-                contentDiv.style.display = 'block';
-            }
-            
-            // Update button states
+            // Update active button
             document.querySelectorAll('.settings-content-fix .btn-group button').forEach(b => {
                 b.className = 'btn btn-outline-primary';
             });
             this.className = 'btn btn-primary';
+            
+            // Hide all content panels
+            document.querySelectorAll('.settings-content-fix .content-panel').forEach(panel => {
+                panel.style.display = 'none';
+            });
+            
+            // Show the selected panel
+            const panel = document.getElementById('fixed-' + tabIds[index]);
+            if (panel) {
+                panel.style.display = 'block';
+            }
         };
-        linksBar.appendChild(btn);
+        buttonBar.appendChild(btn);
     });
     
-    newContainer.appendChild(linksBar);
+    newContainer.appendChild(buttonBar);
     
-    // For each tab pane, create a new content panel
+    // Create content panels with the original content
     tabIds.forEach((id, index) => {
-        const pane = document.getElementById(id);
-        if (pane) {
-            // Create a new content div
-            const contentDiv = document.createElement('div');
-            contentDiv.id = 'fixed-' + id;
-            contentDiv.className = 'content-panel';
-            contentDiv.style.display = index === 0 ? 'block' : 'none'; // Show first tab by default
-            
-            // Copy content from original pane
-            contentDiv.innerHTML = pane.innerHTML;
-            
-            // Add to container
-            newContainer.appendChild(contentDiv);
+        const panel = document.createElement('div');
+        panel.id = 'fixed-' + id;
+        panel.className = 'content-panel p-3 border rounded';
+        panel.style.display = index === 0 ? 'block' : 'none'; // Show first panel by default
+        
+        // Add the original content
+        if (originalContent[id]) {
+            panel.innerHTML = originalContent[id];
+        } else {
+            panel.innerHTML = `<div class="alert alert-warning">Content for ${tabNames[index]} settings not found</div>`;
         }
+        
+        newContainer.appendChild(panel);
     });
     
-    // Replace original content with our fixed version
+    // Replace the original content
     settingsTab.innerHTML = '';
     settingsTab.appendChild(newContainer);
     
-    // Trigger click on first button to initialize
-    const firstButton = document.querySelector('.settings-content-fix .btn-group button');
-    if (firstButton) {
-        firstButton.click();
-    }
+    // Make sure the content is visible
+    settingsTab.style.display = 'block';
+    
+    // Re-attach event listeners to forms
+    setTimeout(attachSettingsFormListeners, 100);
 }
+
 // Call this function
 fixSettingsTab();
 
@@ -3032,6 +3038,53 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, 500); // Allow time for fixSettingsTab to complete
 });
+
+/**
+ * Re-attach event listeners to settings forms after DOM replacement
+ */
+function attachSettingsFormListeners() {
+    // System settings form
+    const systemSettingsForm = document.getElementById('systemSettingsForm');
+    if (systemSettingsForm) {
+        systemSettingsForm.addEventListener('submit', saveSystemSettings);
+    }
+    
+    // Parameter settings form
+    const phSettingsForm = document.getElementById('phSettingsForm');
+    if (phSettingsForm) {
+        phSettingsForm.addEventListener('submit', saveParameterSettings);
+    }
+
+    // Pumps settings form
+    const pumpsSettingsForm = document.getElementById('pumpsSettingsForm');
+    if (pumpsSettingsForm) {
+        pumpsSettingsForm.addEventListener('submit', saveDeviceSettings);
+    }
+        
+    // Sensors settings form
+    const sensorsSettingsForm = document.getElementById('sensorsSettingsForm');
+    if (sensorsSettingsForm) {
+        sensorsSettingsForm.addEventListener('submit', saveDeviceSettings);
+    }
+    
+    // Notification settings form
+    const notificationSettingsForm = document.getElementById('notificationSettingsForm');
+    if (notificationSettingsForm) {
+        notificationSettingsForm.addEventListener('submit', saveNotificationSettings);
+    }
+    
+    // Maintenance settings form
+    const maintenanceSettingsForm = document.getElementById('maintenanceSettingsForm');
+    if (maintenanceSettingsForm) {
+        maintenanceSettingsForm.addEventListener('submit', saveMaintenanceSettings);
+    }
+    
+    // Set up form dependencies again
+    setupFormDependencies();
+
+    // Load saved settings to populate form fields
+    loadSavedSettings();
+}
 
 /**
  * Update UI based on settings
