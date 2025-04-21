@@ -2905,72 +2905,31 @@ function updateMaintenanceSchedule() {
 }
 
 function fixSettingsTab() {
-    console.log('Fixing Settings Tab - Simple Approach');
+    console.log('Fixing Settings Tab');
     
-    // Make sure tab and content are visible
-    const settingsTab = document.getElementById('settings-tab');
-    if (settingsTab) {
-        settingsTab.style.display = 'block';
-    }
-    
+    // 1. Make sure the tab content container is visible
     const tabContent = document.getElementById('settingsTabContent');
     if (tabContent) {
         tabContent.style.display = 'block';
     }
     
-    // Make the first tab active
-    const tabPanes = document.querySelectorAll('.tab-pane');
-    tabPanes.forEach(pane => {
-        pane.classList.remove('active', 'show');
-    });
+    // 2. Create the tab content HTML if missing
+    createSettingsContent();
     
-    const firstPane = document.getElementById('system-settings');
-    if (firstPane) {
-        firstPane.classList.add('active', 'show');
+    // 3. Activate the first tab
+    const systemTab = document.querySelector('#system-settings');
+    if (systemTab) {
+        systemTab.classList.add('active', 'show');
     }
     
-    // Make the first tab button active
-    const tabButtons = document.querySelectorAll('#settingsTabs .nav-link');
-    tabButtons.forEach(button => {
-        button.classList.remove('active');
-    });
-    
-    if (tabButtons.length > 0) {
-        tabButtons[0].classList.add('active');
+    const systemTabLink = document.querySelector('a[href="#system-settings"], a[data-bs-target="#system-settings"]');
+    if (systemTabLink) {
+        systemTabLink.classList.add('active');
     }
     
-    // Add click handlers to tab buttons
-    tabButtons.forEach(button => {
-        button.addEventListener('click', function(e) {
-            e.preventDefault();
-            
-            // Remove active class from all tabs
-            tabButtons.forEach(btn => {
-                btn.classList.remove('active');
-            });
-            
-            // Add active class to clicked tab
-            this.classList.add('active');
-            
-            // Hide all panes
-            tabPanes.forEach(pane => {
-                pane.classList.remove('active', 'show');
-            });
-            
-            // Show selected pane
-            const targetId = this.getAttribute('data-bs-target') || this.getAttribute('href');
-            if (targetId) {
-                const targetPane = document.querySelector(targetId);
-                if (targetPane) {
-                    targetPane.classList.add('active', 'show');
-                }
-            }
-        });
-    });
+    // 4. Add event handlers to all forms
+    attachSettingsFormListeners();
 }
-
-// Call this function
-fixSettingsTab();
 
 // Set up form submissions
 document.addEventListener('DOMContentLoaded', function() {
@@ -3076,44 +3035,119 @@ function attachSettingsFormListeners() {
     // System settings form
     const systemSettingsForm = document.getElementById('systemSettingsForm');
     if (systemSettingsForm) {
-        systemSettingsForm.addEventListener('submit', saveSystemSettings);
+        systemSettingsForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const settings = {
+                name: document.getElementById('systemName').value,
+                defaultMode: document.getElementById('defaultMode').value,
+                tempUnit: document.getElementById('tempUnit').value,
+                timeFormat: document.getElementById('timeFormat').value,
+                dataSamplingRate: document.getElementById('dataSamplingRate').value,
+                dataRetention: document.getElementById('dataRetention').value,
+                enableSimulation: document.getElementById('enableSimulation').checked
+            };
+            
+            localStorage.setItem('systemSettings', JSON.stringify(settings));
+            showToast('System settings saved successfully');
+            updateDashboardWithSettings();
+        });
     }
     
-    // Parameter settings form
+    // pH settings form
     const phSettingsForm = document.getElementById('phSettingsForm');
     if (phSettingsForm) {
-        phSettingsForm.addEventListener('submit', saveParameterSettings);
+        phSettingsForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Get existing settings or create new
+            let parameterSettings = localStorage.getItem('parameterSettings') 
+                ? JSON.parse(localStorage.getItem('parameterSettings')) 
+                : {};
+            
+            // Update pH settings
+            parameterSettings.ph = {
+                targetMin: parseFloat(document.getElementById('phTargetMin').value),
+                targetMax: parseFloat(document.getElementById('phTargetMax').value),
+                alertLow: parseFloat(document.getElementById('phAlertLow').value),
+                alertHigh: parseFloat(document.getElementById('phAlertHigh').value),
+                doseRate: parseInt(document.getElementById('phDoseRate').value),
+                dosingDelay: parseInt(document.getElementById('phDosingDelay').value),
+                autoDosing: document.getElementById('phAutoDosing').checked
+            };
+            
+            localStorage.setItem('parameterSettings', JSON.stringify(parameterSettings));
+            showToast('pH settings saved successfully');
+            updateDashboardWithSettings();
+        });
     }
-
+    
     // Pumps settings form
     const pumpsSettingsForm = document.getElementById('pumpsSettingsForm');
     if (pumpsSettingsForm) {
-        pumpsSettingsForm.addEventListener('submit', saveDeviceSettings);
-    }
-        
-    // Sensors settings form
-    const sensorsSettingsForm = document.getElementById('sensorsSettingsForm');
-    if (sensorsSettingsForm) {
-        sensorsSettingsForm.addEventListener('submit', saveDeviceSettings);
+        pumpsSettingsForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Get existing settings or create new
+            let deviceSettings = localStorage.getItem('deviceSettings') 
+                ? JSON.parse(localStorage.getItem('deviceSettings')) 
+                : {};
+            
+            // Ensure pumps object exists
+            deviceSettings.pumps = deviceSettings.pumps || {};
+            
+            // Update pump settings
+            deviceSettings.pumps = {
+                phPumpType: document.getElementById('phPumpType').value,
+                phPumpMaxFlow: parseFloat(document.getElementById('phPumpMaxFlow').value),
+                pacPumpType: document.getElementById('pacPumpType').value,
+                pacPumpMaxFlow: parseFloat(document.getElementById('pacPumpMaxFlow').value),
+                pacTubeSize: document.getElementById('pacTubeSize').value
+            };
+            
+            localStorage.setItem('deviceSettings', JSON.stringify(deviceSettings));
+            showToast('Pump settings saved successfully');
+            updateDashboardWithSettings();
+        });
     }
     
     // Notification settings form
     const notificationSettingsForm = document.getElementById('notificationSettingsForm');
     if (notificationSettingsForm) {
-        notificationSettingsForm.addEventListener('submit', saveNotificationSettings);
+        notificationSettingsForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const settings = {
+                enabled: document.getElementById('enableNotifications').checked,
+                emailEnabled: document.getElementById('enableEmailNotifications').checked,
+                emailServer: document.getElementById('emailServer').value,
+                emailPort: parseInt(document.getElementById('emailPort').value)
+            };
+            
+            localStorage.setItem('notificationSettings', JSON.stringify(settings));
+            showToast('Notification settings saved successfully');
+            updateDashboardWithSettings();
+        });
     }
     
     // Maintenance settings form
     const maintenanceSettingsForm = document.getElementById('maintenanceSettingsForm');
     if (maintenanceSettingsForm) {
-        maintenanceSettingsForm.addEventListener('submit', saveMaintenanceSettings);
+        maintenanceSettingsForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const settings = {
+                backwashFrequency: document.getElementById('backwashFrequency').value,
+                backwashDay: document.getElementById('backwashDay').value,
+                backwashTime: document.getElementById('backwashTime').value,
+                enableAutoBackwash: document.getElementById('enableAutoBackwash').checked
+            };
+            
+            localStorage.setItem('maintenanceSettings', JSON.stringify(settings));
+            showToast('Maintenance settings saved successfully');
+            updateDashboardWithSettings();
+        });
     }
-    
-    // Set up form dependencies again
-    setupFormDependencies();
-
-    // Load saved settings to populate form fields
-    loadSavedSettings();
 }
 
 /**
@@ -3608,4 +3642,209 @@ function setupPHFormValidation() {
     
     // Initial validation
     validateRange();
+}
+
+function createSettingsContent() {
+    // Get references to each tab pane
+    const systemTab = document.querySelector('#system-settings');
+    const parametersTab = document.querySelector('#parameter-settings');
+    const devicesTab = document.querySelector('#device-settings');
+    const notificationsTab = document.querySelector('#notification-settings');
+    const maintenanceTab = document.querySelector('#maintenance-settings');
+    
+    // Only proceed if the tabs exist but are empty
+    if (systemTab && systemTab.children.length === 0) {
+        // System tab content
+        systemTab.innerHTML = `
+            <form id="systemSettingsForm" class="mt-3">
+                <div class="mb-3">
+                    <label for="systemName" class="form-label">System Name</label>
+                    <input type="text" class="form-control" id="systemName" value="Pool Automation System">
+                </div>
+                <div class="mb-3">
+                    <label for="defaultMode" class="form-label">Default Operating Mode</label>
+                    <select class="form-select" id="defaultMode">
+                        <option value="automatic">Automatic</option>
+                        <option value="manual">Manual</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="tempUnit" class="form-label">Temperature Unit</label>
+                    <select class="form-select" id="tempUnit">
+                        <option value="celsius">Celsius (°C)</option>
+                        <option value="fahrenheit">Fahrenheit (°F)</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="timeFormat" class="form-label">Time Format</label>
+                    <select class="form-select" id="timeFormat">
+                        <option value="24h">24-hour</option>
+                        <option value="12h">12-hour (AM/PM)</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="dataSamplingRate" class="form-label">Data Sampling Rate (seconds)</label>
+                    <input type="number" class="form-control" id="dataSamplingRate" min="10" max="3600" value="300">
+                </div>
+                <div class="mb-3">
+                    <label for="dataRetention" class="form-label">Data Retention (days)</label>
+                    <input type="number" class="form-control" id="dataRetention" min="1" max="365" value="30">
+                </div>
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="enableSimulation" checked>
+                    <label class="form-check-label" for="enableSimulation">Enable Simulation Mode</label>
+                </div>
+                <button type="submit" class="btn btn-primary">Save System Settings</button>
+            </form>
+        `;
+    }
+    
+    if (parametersTab && parametersTab.children.length === 0) {
+        // Parameters tab content
+        parametersTab.innerHTML = `
+            <form id="phSettingsForm" class="mt-3">
+                <h5 class="border-bottom pb-2">pH Settings</h5>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="phTargetMin" class="form-label">Target Minimum</label>
+                        <input type="number" class="form-control" id="phTargetMin" min="6.8" max="7.8" step="0.1" value="7.2">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="phTargetMax" class="form-label">Target Maximum</label>
+                        <input type="number" class="form-control" id="phTargetMax" min="7.0" max="8.0" step="0.1" value="7.6">
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="phAlertLow" class="form-label">Alert Low</label>
+                        <input type="number" class="form-control" id="phAlertLow" min="6.0" max="7.2" step="0.1" value="7.0">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="phAlertHigh" class="form-label">Alert High</label>
+                        <input type="number" class="form-control" id="phAlertHigh" min="7.6" max="9.0" step="0.1" value="7.8">
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="phDoseRate" class="form-label">Dose Rate (%)</label>
+                        <input type="number" class="form-control" id="phDoseRate" min="10" max="100" value="100">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="phDosingDelay" class="form-label">Dosing Delay (min)</label>
+                        <input type="number" class="form-control" id="phDosingDelay" min="1" max="60" value="5">
+                    </div>
+                </div>
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="phAutoDosing" checked>
+                    <label class="form-check-label" for="phAutoDosing">Enable Automatic pH Dosing</label>
+                </div>
+                <button type="submit" class="btn btn-primary">Save pH Settings</button>
+            </form>
+        `;
+    }
+    
+    if (devicesTab && devicesTab.children.length === 0) {
+        // Devices tab content
+        devicesTab.innerHTML = `
+            <form id="pumpsSettingsForm" class="mt-3">
+                <h5 class="border-bottom pb-2">Pumps</h5>
+                <div class="row mb-3">
+                    <div class="col-md-8">
+                        <label for="phPumpType" class="form-label">pH Pump Model</label>
+                        <input type="text" class="form-control" id="phPumpType" value="NOVA NSE155-E1504">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="phPumpMaxFlow" class="form-label">Max Flow (L/h)</label>
+                        <input type="number" class="form-control" id="phPumpMaxFlow" min="0.1" max="100" step="0.1" value="15.3">
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-8">
+                        <label for="pacPumpType" class="form-label">PAC Pump Model</label>
+                        <input type="text" class="form-control" id="pacPumpType" value="Chonry WP110">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="pacPumpMaxFlow" class="form-label">Max Flow (mL/h)</label>
+                        <input type="number" class="form-control" id="pacPumpMaxFlow" min="1" max="1000" value="150">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="pacTubeSize" class="form-label">PAC Tube Size</label>
+                    <select class="form-select" id="pacTubeSize">
+                        <option value="1x1">1x1 mm</option>
+                        <option value="2x1" selected>2x1 mm</option>
+                        <option value="2.5x1">2.5x1 mm</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Save Pump Settings</button>
+            </form>
+        `;
+    }
+    
+    if (notificationsTab && notificationsTab.children.length === 0) {
+        // Notifications tab content
+        notificationsTab.innerHTML = `
+            <form id="notificationSettingsForm" class="mt-3">
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="enableNotifications" checked>
+                    <label class="form-check-label" for="enableNotifications">Enable Notifications</label>
+                </div>
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="enableEmailNotifications">
+                    <label class="form-check-label" for="enableEmailNotifications">Enable Email Notifications</label>
+                </div>
+                <div class="mb-3">
+                    <label for="emailServer" class="form-label">SMTP Server</label>
+                    <input type="text" class="form-control" id="emailServer" value="smtp.gmail.com">
+                </div>
+                <div class="mb-3">
+                    <label for="emailPort" class="form-label">SMTP Port</label>
+                    <input type="number" class="form-control" id="emailPort" value="587">
+                </div>
+                <button type="submit" class="btn btn-primary">Save Notification Settings</button>
+                <button type="button" class="btn btn-outline-primary">Test Email</button>
+            </form>
+        `;
+    }
+    
+    if (maintenanceTab && maintenanceTab.children.length === 0) {
+        // Maintenance tab content
+        maintenanceTab.innerHTML = `
+            <form id="maintenanceSettingsForm" class="mt-3">
+                <h5 class="border-bottom pb-2">Backwash Settings</h5>
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label for="backwashFrequency" class="form-label">Frequency</label>
+                        <select class="form-select" id="backwashFrequency">
+                            <option value="daily">Daily</option>
+                            <option value="weekly" selected>Weekly</option>
+                            <option value="biweekly">Bi-weekly</option>
+                            <option value="monthly">Monthly</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="backwashDay" class="form-label">Day</label>
+                        <select class="form-select" id="backwashDay">
+                            <option value="1">Monday</option>
+                            <option value="2">Tuesday</option>
+                            <option value="3" selected>Wednesday</option>
+                            <option value="4">Thursday</option>
+                            <option value="5">Friday</option>
+                            <option value="6">Saturday</option>
+                            <option value="0">Sunday</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="backwashTime" class="form-label">Time</label>
+                        <input type="time" class="form-control" id="backwashTime" value="06:00">
+                    </div>
+                </div>
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="enableAutoBackwash">
+                    <label class="form-check-label" for="enableAutoBackwash">Enable Automatic Backwash</label>
+                </div>
+                <button type="submit" class="btn btn-primary">Save Maintenance Settings</button>
+            </form>
+        `;
+    }
 }
