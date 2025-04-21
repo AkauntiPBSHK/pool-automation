@@ -2503,7 +2503,6 @@ function saveSystemConfig(form) {
     const poolSize = document.getElementById('poolSize').value;
     const refreshInterval = document.getElementById('refreshInterval').value;
     const defaultMode = document.getElementById('defaultModeAuto').checked ? 'auto' : 'manual';
-    const tempUnit = document.getElementById('tempCelsius').checked ? 'celsius' : 'fahrenheit';
     
     // Save to localStorage for demo
     const systemConfig = {
@@ -2511,7 +2510,6 @@ function saveSystemConfig(form) {
         poolSize,
         refreshInterval,
         defaultMode,
-        tempUnit
     };
     
     localStorage.setItem('systemConfig', JSON.stringify(systemConfig));
@@ -2956,6 +2954,36 @@ function confirmResetSettings() {
         
         document.getElementById('dataRetention').value = '90';
         document.getElementById('eventRetention').value = '90';
+
+        const defaultSystemConfig = {
+            systemName: 'Pool Automation System',
+            poolSize: '300',
+            refreshInterval: '10',
+            defaultMode: 'auto'
+        };
+        
+        const defaultChemistryTargets = {
+            phTargetMin: '7.2',
+            phTargetMax: '7.6',
+            orpTargetMin: '650',
+            orpTargetMax: '750',
+            freeClTargetMin: '1.0',
+            freeClTargetMax: '2.0',
+            combinedClMax: '0.3'
+        };
+        
+        const defaultTurbiditySettings = {
+            turbidityTarget: '0.15',
+            turbidityLowThreshold: '0.12',
+            turbidityHighThreshold: '0.25',
+            filterBackwashLevel: '70',
+            autoBackwashAlerts: true
+        };
+        
+        // Store defaults back to localStorage
+        localStorage.setItem('systemConfig', JSON.stringify(defaultSystemConfig));
+        localStorage.setItem('chemistryTargets', JSON.stringify(defaultChemistryTargets));
+        localStorage.setItem('turbiditySettings', JSON.stringify(defaultTurbiditySettings));
         
         // Update UI elements
         updateUIFromSettings();
@@ -3089,28 +3117,6 @@ function updateUIFromSettings() {
     // Update system name
     if (systemConfig.systemName) {
         document.querySelector('.sidebar-header h3').textContent = systemConfig.systemName;
-    }
-    
-    // Update temperature display
-    if (systemConfig.tempUnit === 'fahrenheit') {
-        // Convert all temperature displays from C to F
-        const tempValue = document.getElementById('tempValue');
-        if (tempValue) {
-            const celsiusValue = parseFloat(tempValue.textContent);
-            const fahrenheitValue = (celsiusValue * 9/5) + 32;
-            tempValue.textContent = fahrenheitValue.toFixed(1);
-        }
-        
-        // Update temperature unit labels
-        const tempLabels = document.querySelectorAll('.temperature-unit');
-        tempLabels.forEach(label => {
-            label.textContent = '°F';
-        });
-        
-        // Update mock data for simulation if needed
-        if (mockData) {
-            mockData.temperature = (mockData.temperature * 9/5) + 32;
-        }
     }
     
     // Update target ranges in overview cards
