@@ -2604,6 +2604,7 @@ function saveSystemConfig(form) {
     const poolSize = document.getElementById('poolSize').value;
     const refreshInterval = document.getElementById('refreshInterval').value;
     const defaultMode = document.getElementById('defaultModeAuto').checked ? 'auto' : 'manual';
+    const language = document.getElementById('langEnglish').checked ? 'en' : 'sq';
     
     // Save to localStorage for demo
     const systemConfig = {
@@ -2611,6 +2612,7 @@ function saveSystemConfig(form) {
         poolSize,
         refreshInterval,
         defaultMode,
+        language
     };
     
     console.log("Saving system config:", systemConfig); // Debug
