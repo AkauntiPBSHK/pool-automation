@@ -480,15 +480,6 @@ function initializeChemistryChart() {
             }
         }
     });
-    
-    const chemistryAutoScaleBtn = document.getElementById('chemistryAutoScale');
-    if (chemistryAutoScaleBtn) {
-        chemistryAutoScaleBtn.addEventListener('click', function() {
-            optimizeChartScales(chemistryChart);
-        });
-    } else {
-        console.warn('Chemistry auto scale button not found in the DOM');
-    }
 }
 
 /**
@@ -1491,16 +1482,6 @@ function initializeTurbidityChart() {
             }
         }
     });
-    
-
-    const turbidityAutoScaleBtn = document.getElementById('turbidityAutoScale');
-    if (turbidityAutoScaleBtn) {
-        turbidityAutoScaleBtn.addEventListener('click', function() {
-            optimizeChartScales(turbidityChart);
-        });
-    } else {
-        console.warn('Turbidity auto scale button not found in the DOM');
-    }
 }
 
 /**
@@ -1984,15 +1965,6 @@ function initializeHistoryChart() {
         
     // Initialize parameter buttons
     initializeParameterButtons();
-
-    const historyAutoScaleBtn = document.getElementById('historyAutoScale');
-    if (historyAutoScaleBtn) {
-        historyAutoScaleBtn.addEventListener('click', function() {
-            optimizeChartScales(historyChart);
-        });
-    } else {
-        console.warn("History auto scale button not found in the DOM");
-    }
         
     } catch (error) {
         console.error('Error initializing chart:', error);
