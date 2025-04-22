@@ -481,9 +481,12 @@ function initializeChemistryChart() {
         }
     });
     
-    document.getElementById('chemistryAutoScale').addEventListener('click', function() {
-        optimizeChartScales(chemistryChart);
-    });
+    const chemistryAutoScaleBtn = document.getElementById('chemistryAutoScale');
+    if (chemistryAutoScaleBtn) {
+        chemistryAutoScaleBtn.addEventListener('click', function() {
+            optimizeChartScales(chemistryChart);
+        });
+    }
 }
 
 /**
@@ -1487,9 +1490,12 @@ function initializeTurbidityChart() {
         }
     });
     
-    document.getElementById('turbidityAutoScale').addEventListener('click', function() {
-        optimizeChartScales(turbidityChart);
-    });
+    const turbidityAutoScaleBtn = document.getElementById('turbidityAutoScale');
+    if (turbidityAutoScaleBtn) {
+        turbidityAutoScaleBtn.addEventListener('click', function() {
+            optimizeChartScales(turbidityChart);
+        });
+    }
 }
 
 /**
@@ -2027,18 +2033,21 @@ function initializeHistoryChart() {
             }
         });
         
-        console.log('Chart initialized successfully');
+    console.log('Chart initialized successfully');
         
-        // Link parameter checkboxes to chart visibility
-        linkCheckboxesToChart();
-        syncCheckboxesWithChart();
+    // Link parameter checkboxes to chart visibility
+    linkCheckboxesToChart();
+    syncCheckboxesWithChart();
         
-        // Initialize parameter buttons
-        initializeParameterButtons();
+    // Initialize parameter buttons
+    initializeParameterButtons();
 
-        document.getElementById('historyAutoScale').addEventListener('click', function() {
+    const historyAutoScaleBtn = document.getElementById('historyAutoScale');
+    if (historyAutoScaleBtn) {
+        historyAutoScaleBtn.addEventListener('click', function() {
             optimizeChartScales(historyChart);
         });
+    }
         
     } catch (error) {
         console.error('Error initializing chart:', error);
