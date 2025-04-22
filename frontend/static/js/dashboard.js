@@ -4472,6 +4472,45 @@ function formatParameterValue(value, paramType) {
 }
 
 /**
+ * Updates the ARIA label of a chart to reflect which parameters are currently visible
+ * Improves accessibility for screen readers by providing context about what the chart is displaying
+ * 
+ * @param {Object} chart - The Chart.js chart object
+ * @param {Object} visibilityState - Object mapping parameter names to visibility status
+ */
+function updateChartAriaLabel(chart, visibilityState) {
+    if (!chart || !chart.canvas) return;
+    
+    const container = chart.canvas.closest('.chart-container');
+    if (!container) return;
+    
+    // Get names of visible parameters
+    const visibleParams = [];
+    
+    // Check which parameters are visible
+    if (visibilityState.ph) visibleParams.push('pH');
+    if (visibilityState.orp) visibleParams.push('ORP');
+    if (visibilityState.freeChlorine) visibleParams.push('free chlorine');
+    if (visibilityState.combinedChlorine) visibleParams.push('combined chlorine');
+    if (visibilityState.turbidity) visibleParams.push('turbidity');
+    if (visibilityState.temperature) visibleParams.push('temperature');
+    if (visibilityState.dosingEvents) visibleParams.push('dosing events');
+    
+    // Create descriptive label
+    let label = 'Chart showing ';
+    if (visibleParams.length === 0) {
+        label += 'no parameters';
+    } else if (visibleParams.length === 1) {
+        label += visibleParams[0];
+    } else {
+        label += visibleParams.slice(0, -1).join(', ') + ' and ' + visibleParams[visibleParams.length - 1];
+    }
+    
+    // Apply the label to the container
+    container.setAttribute('aria-label', label);
+}
+
+/**
  * Synchronize parameter checkboxes, buttons, and chart visibility
  * @param {string} source - Source of the update ('checkbox', 'button', or 'chart')
  * @param {string} id - ID of the element that triggered the update
