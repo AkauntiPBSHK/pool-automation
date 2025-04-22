@@ -98,6 +98,7 @@ const translations = {
         "clearing": "Clearing",
         "resetComplete": "Settings reset to defaults completed",
         "clearDataComplete": "Historical data cleared successfully",
+        "saving": "Saving",
         
         // Button actions
         "refresh": "Refresh",
@@ -348,6 +349,39 @@ const translations = {
         "resetComplete": "Rivendosja e cilësimeve u krye",
         "clearDataComplete": "Pastrimi i të dhënave historike u krye me sukses",
 
+        "saving": "Duke ruajtur",
+        "showingPage": "Duke shfaqur faqen",
+        "chemical": "Kimik",
+        "calibration": "Kalibrim",
+        "maintenance": "Mirëmbajtje",
+        "idle": "Pasiv",
+        "running": "Në punë",
+        "flowRate": "Rrjedhja",
+        "level": "Niveli",
+        "status": "Statusi",
+        "confirmReset": "A jeni i sigurt se dëshironi të rivendosni të gjitha cilësimet në parazgjedhje? Ky veprim nuk mund të kthehet mbrapsht.",
+        "confirmClear": "A jeni i sigurt se dëshironi të pastroni të gjitha të dhënat historike? Ky veprim nuk mund të kthehet mbrapsht.",
+        "filterLoad": "Ngarkesa e filtrit",
+        "maxFlow": "Rrjedhja maksimale",
+        "currentValue": "Vlera aktuale",
+        "lastUpdate": "Përditësimi i fundit",
+        "rawData": "Të dhëna të papërpunuara",
+        "options": "Opsione",
+        "downloadChart": "Shkarko grafikun",
+        "showingRecords": "Duke shfaqur regjistrime",
+        "page": "Faqe",
+        "next": "Tjetër",
+        "previous": "E mëparshme",
+        "exportChartData": "Eksporto të dhënat e grafikut",
+        "importing": "Duke importuar...",
+        "exported": "Eksportuar",
+        "username": "Emri i përdoruesit",
+        "password": "Fjalëkalimi",
+        "currentPassword": "Fjalëkalimi aktual",
+        "newPassword": "Fjalëkalimi i ri",
+        "confirmPassword": "Konfirmo fjalëkalimin",
+        "languageChanged": "Gjuha u ndryshua në Shqip",
+
         "poolAutomationTitle": "Automatizimi i Pishinës",
         "dashboard": "Paneli",
         "active": "Aktive",
@@ -397,22 +431,18 @@ const translations = {
         "clearData": "Pastro të Dhënat",
 
         // Form fields
-        "username": "Emri i përdoruesit",
-        "password": "Fjalëkalimi",
         "email": "Email",
         
         // Toast messages
         "settingsSaved": "Cilësimet u ruajtën me sukses",
         "dataRefreshed": "Të dhënat u rifreskuan",
         "passwordChanged": "Fjalëkalimi u ndryshua me sukses",
-        "languageChanged": "Gjuha u ndryshua në Shqip",
-        
+
         // Water Chemistry
         "phControl": "Kontrolli i pH",
         "chlorineControl": "Kontrolli i Klorit",
         "phTarget": "Diapazoni i Synuar i pH",
         "clTarget": "Diapazoni i Synuar i Klorit",
-        "currentValue": "Vlera Aktuale",
         "pumpStatus": "Statusi i Pompës",
         "manualControl": "Kontrolli Manual",
         "doseAcid": "Dozo Acid",
@@ -425,7 +455,6 @@ const translations = {
         "dosingRate": "Shkalla e Dozimit",
         "filterEfficiency": "Efikasiteti i Filtrit",
         "filterStatus": "Statusi i Filtrit",
-        "filterLoad": "Ngarkesa e Filtrit",
         "pacLevel": "Niveli i PAC",
         "controlThresholds": "Pragjet e Kontrollit",
         "highThreshold": "Pragu i Lartë",
@@ -474,7 +503,6 @@ const translations = {
         "selectDuration": "Zgjidh Kohëzgjatjen",
         "visualizationType": "Lloji i Vizualizimit",
         "dataResolution": "Rezolucioni i të Dhënave",
-        "rawData": "Të Dhëna të Papërpunuara",
         "minuteAvg": "Mesatare 1 Minutëshe",
         "hourAvg": "Mesatare 1 Orëshe",
         "dayAvg": "Mesatare 1 Ditore",
@@ -3052,17 +3080,14 @@ function saveNotificationSettings(form) {
  */
 function saveSystemConfig(form) {
     try {
-        // Get form elements with fallbacks
-        const submitButton = form.querySelector('button[type="submit"]') || 
-                             form.querySelector('.btn-primary') ||
-                             form.querySelector('button');
+        // Get form elements with more specific selector
+        const submitButton = form.querySelector('button[type="submit"][data-i18n="saveSystemSettings"]');
         
-        let originalButtonText = 'Save System Settings';
+        let originalButtonText = submitButton ? submitButton.innerHTML : 'Save System Settings';
         
-        // Set loading state if button exists
+        // Set loading state
         if (submitButton) {
-            originalButtonText = submitButton.innerHTML;
-            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ' + t('saving') + '...';
             submitButton.disabled = true;
         } else {
             console.warn('Submit button not found in system config form');
@@ -3942,7 +3967,58 @@ function applyLanguage(lang) {
         if (refreshBtn) {
             refreshBtn.textContent = translations[lang].refresh;
         }
+
+        // Explicitly update form button text for all settings forms
+        const formButtons = {
+            'accountSettingsForm': translations[lang].changePassword,
+            'notificationSettingsForm': translations[lang].saveSettings,
+            'systemConfigForm': translations[lang].saveSystemSettings,
+            'chemistryTargetsForm': translations[lang].saveSettings,
+            'pumpConfigForm': translations[lang].saveSettings,
+            'turbiditySettingsForm': translations[lang].saveSettings
+        };
         
+        // Update all form buttons
+        for (const [formId, buttonText] of Object.entries(formButtons)) {
+            const form = document.getElementById(formId);
+            if (form) {
+                const button = form.querySelector('button[type="submit"]');
+                if (button) {
+                    button.textContent = buttonText;
+                }
+            }
+        }
+
+        // Update all pagination texts
+        document.querySelectorAll('.pagination .page-link').forEach(link => {
+            if (link.textContent === '«') {
+                link.setAttribute('aria-label', translations[lang].previous);
+            } else if (link.textContent === '»') {
+                link.setAttribute('aria-label', translations[lang].next);
+            }
+        });
+                
+        // Update any table data that wasn't caught
+        document.querySelectorAll('table th').forEach(th => {
+            if (th.textContent === 'Timestamp') {
+                th.textContent = translations[lang].timestamp;
+            } else if (th.textContent === 'Time') {
+                th.textContent = translations[lang].time;
+            } else if (th.textContent === 'Duration') {
+                th.textContent = translations[lang].duration;
+            } else if (th.textContent === 'Type') {
+                th.textContent = translations[lang].type;
+            } else if (th.textContent === 'Description') {
+                th.textContent = translations[lang].description;
+            } else if (th.textContent === 'Parameter') {
+                th.textContent = translations[lang].parameter;
+            } else if (th.textContent === 'Value') {
+                th.textContent = translations[lang].value;
+            } else if (th.textContent === 'Flow Rate') {
+                th.textContent = translations[lang].flowRate;
+            }
+        });
+
         // Update card titles
         document.querySelectorAll('.card-title').forEach(title => {
             const text = title.textContent.trim();
@@ -4473,10 +4549,6 @@ function showLocalizedToast(messageKey, type = 'success') {
     showToast(message, type);
 }
 
-function t(key) {
-    return translations[currentLanguage][key] || key;
-}
-
 /**
  * Get translation for a specific key based on current language
  * @param {string} key - The translation key to look up
@@ -4563,9 +4635,11 @@ function testTranslationCompleteness() {
             extraKeys.push(key);
         }
     }
-    
+
+    // Log results
     if (missingKeys.length > 0) {
         console.warn("Missing translations in Albanian:", missingKeys);
+        console.log("Missing translations count:", missingKeys.length);
     } else {
         console.log("All English keys have Albanian translations ✓");
     }
@@ -4602,6 +4676,21 @@ function testTranslationCompleteness() {
     } else {
         console.log("All checked UI elements have translations ✓");
     }
+
+    // Check all buttons to ensure they have translations
+    document.querySelectorAll('button').forEach(button => {
+        const text = button.textContent.trim();
+        if (text && text.length > 1 && !button.hasAttribute('data-i18n')) {
+            console.warn("Button without data-i18n attribute:", button.textContent, button);
+        }
+    });
+    
+    // Check all form labels to ensure they have translations
+    document.querySelectorAll('label.form-label').forEach(label => {
+        if (!label.hasAttribute('data-i18n')) {
+            console.warn("Form label without data-i18n attribute:", label.textContent, label);
+        }
+    });
 }
 
 /**
