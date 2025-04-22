@@ -56,6 +56,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize history tab
     initializeHistoryTab();
 
+    // Add this to the DOMContentLoaded event
+    initializeSocketConnection();
+
     // Initial data fetch
     fetchStatus();
     
@@ -567,18 +570,22 @@ function updateChlorineStatus(freeChlorine, combinedChlorine) {
 }
 
 /**
- * Update pump status display
+* Update pump status display
+* @param {string} id - Element ID prefix (e.g., 'phPump', 'clPump', 'pacPump')
+* @param {boolean} running - Whether the pump is running
  */
 function updatePumpStatus(id, running) {
     const statusEl = document.getElementById(id + 'Status');
     if (!statusEl) return;
     
+    const isPac = id === 'pacPump' || id === 'pacPumpDetail';
+    
     if (running) {
-        statusEl.textContent = id === 'pacPump' ? 'PAC pump active' : 'Pump active';
+        statusEl.textContent = isPac ? 'PAC pump active' : 'Pump active';
         statusEl.className = 'text-primary pump-active';
         statusEl.previousElementSibling.className = 'bi bi-droplet-fill me-2 text-primary';
     } else {
-        statusEl.textContent = id === 'pacPump' ? 'PAC pump inactive' : 'Pump inactive';
+        statusEl.textContent = isPac ? 'PAC pump inactive' : 'Pump inactive';
         statusEl.className = 'text-secondary';
         statusEl.previousElementSibling.className = 'bi bi-droplet me-2';
     }
@@ -589,7 +596,12 @@ function updatePumpStatus(id, running) {
  */
 function fetchStatus() {
     fetch('/api/status')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             console.log('Status:', data);
             const mode = data.simulation_mode ? 'simulation' : 'production';
@@ -597,7 +609,50 @@ function fetchStatus() {
         })
         .catch(error => {
             console.error('Error fetching status:', error);
-            updateStatusBar('Error connecting to server', 'danger');
+            updateStatusBar('Error connecting to server. Using simulation mode.', 'danger');
+            // Fall back to simulation mode
+            simulateDataChanges();
+        });
+}
+
+/**
+ * Fetch dashboard data with error handling
+ */
+function fetchDashboardData() {
+    // Show loading indicator
+    document.querySelectorAll('.card-body').forEach(card => {
+        card.classList.add('loading');
+    });
+    
+    fetch('/api/dashboard')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Update UI with real data
+            updateParameterDisplays(data);
+            updateWaterChemistryDisplays();
+            updateTurbidityPACDisplays();
+            
+            // Remove loading indicators
+            document.querySelectorAll('.card-body').forEach(card => {
+                card.classList.remove('loading');
+            });
+        })
+        .catch(error => {
+            console.error('Error fetching dashboard data:', error);
+            updateStatusBar('Using simulated data due to server error', 'warning');
+            
+            // Remove loading indicators
+            document.querySelectorAll('.card-body').forEach(card => {
+                card.classList.remove('loading');
+            });
+            
+            // Fall back to mock data
+            updateParameterDisplays(mockData);
         });
 }
 
@@ -1514,7 +1569,7 @@ function initializeParameterButtons() {
             newButton.classList.toggle('btn-outline-secondary', !isVisible);
         }
     });
-    
+
     // Set up dosing events checkbox
     const dosingEventsCheckbox = document.getElementById('showDosingEvents');
     if (dosingEventsCheckbox) {
@@ -2675,6 +2730,16 @@ function savePumpConfig(form) {
 function saveTurbiditySettings(form) {
     // Get form elements
     const submitButton = form.querySelector('button[type="submit"]');
+
+    // Validate thresholds
+    if (!validateThresholds(
+        'turbidityLowThreshold', 
+        'turbidityHighThreshold', 
+        'turbidityTarget', 
+        'Turbidity'
+    )) {
+        return;
+    }
     
     // Set loading state
     const originalButtonText = submitButton.innerHTML;
@@ -3222,4 +3287,90 @@ function updateUIFromSettings() {
     if (turbiditySettings.turbidityHighThreshold) {
         document.getElementById('pacHighThreshold').value = turbiditySettings.turbidityHighThreshold;
     }
+}
+
+/**
+ * Validate threshold inputs
+ * @param {string} minId - Minimum input ID
+ * @param {string} maxId - Maximum input ID
+ * @param {string} targetId - Target input ID (optional)
+ * @param {string} name - Parameter name for error message
+ * @returns {boolean} - Whether validation passed
+ */
+function validateThresholds(minId, maxId, targetId, name) {
+    const minInput = document.getElementById(minId);
+    const maxInput = document.getElementById(maxId);
+    
+    const min = parseFloat(minInput.value);
+    const max = parseFloat(maxInput.value);
+    
+    if (min >= max) {
+        showToast(`${name} minimum must be less than maximum`, 'warning');
+        return false;
+    }
+    
+    if (targetId) {
+        const targetInput = document.getElementById(targetId);
+        const target = parseFloat(targetInput.value);
+        
+        if (target <= min || target >= max) {
+            showToast(`${name} target must be between minimum and maximum`, 'warning');
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+// Initialize Socket.IO connection
+function initializeSocketConnection() {
+    // Setup socket events
+    socket.on('connect', function() {
+        console.log('Connected to server');
+        updateStatusBar('Connected to server', 'success');
+    });
+    
+    socket.on('disconnect', function() {
+        console.log('Disconnected from server');
+        updateStatusBar('Disconnected from server. Using simulation mode.', 'danger');
+    });
+    
+    // Data update events
+    socket.on('parameter_update', function(data) {
+        console.log('Parameter update received:', data);
+        // Update only the specific parameter that changed
+        if (mockData && data.parameter && data.value !== undefined) {
+            mockData[data.parameter] = data.value;
+            // Update UI for this parameter
+            updateParameterDisplay(data.parameter, data.value);
+        }
+    });
+    
+    socket.on('pump_status', function(data) {
+        console.log('Pump status update received:', data);
+        if (data.pump && data.status !== undefined) {
+            // Update pump status in mockData
+            mockData[`${data.pump}PumpRunning`] = data.status;
+            // Update UI
+            updatePumpStatus(`${data.pump}Pump`, data.status);
+            updatePumpStatus(`${data.pump}PumpDetail`, data.status);
+        }
+    });
+    
+    socket.on('system_alert', function(data) {
+        console.log('System alert received:', data);
+        if (data.message) {
+            showToast(data.message, data.type || 'info');
+        }
+    });
+    
+    // Connection management
+    socket.io.on('reconnect_attempt', () => {
+        updateStatusBar('Attempting to reconnect to server...', 'warning');
+    });
+    
+    socket.io.on('reconnect', () => {
+        updateStatusBar('Connection restored', 'success');
+        fetchDashboardData();
+    });
 }
