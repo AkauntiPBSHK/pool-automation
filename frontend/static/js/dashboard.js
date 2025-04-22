@@ -1632,6 +1632,13 @@ function initializeHistoryTab() {
         filterEventsByType(this.value);
     });
     
+    // Add event listeners to checkboxes
+    document.querySelectorAll('#history-tab input[type="checkbox"]').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            syncParameterSelection('checkbox', this.id, this.checked);
+        });
+    });
+    
     // Initialize tables with consistent data
     initializeTableData();
     
@@ -4594,13 +4601,6 @@ function syncParameterSelection(source, id, isVisible) {
             }
         }
     }
-
-    // Add event listeners to checkboxes
-    document.querySelectorAll('#history-tab input[type="checkbox"]').forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            syncParameterSelection('checkbox', this.id, this.checked);
-        });
-    });
     
     // Update axis visibility after any change
     updateAllAxisVisibility();
@@ -4608,6 +4608,17 @@ function syncParameterSelection(source, id, isVisible) {
     // Update chart
     historyChart.update();
     
-    // Update chart ARIA label
-    updateChartAriaLabel();
+    // Create visibility state object based on checkbox states
+    const visibilityState = {
+        ph: document.getElementById('showPh')?.checked || false,
+        orp: document.getElementById('showOrp')?.checked || false,
+        freeChlorine: document.getElementById('showFreeChlorine')?.checked || false,
+        combinedChlorine: document.getElementById('showCombinedChlorine')?.checked || false,
+        turbidity: document.getElementById('showTurbidity')?.checked || false,
+        temperature: document.getElementById('showTemp')?.checked || false,
+        dosingEvents: document.getElementById('showDosingEvents')?.checked || false
+    };
+    
+    // Update chart ARIA label with the right parameters
+    updateChartAriaLabel(historyChart, visibilityState);
 }
