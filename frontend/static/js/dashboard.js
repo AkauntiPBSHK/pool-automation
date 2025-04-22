@@ -1588,12 +1588,38 @@ let historyChart = null;
 function optimizeChartScales(chart, paddingFactor = 0.15) {
     console.log("Optimizing chart scales...");
     
+    if (!chart || !chart.data || !chart.options || !chart.options.scales) {
+        console.error("Invalid chart object");
+        return;
+    }
+    
     // Apply to each dataset with data
     const datasetsByAxis = {};
     
     // First pass: collect data points by axis ID
     chart.data.datasets.forEach((dataset, index) => {
-        if (chart.isDatasetHidden(index) || dataset.pointStyle === 'triangle') return;
+        // Check if dataset is hidden - different approach
+        // We'll check the hidden property or meta data
+        let isHidden = false;
+        
+        // Method 1: Check dataset.hidden property directly
+        if (dataset.hidden) {
+            isHidden = true;
+        } 
+        // Method 2: Try to use meta data if available
+        else if (chart.getDatasetMeta && typeof chart.getDatasetMeta === 'function') {
+            try {
+                const meta = chart.getDatasetMeta(index);
+                if (meta && meta.hidden) {
+                    isHidden = true;
+                }
+            } catch (e) {
+                console.warn("Error checking dataset visibility:", e);
+            }
+        }
+        
+        // Skip hidden datasets and dosing events (triangles)
+        if (isHidden || dataset.pointStyle === 'triangle') return;
         
         const axisId = dataset.yAxisID || 'y';
         if (!datasetsByAxis[axisId]) {
