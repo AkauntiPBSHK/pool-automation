@@ -415,8 +415,8 @@ function initializeChemistryChart() {
                             };
                         }
                     },
-                    min: 7.3,
-                    max: 7.6,
+                    min: 6.8,
+                    max: 8.0,
                     grid: {
                         drawOnChartArea: true
                     }
@@ -434,8 +434,8 @@ function initializeChemistryChart() {
                             };
                         }
                     },
-                    min: 0.8,
-                    max: 1.6,
+                    min: 0,
+                    max: 3.0,
                     grid: {
                         drawOnChartArea: false
                     }
@@ -1849,8 +1849,8 @@ function initializeHistoryChart() {
                             display: true,
                             text: 'pH'
                         },
-                        min: 7.3,
-                        max: 7.6,
+                        min: 6.8,
+                        max: 8.0,
                         grid: {
                             drawOnChartArea: true
                         }
@@ -1862,8 +1862,8 @@ function initializeHistoryChart() {
                             display: true,
                             text: 'Chlorine (mg/L)'
                         },
-                        min: 0.8,
-                        max: 1.6,
+                        min: 0,
+                        max: 3.0,
                         grid: {
                             drawOnChartArea: false
                         }
@@ -1875,8 +1875,8 @@ function initializeHistoryChart() {
                             display: false, // Hide by default
                             text: 'ORP (mV)'
                         },
-                        min: 680,
-                        max: 760,
+                        min: 600,
+                        max: 800,
                         display: false // Initially hidden
                     },
                     'y-turbidity': {
@@ -1886,8 +1886,8 @@ function initializeHistoryChart() {
                             display: false, // Hide by default
                             text: 'Turbidity (NTU)'
                         },
-                        min: 0.08, 
-                        max: 0.22,
+                        min: 0, 
+                        max: 0.5,
                         display: false // Initially hidden
                     },
                     'y-temp': {
@@ -1897,8 +1897,8 @@ function initializeHistoryChart() {
                             display: false, // Hide by default
                             text: 'Temperature (°C)'
                         },
-                        min: 26,
-                        max: 30,
+                        min: 22,
+                        max: 32,
                         display: false // Initially hidden
                     }
                 },
