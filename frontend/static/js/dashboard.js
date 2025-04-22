@@ -676,6 +676,9 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log("Running in development mode - testing translations");
             setTimeout(testTranslationCompleteness, 2000); // Wait for page to fully load
         }
+
+        // Fix Email label specifically
+        setTimeout(fixEmailLabel, 500); // Delay to ensure DOM is fully loaded
 });
 
 /**
@@ -1052,53 +1055,87 @@ function updateChemistryChart(hours) {
  * Update detailed water chemistry displays
  */
 function updateWaterChemistryDisplays() {
-    // Update pH detail panel
-    document.getElementById('phDetailValue').textContent = mockData.ph.toFixed(2);
-    document.getElementById('phPumpDetailStatus').innerHTML = mockData.phPumpRunning ? 
-        '<i class="bi bi-droplet-fill me-1 text-primary"></i> ' + t('pumpActive') : 
-        '<i class="bi bi-droplet me-1"></i> ' + t('pumpInactive');
+    // Add null checks for all element accesses
     
-    if (mockData.phPumpRunning) {
-        document.getElementById('phPumpDetailStatus').className = 'text-primary pump-active';
-    } else {
-        document.getElementById('phPumpDetailStatus').className = 'text-secondary';
+    // Update pH detail panel
+    const phDetailValue = document.getElementById('phDetailValue');
+    if (phDetailValue) {
+        phDetailValue.textContent = mockData.ph.toFixed(2);
     }
     
-    // Update pH marker position
-    const phPercentage = ((mockData.ph - 6.8) / (8.0 - 6.8)) * 100;
-    document.querySelector('.ph-marker').style.left = `${phPercentage}%`;
+    const phPumpDetailStatus = document.getElementById('phPumpDetailStatus');
+    if (phPumpDetailStatus) {
+        phPumpDetailStatus.innerHTML = mockData.phPumpRunning ? 
+            '<i class="bi bi-droplet-fill me-1 text-primary"></i> ' + t('pumpActive') : 
+            '<i class="bi bi-droplet me-1"></i> ' + t('pumpInactive');
+        
+        if (mockData.phPumpRunning) {
+            phPumpDetailStatus.className = 'text-primary pump-active';
+        } else {
+            phPumpDetailStatus.className = 'text-secondary';
+        }
+    }
+    
+    // Update pH marker position - this is likely the problem area
+    const phMarker = document.querySelector('.ph-marker');
+    if (phMarker) {
+        const phPercentage = ((mockData.ph - 6.8) / (8.0 - 6.8)) * 100;
+        phMarker.style.left = `${phPercentage}%`;
+    }
+    
+    // Continue with other updates, adding null checks for all element accesses
     
     // Update chlorine detail panel
-    document.getElementById('freeChlorineDetailValue').textContent = mockData.freeChlorine.toFixed(2);
-    document.getElementById('combinedChlorineDetailValue').textContent = mockData.combinedChlorine.toFixed(2);
-    document.getElementById('clPumpDetailStatus').innerHTML = mockData.clPumpRunning ? 
-        '<i class="bi bi-droplet-fill me-1 text-primary"></i> ' + t('pumpActive') : 
-        '<i class="bi bi-droplet me-1"></i> ' + t('pumpInactive');
+    const freeChlorineDetailValue = document.getElementById('freeChlorineDetailValue');
+    if (freeChlorineDetailValue) {
+        freeChlorineDetailValue.textContent = mockData.freeChlorine.toFixed(2);
+    }
     
-    if (mockData.clPumpRunning) {
-        document.getElementById('clPumpDetailStatus').className = 'text-primary pump-active';
-    } else {
-        document.getElementById('clPumpDetailStatus').className = 'text-secondary';
+    const combinedChlorineDetailValue = document.getElementById('combinedChlorineDetailValue');
+    if (combinedChlorineDetailValue) {
+        combinedChlorineDetailValue.textContent = mockData.combinedChlorine.toFixed(2);
+    }
+    
+    const clPumpDetailStatus = document.getElementById('clPumpDetailStatus');
+    if (clPumpDetailStatus) {
+        clPumpDetailStatus.innerHTML = mockData.clPumpRunning ? 
+            '<i class="bi bi-droplet-fill me-1 text-primary"></i> ' + t('pumpActive') : 
+            '<i class="bi bi-droplet me-1"></i> ' + t('pumpInactive');
+        
+        if (mockData.clPumpRunning) {
+            clPumpDetailStatus.className = 'text-primary pump-active';
+        } else {
+            clPumpDetailStatus.className = 'text-secondary';
+        }
     }
     
     // Update chlorine marker position
-    const clPercentage = ((mockData.freeChlorine - 0.5) / (5.0 - 0.5)) * 100;
-    document.querySelector('.chlorine-marker').style.left = `${clPercentage}%`;
+    const clMarker = document.querySelector('.chlorine-marker');
+    if (clMarker) {
+        const clPercentage = ((mockData.freeChlorine - 0.5) / (5.0 - 0.5)) * 100;
+        clMarker.style.left = `${clPercentage}%`;
+    }
     
-    // Update trends randomly for simulation
+    // Update trends
+    const phTrend = document.getElementById('phTrend');
+    const clTrend = document.getElementById('chlorineTrend');
+    
     if (Math.random() > 0.7) {
-        const phTrend = Math.random() > 0.5 ? 
-            '<i class="bi bi-arrow-up-short trend-up"></i> +0.1 in 1h' : 
-            '<i class="bi bi-arrow-down-short trend-down"></i> -0.1 in 1h';
-        document.getElementById('phTrend').innerHTML = phTrend;
+        if (phTrend) {
+            const trend = Math.random() > 0.5 ? 
+                '<i class="bi bi-arrow-up-short trend-up"></i> +0.1 in 1h' : 
+                '<i class="bi bi-arrow-down-short trend-down"></i> -0.1 in 1h';
+            phTrend.innerHTML = trend;
+        }
         
-        const clTrend = Math.random() > 0.5 ? 
-            '<i class="bi bi-arrow-up-short trend-up"></i> +0.1 in 1h' : 
-            '<i class="bi bi-arrow-down-short trend-down"></i> -0.1 in 1h';
-        document.getElementById('chlorineTrend').innerHTML = clTrend;
+        if (clTrend) {
+            const trend = Math.random() > 0.5 ? 
+                '<i class="bi bi-arrow-up-short trend-up"></i> +0.1 in 1h' : 
+                '<i class="bi bi-arrow-down-short trend-down"></i> -0.1 in 1h';
+            clTrend.innerHTML = trend;
+        }
     }
 }
-
 /**
  * Update all parameter displays with current values
  */
@@ -3992,6 +4029,9 @@ function applyLanguage(lang) {
         // Ensure we have all necessary attributes first
         applyMissingAttributes();
 
+        // Fix Email label specifically
+        fixEmailLabel();
+
         // Validate language
         if (!translations[lang]) {
             console.error(`Language ${lang} not supported`);
@@ -4959,6 +4999,9 @@ function applyMissingAttributes() {
             label.setAttribute('data-i18n', 'email');
         }
     });
+
+    // Fix the alerts card title
+    fixCurrentAlertsTranslation();
 }
 
 function getDetailedMissingTranslations() {
@@ -4981,6 +5024,42 @@ function getDetailedMissingTranslations() {
                     classes: el.className
                 });
             }
+        }
+    });
+}
+
+function fixCurrentAlertsTranslation() {
+    // Find the element with both texts combined
+    const alertTitleEl = document.querySelector('.card-title.d-flex.justify-content-between');
+    if (alertTitleEl) {
+        // Check if it's already fixed
+        if (alertTitleEl.querySelector('[data-i18n="currentAlerts"]')) {
+            return; // Already fixed
+        }
+        
+        // Create new elements with proper data-i18n attributes
+        const titleSpan = document.createElement('span');
+        titleSpan.setAttribute('data-i18n', 'currentAlerts');
+        titleSpan.textContent = t('currentAlerts');
+        
+        const badgeSpan = document.createElement('span');
+        badgeSpan.className = 'badge bg-success';
+        badgeSpan.setAttribute('data-i18n', 'allSystemsNormal');
+        badgeSpan.textContent = t('allSystemsNormal');
+        
+        // Clear and rebuild the element
+        alertTitleEl.innerHTML = '';
+        alertTitleEl.appendChild(titleSpan);
+        alertTitleEl.appendChild(badgeSpan);
+    }
+}
+
+function fixEmailLabel() {
+    console.log("Looking for Email labels...");
+    document.querySelectorAll('label.form-label').forEach(label => {
+        if (label.textContent.trim() === 'Email') {
+            console.log("Found Email label, fixing...");
+            label.setAttribute('data-i18n', 'email');
         }
     });
 }
