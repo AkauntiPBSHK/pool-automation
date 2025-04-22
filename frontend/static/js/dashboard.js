@@ -3951,6 +3951,14 @@ function applyLanguage(lang) {
     });
 
     // Add to your applyLanguage function
+    document.querySelectorAll('[data-i18n]').forEach(element => {
+        const key = element.getAttribute('data-i18n');
+        if (translations[lang][key]) {
+            element.textContent = translations[lang][key];
+        } else {
+            console.warn(`Missing translation for key "${key}" in language "${lang}"`);
+        }
+    });
 
     // Update main title
     const mainTitle = document.querySelector('.sidebar-header h3');
