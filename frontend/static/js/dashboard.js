@@ -254,8 +254,7 @@ const translations = {
         "enableAutoBackwash": "Enable Automatic Backwash Alerts",
         "exportSettings": "Export Settings",
         "sensorReadingsRetention": "Sensor Readings Retention",
-        "systemEventsRetention": "System Events Retention",
-        
+        "systemEventsRetention": "System Events Retention",        
         // System Configuration
         "systemName": "System Name",
         "poolSize": "Pool Size (m³)",
@@ -383,7 +382,20 @@ const translations = {
         "exportSettings": "Eksporto Cilësimet",
         "sensorReadingsRetention": "Ruajtja e Leximeve të Sensorëve",
         "systemEventsRetention": "Ruajtja e Ngjarjeve të Sistemit",
-        
+        "showDosingEvents": "Shfaq Ngjarjet e Dozimit",
+        "enterCurrent": "Vendosni aktual",
+        "enterNew": "Vendosni të ri",
+        "confirm": "Konfirmoni",
+        "resetToDefaults": "Rivendos në Parazgjedhje",
+        "clearHistoricalData": "Pastro të Dhënat Historike",
+        "combinedChlorineTitle": "Klori i Kombinuar",
+        "doseChlorine": "Dozo Klor",
+        "enterEmail": "Vendosni email për njoftimet",
+        "importSettings": "Importo Cilësimet",
+        "enterPassword": "Vendosni fjalëkalimin",
+        "resetSettings": "Rivendos Cilësimet",
+        "clearData": "Pastro të Dhënat",
+
         // Form fields
         "username": "Emri i përdoruesit",
         "password": "Fjalëkalimi",
@@ -404,7 +416,6 @@ const translations = {
         "pumpStatus": "Statusi i Pompës",
         "manualControl": "Kontrolli Manual",
         "doseAcid": "Dozo Acid",
-        "doseChlorine": "Dozo Klor",
         "stopPump": "Ndalo Pompën",
         "recentDosing": "Dozimi i Fundit",
         
@@ -476,7 +487,6 @@ const translations = {
         "alertEvents": "Alarmet",
         "systemEvents": "Ngjarjet e Sistemit",
         "userActions": "Veprimet e Përdoruesit",
-        "enterEmail": "Vendosni email për njoftimet",
         "criticalAlerts": "Alarmet Kritike",
         "warningNotifications": "Njoftimet Paralajmëruese",
         "maintenanceReminders": "Kujtuesit e Mirëmbajtjes",
@@ -756,55 +766,74 @@ function stopCLDosing() {
  * Show a toast notification
  */
 function showToast(message, type = 'info') {
-    // Try to find message in translations if it's a direct key
-    if (typeof message === 'string' && translations[currentLanguage] && translations[currentLanguage][message]) {
-        message = translations[currentLanguage][message];
-    } else if (typeof message === 'string' && translations[currentLanguage]) {
-        // Check if message matches any English translation
-        for (const key in translations[currentLanguage]) {
-            if (message === translations['en'][key]) {
-                message = translations[currentLanguage][key];
-                break;
+    try {
+        // Try to find message in translations if it's a direct key
+        if (typeof message === 'string' && translations[currentLanguage] && translations[currentLanguage][message]) {
+            message = translations[currentLanguage][message];
+        } else if (typeof message === 'string' && translations[currentLanguage]) {
+            // Check if message matches any English translation
+            for (const key in translations[currentLanguage]) {
+                if (message === translations['en'][key]) {
+                    message = translations[currentLanguage][key];
+                    break;
+                }
             }
         }
-    }
     
-    // Check if toast container exists, create if not
-    let toastContainer = document.getElementById('toastContainer');
-    if (!toastContainer) {
-        toastContainer = document.createElement('div');
-        toastContainer.id = 'toastContainer';
-        toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
-        document.body.appendChild(toastContainer);
-    }
+        // Check if toast container exists, create if not
+        let toastContainer = document.getElementById('toastContainer');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toastContainer';
+            toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+            document.body.appendChild(toastContainer);
+        }
     
-    // Create toast element
-    const toastId = 'toast-' + Date.now();
-    const toastHtml = `
-    <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-        <div class="toast-header">
-            <strong class="me-auto">${t('systemTitle')}</strong>
-            <small>${t('justNow')}</small>
-            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        // Create toast element
+        const toastId = 'toast-' + Date.now();
+        const toastHtml = `
+        <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <strong class="me-auto">${t('systemTitle')}</strong>
+                <small>${t('justNow')}</small>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">
+                ${message}
+            </div>
         </div>
-        <div class="toast-body">
-            ${message}
-        </div>
-    </div>
-    `;
+        `;
     
-    // Add toast to container
-    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+        // Add toast to container
+        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
     
-    // Initialize and show toast
-    const toastElement = document.getElementById(toastId);
-    const toast = new bootstrap.Toast(toastElement, { autohide: true, delay: 3000 });
-    toast.show();
-    
-    // Remove toast after it's hidden
-    toastElement.addEventListener('hidden.bs.toast', function() {
-        toastElement.remove();
-    });
+        // Initialize and show toast
+        const toastElement = document.getElementById(toastId);
+        if (toastElement) {
+            try {
+                const toast = new bootstrap.Toast(toastElement, { autohide: true, delay: 3000 });
+                toast.show();
+                
+                // Remove toast after it's hidden
+                toastElement.addEventListener('hidden.bs.toast', function() {
+                    toastElement.remove();
+                });
+            } catch (bootstrapError) {
+                console.error('Error showing toast with Bootstrap:', bootstrapError);
+                // Fallback to simple timeout-based removal
+                setTimeout(() => {
+                    toastElement.style.opacity = '0';
+                    setTimeout(() => toastElement.remove(), 500);
+                }, 3000);
+            }
+        }
+    } catch (error) {
+        console.error('Error showing toast notification:', error);
+        // Last resort fallback - alert
+        if (type === 'danger' || type === 'warning') {
+            alert(message);
+        }
+    }
 }
 
 /**
@@ -3022,51 +3051,73 @@ function saveNotificationSettings(form) {
  * Save system configuration
  */
 function saveSystemConfig(form) {
-    // Get form elements
-    const submitButton = form.querySelector('button[type="submit"]');
-    
-    // Set loading state
-    const originalButtonText = submitButton.innerHTML;
-    submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
-    submitButton.disabled = true;
-    
-    // Get settings
-    const systemName = document.getElementById('systemName').value;
-    const poolSize = document.getElementById('poolSize').value;
-    const refreshInterval = document.getElementById('refreshInterval').value;
-    const defaultMode = document.getElementById('defaultModeAuto').checked ? 'auto' : 'manual';
-    const language = document.getElementById('langEnglish').checked ? 'en' : 'sq';
-    
-    // Save to localStorage for demo
-    const systemConfig = {
-        systemName,
-        poolSize,
-        refreshInterval,
-        defaultMode,
-        language
-    };
-    
-    console.log("Saving system config:", systemConfig); // Debug
-    localStorage.setItem('systemConfig', JSON.stringify(systemConfig));
-    
-    // Update UI elements that depend on these settings
-    document.querySelector('.sidebar-header h3').textContent = systemName;
-
-    // Apply language change
-    applyLanguage(language);
-    
-    // Simulated delay to show loading state
-    setTimeout(function() {
-        submitButton.innerHTML = originalButtonText;
-        submitButton.disabled = false;
+    try {
+        // Get form elements with fallbacks
+        const submitButton = form.querySelector('button[type="submit"]') || 
+                             form.querySelector('.btn-primary') ||
+                             form.querySelector('button');
         
-        // Show toast in current language
-        if (language === 'en') {
-            showLocalizedToast('settingsSaved');
+        let originalButtonText = 'Save System Settings';
+        
+        // Set loading state if button exists
+        if (submitButton) {
+            originalButtonText = submitButton.innerHTML;
+            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+            submitButton.disabled = true;
         } else {
-            showLocalizedToast('Cilësimet u ruajtën');
+            console.warn('Submit button not found in system config form');
         }
-    }, 800);
+        
+        // Get settings
+        const systemName = document.getElementById('systemName')?.value || 'Pool Automation System';
+        const poolSize = document.getElementById('poolSize')?.value || '300';
+        const refreshInterval = document.getElementById('refreshInterval')?.value || '10';
+        const defaultMode = document.getElementById('defaultModeAuto')?.checked ? 'auto' : 'manual';
+        const language = document.getElementById('langEnglish')?.checked ? 'en' : 'sq';
+        
+        // Save to localStorage for demo
+        const systemConfig = {
+            systemName,
+            poolSize,
+            refreshInterval,
+            defaultMode,
+            language
+        };
+        
+        console.log("Saving system config:", systemConfig);
+        localStorage.setItem('systemConfig', JSON.stringify(systemConfig));
+        
+        // Update UI elements that depend on these settings
+        const headerTitle = document.querySelector('.sidebar-header h3');
+        if (headerTitle) {
+            headerTitle.textContent = systemName;
+        }
+
+        // Apply language change
+        applyLanguage(language);
+        
+        // Simulated delay to show loading state
+        setTimeout(function() {
+            if (submitButton) {
+                submitButton.innerHTML = originalButtonText;
+                submitButton.disabled = false;
+            }
+            
+            // Show toast in current language
+            showLocalizedToast('settingsSaved');
+        }, 800);
+    } catch (error) {
+        console.error('Error saving system config:', error);
+        showToast(`Error saving system settings: ${error.message}`, 'danger');
+        
+        // Reset button if possible
+        const submitButton = form.querySelector('button[type="submit"]') || 
+                             form.querySelector('.btn-primary');
+        if (submitButton) {
+            submitButton.innerHTML = 'Save System Settings';
+            submitButton.disabled = false;
+        }
+    }
 }
 
 /**
@@ -3746,49 +3797,61 @@ function loadSavedSettings() {
 }
 
 function updateUIFromSettings() {
-    // Get current settings
-    const systemConfig = JSON.parse(localStorage.getItem('systemConfig') || '{}');
-    const chemistryTargets = JSON.parse(localStorage.getItem('chemistryTargets') || '{}');
-    const turbiditySettings = JSON.parse(localStorage.getItem('turbiditySettings') || '{}');
+    try {
+        // Get current settings
+        const systemConfig = JSON.parse(localStorage.getItem('systemConfig') || '{}');
+        const chemistryTargets = JSON.parse(localStorage.getItem('chemistryTargets') || '{}');
+        const turbiditySettings = JSON.parse(localStorage.getItem('turbiditySettings') || '{}');
     
-    // Update system name
-    if (systemConfig.systemName) {
-        document.querySelector('.sidebar-header h3').textContent = systemConfig.systemName;
-    }
-    
-    // Update target ranges in overview cards
-    if (chemistryTargets.phTargetMin && chemistryTargets.phTargetMax) {
-        const phTargetEl = document.querySelector('#phValue').closest('.d-flex').querySelector('.parameter-info .text-muted.small');
-        if (phTargetEl) {
-            phTargetEl.textContent = `Target: ${chemistryTargets.phTargetMin} - ${chemistryTargets.phTargetMax}`;
+        // Update system name
+        if (systemConfig.systemName) {
+            const headerTitle = document.querySelector('.sidebar-header h3');
+            if (headerTitle) {
+                headerTitle.textContent = systemConfig.systemName;
+            }
         }
-    }
     
-    if (chemistryTargets.orpTargetMin && chemistryTargets.orpTargetMax) {
-        const orpTargetEl = document.querySelector('#orpValue').closest('.d-flex').querySelector('.parameter-info .text-muted.small');
-        if (orpTargetEl) {
-            orpTargetEl.textContent = `mV (Target: ${chemistryTargets.orpTargetMin} - ${chemistryTargets.orpTargetMax})`;
+        // Update target ranges in overview cards
+        if (chemistryTargets.phTargetMin && chemistryTargets.phTargetMax) {
+            const phTargetEl = document.querySelector('#phValue')?.closest('.d-flex')?.querySelector('.parameter-info .text-muted.small');
+            if (phTargetEl) {
+                phTargetEl.textContent = `Target: ${chemistryTargets.phTargetMin} - ${chemistryTargets.phTargetMax}`;
+            }
         }
-    }
-    
-    if (chemistryTargets.freeClTargetMin && chemistryTargets.freeClTargetMax) {
-        const clTargetEl = document.querySelector('#freeChlorineValue').closest('.d-flex').querySelector('.parameter-info .text-muted.small');
-        if (clTargetEl) {
-            clTargetEl.textContent = `Free (mg/L) (Target: ${chemistryTargets.freeClTargetMin} - ${chemistryTargets.freeClTargetMax})`;
+        
+        if (chemistryTargets.orpTargetMin && chemistryTargets.orpTargetMax) {
+            const orpTargetEl = document.querySelector('#orpValue')?.closest('.d-flex')?.querySelector('.parameter-info .text-muted.small');
+            if (orpTargetEl) {
+                orpTargetEl.textContent = `mV (Target: ${chemistryTargets.orpTargetMin} - ${chemistryTargets.orpTargetMax})`;
+            }
         }
-    }
+        
+        if (chemistryTargets.freeClTargetMin && chemistryTargets.freeClTargetMax) {
+            const clTargetEl = document.querySelector('#freeChlorineValue')?.closest('.d-flex')?.querySelector('.parameter-info .text-muted.small');
+            if (clTargetEl) {
+                clTargetEl.textContent = `Free (mg/L) (Target: ${chemistryTargets.freeClTargetMin} - ${chemistryTargets.freeClTargetMax})`;
+            }
+        }
     
-    // Update turbidity settings in PAC tab
-    if (turbiditySettings.turbidityTarget) {
-        document.getElementById('pacTargetValue').value = turbiditySettings.turbidityTarget;
-    }
-    
-    if (turbiditySettings.turbidityLowThreshold) {
-        document.getElementById('pacLowThreshold').value = turbiditySettings.turbidityLowThreshold;
-    }
-    
-    if (turbiditySettings.turbidityHighThreshold) {
-        document.getElementById('pacHighThreshold').value = turbiditySettings.turbidityHighThreshold;
+        // Update turbidity settings in PAC tab
+        const pacTargetValue = document.getElementById('pacTargetValue');
+        if (pacTargetValue && turbiditySettings.turbidityTarget) {
+            pacTargetValue.value = turbiditySettings.turbidityTarget;
+        }
+        
+        const pacLowThreshold = document.getElementById('pacLowThreshold');
+        if (pacLowThreshold && turbiditySettings.turbidityLowThreshold) {
+            pacLowThreshold.value = turbiditySettings.turbidityLowThreshold;
+        }
+        
+        const pacHighThreshold = document.getElementById('pacHighThreshold');
+        if (pacHighThreshold && turbiditySettings.turbidityHighThreshold) {
+            pacHighThreshold.value = turbiditySettings.turbidityHighThreshold;
+        }
+
+        console.log("UI updated with current settings");
+    } catch (error) {
+        console.error('Error updating UI from settings:', error);
     }
 }
 
@@ -3797,600 +3860,607 @@ function updateUIFromSettings() {
  * @param {string} lang - Language code ('en' or 'sq')
  */
 function applyLanguage(lang) {
-    // Validate language
-    if (!translations[lang]) {
-        console.error(`Language ${lang} not supported`);
-        return;
-    }
-    
-    // Store current language
-    currentLanguage = lang;
-    console.log(`Applying language: ${lang}`);
-    
-    // Store the language preference in localStorage
-    const systemConfig = JSON.parse(localStorage.getItem('systemConfig') || '{}');
-    systemConfig.language = lang;
-    localStorage.setItem('systemConfig', JSON.stringify(systemConfig));
-    
-    // Set document language
-    document.documentElement.lang = lang;
-    
-    // Update navigation links
-    document.querySelectorAll('#sidebar .nav-link').forEach(link => {
-        const href = link.getAttribute('href');
-        if (href === '#overview-tab') {
-            link.textContent = translations[lang].overview;
-        } else if (href === '#water-chemistry-tab') {
-            link.textContent = translations[lang].waterChemistry;
-        } else if (href === '#turbidity-pac-tab') {
-            link.textContent = translations[lang].turbidityPac;
-        } else if (href === '#history-tab') {
-            link.textContent = translations[lang].history;
-        } else if (href === '#settings-tab') {
-            link.textContent = translations[lang].settings;
+    try {
+        // Validate language
+        if (!translations[lang]) {
+            console.error(`Language ${lang} not supported`);
+            showToast(`Language ${lang} is not supported`, 'warning');
+            return;
         }
-    });
-    
-    // Update tab headings
-    document.querySelectorAll('#overview-tab h3').forEach(h3 => {
-        h3.textContent = translations[lang].systemOverview;
-    });
-    
-    document.querySelectorAll('#water-chemistry-tab h3').forEach(h3 => {
-        h3.textContent = translations[lang].waterChemistry;
-    });
-    
-    document.querySelectorAll('#turbidity-pac-tab h3').forEach(h3 => {
-        h3.textContent = translations[lang].turbidityPac;
-    });
-    
-    document.querySelectorAll('#history-tab h3').forEach(h3 => {
-        h3.textContent = translations[lang].historicalData;
-    });
-    
-    document.querySelectorAll('#settings-tab h3').forEach(h3 => {
-        h3.textContent = translations[lang].settings;
-    });
-    
-    // Update main buttons
-    const autoBtn = document.getElementById('autoMode');
-    if (autoBtn) {
-        autoBtn.textContent = translations[lang].automatic;
-    }
-    
-    const manualBtn = document.getElementById('manualMode');
-    if (manualBtn) {
-        manualBtn.textContent = translations[lang].manual;
-    }
-    
-    const refreshBtn = document.getElementById('refreshBtn');
-    if (refreshBtn) {
-        refreshBtn.textContent = translations[lang].refresh;
-    }
-    
-    // Update card titles
-    document.querySelectorAll('.card-title').forEach(title => {
-        const text = title.textContent.trim();
-        if (text === 'pH') {
-            title.textContent = translations[lang].pHTitle;
-        } else if (text === 'ORP') {
-            title.textContent = translations[lang].ORPTitle;
-        } else if (text === 'Chlorine' || text === 'Klori') {
-            title.textContent = translations[lang].chlorineTitle;
-        } else if (text === 'Turbidity' || text === 'Turbullira') {
-            title.textContent = translations[lang].turbidityTitle;
-        } else if (text === 'Temperature' || text === 'Temperatura') {
-            title.textContent = translations[lang].temperatureTitle;
-        } else if (text === 'UV System' || text === 'Sistemi UV') {
-            title.textContent = translations[lang].uvSystemTitle;
-        } else if (text === 'Current Alerts' || text === 'Njoftimet Aktuale') {
-            title.textContent = translations[lang].currentAlerts;
-        } else if (text === 'pH Control' || text === 'Kontrolli i pH') {
-            title.textContent = translations[lang].phControl;
-        } else if (text === 'Chlorine Control' || text === 'Kontrolli i Klorit') {
-            title.textContent = translations[lang].chlorineControl;
-        } else if (text === 'Turbidity Monitoring' || text === 'Monitorimi i Turbullirës') {
-            title.textContent = translations[lang].turbidityMonitoring;
-        } else if (text === 'PAC Dosing Control' || text === 'Kontrolli i Dozimit PAC') {
-            title.textContent = translations[lang].pacDosingControl;
-        } else if (text === 'Account Settings' || text === 'Cilësimet e Llogarisë') {
-            title.textContent = translations[lang].accountSettings;
-        } else if (text === 'Notification Settings' || text === 'Cilësimet e Njoftimeve') {
-            title.textContent = translations[lang].notificationSettings;
-        } else if (text === 'System Configuration' || text === 'Konfigurimi i Sistemit') {
-            title.textContent = translations[lang].systemConfiguration;
-        } else if (text === 'Water Chemistry Targets' || text === 'Objektivat e Kimisë së Ujit') {
-            title.textContent = translations[lang].waterChemistryTargets;
-        } else if (text === 'Dosing Pump Configuration' || text === 'Konfigurimi i Pompës së Dozimit') {
-            title.textContent = translations[lang].dosingPumpConfiguration;
-        } else if (text === 'Turbidity Control Settings' || text === 'Cilësimet e Kontrollit të Turbullirës') {
-            title.textContent = translations[lang].turbidityControlSettings;
-        } else if (text === 'Data Management' || text === 'Menaxhimi i të Dhënave') {
-            title.textContent = translations[lang].dataManagement;
-        }
-    });
-    
-    // Update status badges
-    document.querySelectorAll('.badge').forEach(badge => {
-        const text = badge.textContent.trim();
-        if (text === 'Good' || text === 'Mirë') {
-            badge.textContent = translations[lang].good;
-        } else if (text === 'Fair' || text === 'Mesatar') {
-            badge.textContent = translations[lang].fair;
-        } else if (text === 'Poor' || text === 'Dobët') {
-            badge.textContent = translations[lang].poor;
-        } else if (text === 'All Systems Normal' || text === 'Të Gjitha Sistemet Normale') {
-            badge.textContent = translations[lang].allSystemsNormal;
-        } else if (text === 'Optimized' || text === 'Optimizuar') {
-            badge.textContent = translations[lang].optimized;
-        }
-    });
-    
-    // Update pump status text
-    document.querySelectorAll('[id$="PumpStatus"]').forEach(status => {
-        if (status.textContent.includes('active') || status.textContent.includes('aktive')) {
-            if (status.id === 'pacPumpStatus') {
-                status.textContent = translations[lang].pacPumpActive;
+        
+        // Store current language
+        currentLanguage = lang;
+        console.log(`Applying language: ${lang}`);
+        
+        // Store the language preference in localStorage
+        const systemConfig = JSON.parse(localStorage.getItem('systemConfig') || '{}');
+        systemConfig.language = lang;
+        localStorage.setItem('systemConfig', JSON.stringify(systemConfig));
+        
+        // Set document language
+        document.documentElement.lang = lang;
+
+        // Apply translations to all elements with data-i18n attribute
+        document.querySelectorAll('[data-i18n]').forEach(element => {
+            const key = element.getAttribute('data-i18n');
+            if (translations[lang][key]) {
+                element.textContent = translations[lang][key];
             } else {
-                status.textContent = translations[lang].pumpActive;
+                console.warn(`Missing translation for key "${key}" in language "${lang}"`);
             }
-        } else if (status.textContent.includes('inactive') || status.textContent.includes('joaktive')) {
-            if (status.id === 'pacPumpStatus') {
-                status.textContent = translations[lang].pacPumpInactive;
-            } else {
-                status.textContent = translations[lang].pumpInactive;
+        });
+
+        // Update navigation links
+        document.querySelectorAll('#sidebar .nav-link').forEach(link => {
+            const href = link.getAttribute('href');
+            if (href === '#overview-tab') {
+                link.textContent = translations[lang].overview;
+            } else if (href === '#water-chemistry-tab') {
+                link.textContent = translations[lang].waterChemistry;
+            } else if (href === '#turbidity-pac-tab') {
+                link.textContent = translations[lang].turbidityPac;
+            } else if (href === '#history-tab') {
+                link.textContent = translations[lang].history;
+            } else if (href === '#settings-tab') {
+                link.textContent = translations[lang].settings;
             }
+        });
+        
+        // Update tab headings
+        document.querySelectorAll('#overview-tab h3').forEach(h3 => {
+            h3.textContent = translations[lang].systemOverview;
+        });
+        
+        document.querySelectorAll('#water-chemistry-tab h3').forEach(h3 => {
+            h3.textContent = translations[lang].waterChemistry;
+        });
+        
+        document.querySelectorAll('#turbidity-pac-tab h3').forEach(h3 => {
+            h3.textContent = translations[lang].turbidityPac;
+        });
+        
+        document.querySelectorAll('#history-tab h3').forEach(h3 => {
+            h3.textContent = translations[lang].historicalData;
+        });
+        
+        document.querySelectorAll('#settings-tab h3').forEach(h3 => {
+            h3.textContent = translations[lang].settings;
+        });
+        
+        // Update main buttons
+        const autoBtn = document.getElementById('autoMode');
+        if (autoBtn) {
+            autoBtn.textContent = translations[lang].automatic;
         }
-    });
-    
-    // Update alert messages
-    document.querySelectorAll('.card-text.text-muted').forEach(text => {
-        if (text.textContent.includes('No alerts') || text.textContent.includes('Nuk ka njoftime')) {
-            text.textContent = translations[lang].noAlerts;
+        
+        const manualBtn = document.getElementById('manualMode');
+        if (manualBtn) {
+            manualBtn.textContent = translations[lang].manual;
         }
-    });
-
-    // Add to your applyLanguage function
-    document.querySelectorAll('[data-i18n]').forEach(element => {
-        const key = element.getAttribute('data-i18n');
-        if (translations[lang][key]) {
-            element.textContent = translations[lang][key];
-        } else {
-            console.warn(`Missing translation for key "${key}" in language "${lang}"`);
+        
+        const refreshBtn = document.getElementById('refreshBtn');
+        if (refreshBtn) {
+            refreshBtn.textContent = translations[lang].refresh;
         }
-    });
-
-    // Update main title
-    const mainTitle = document.querySelector('.sidebar-header h3');
-    if (mainTitle) {
-        mainTitle.textContent = translations[lang].poolAutomationTitle;
-    }
-
-    // Update dashboard title
-    const dashTitle = document.querySelector('main h1.h2');
-    if (dashTitle) {
-        dashTitle.textContent = translations[lang].dashboard;
-    }
-
-    // Update UV status
-    const uvStatus = document.getElementById('uvStatus');
-    if (uvStatus) {
-        uvStatus.textContent = translations[lang].active;
-    }
-
-    // Update chart titles
-    document.querySelectorAll('h5.card-title').forEach(title => {
-        const text = title.textContent.trim();
-        if (text.includes('Historical Data')) {
-            title.textContent = translations[lang].historicalData;
-        } else if (text.includes('Turbidity History')) {
-            title.textContent = translations[lang].turbidityHistory;
-        } else if (text.includes('Sensor Data')) {
-            title.textContent = translations[lang].sensorData;
-        }
-    });
-
-    // Update parameter buttons
-    document.querySelectorAll('.btn-group label.btn').forEach(btn => {
-        const text = btn.textContent.trim();
-        if (text === 'Free Chlorine' || text === 'Klori i Lirë') {
-            btn.textContent = translations[lang].freeChlorine;
-        } else if (text === 'Combined Cl' || text === 'Klori i Kombinuar') {
-            btn.textContent = translations[lang].combinedCl;
-        }
-    });
-
-    // Update export buttons
-    const csvBtn = document.getElementById('exportCsvBtn');
-    if (csvBtn) {
-        csvBtn.textContent = translations[lang].csv;
-    }
-
-    const jsonBtn = document.getElementById('exportJsonBtn');
-    if (jsonBtn) {
-        jsonBtn.textContent = translations[lang].json;
-    }
-
-    // Update event type badges
-    document.querySelectorAll('.badge').forEach(badge => {
-        const text = badge.textContent.trim();
-        if (text === 'System' || text === 'Sistemi') {
-            badge.textContent = translations[lang].systemEvent;
-        } else if (text === 'Dosing' || text === 'Dozimi') {
-            badge.textContent = translations[lang].dosingEvent;
-        } else if (text === 'Alert' || text === 'Alarm') {
-            badge.textContent = translations[lang].alertEvent;
-        } else if (text === 'User' || text === 'Përdoruesi') {
-            badge.textContent = translations[lang].userEvent;
-        }
-    });
-
-    // Update form labels
-    document.querySelectorAll('label.form-label').forEach(label => {
-        const text = label.textContent.trim();
-        if (text.includes('Notification Preferences')) {
-            label.textContent = translations[lang].notificationPreferences;
-        } else if (text.includes('pH Pump Flow Rate')) {
-            label.textContent = translations[lang].phPumpFlowRate;
-        } else if (text.includes('Chlorine Pump Flow Rate')) {
-            label.textContent = translations[lang].chlorinePumpFlowRate;
-        } else if (text.includes('PAC Pump Flow Rate Configuration')) {
-            label.textContent = translations[lang].pacPumpFlowConfig;
-        } else if (text.includes('Minimum (ml/h)')) {
-            label.textContent = translations[lang].minimumMlh;
-        } else if (text.includes('Maximum (ml/h)')) {
-            label.textContent = translations[lang].maximumMlh;
-        } else if (text.includes('Maximum Dose Durations')) {
-            label.textContent = translations[lang].maxDoseDurations;
-        } else if (text.includes('pH Pump (seconds)')) {
-            label.textContent = translations[lang].phPumpSeconds;
-        } else if (text.includes('Chlorine Pump (seconds)')) {
-            label.textContent = translations[lang].chlorinePumpSeconds;
-        } else if (text.includes('Turbidity Target (NTU)')) {
-            label.textContent = translations[lang].turbidityTargetNTU;
-        } else if (text.includes('PAC Dosing Thresholds')) {
-            label.textContent = translations[lang].pacDosingThresholds;
-        } else if (text.includes('Low (NTU)')) {
-            label.textContent = translations[lang].lowNTU;
-        } else if (text.includes('High (NTU)')) {
-            label.textContent = translations[lang].highNTU;
-        } else if (text.includes('Filter Backwash Alert Level')) {
-            label.textContent = translations[lang].filterBackwashLevel;
-        } else if (text.includes('Sensor Readings Retention')) {
-            label.textContent = translations[lang].sensorReadingsRetention;
-        } else if (text.includes('System Events Retention')) {
-            label.textContent = translations[lang].systemEventsRetention;
-        } else if (text.includes('Additional Options')) {
-            label.textContent = translations[lang].additionalOptions;
-        }
-    });
-
-    // Update checkbox labels
-    document.querySelectorAll('.form-check-label').forEach(label => {
-        const text = label.textContent.trim();
-        if (text.includes('Enable Automatic Backwash Alerts')) {
-            label.textContent = translations[lang].enableAutoBackwash;
-        }
-    });
-
-    // Update system settings save button
-    const saveSystemBtn = document.querySelector('#systemConfigForm button.btn-primary');
-    if (saveSystemBtn) {
-        saveSystemBtn.textContent = translations[lang].saveSystemSettings;
-    }
-
-    // Update export settings button
-    const exportSettingsBtn = document.getElementById('exportSettingsBtn');
-    if (exportSettingsBtn) {
-        exportSettingsBtn.textContent = translations[lang].exportSettings;
-    }
-
-    // Update time-related text in UV System card
-    const uvRuntime = document.getElementById('uvRuntime');
-    if (uvRuntime) {
-        const hours = uvRuntime.textContent.match(/\d+,?\d*/);
-        if (hours) {
-            uvRuntime.textContent = `${hours[0]} ${translations[lang].hoursSince}`;
-        }
-    }
-
-    // Update table headings in Water Chemistry tab
-    document.querySelectorAll('#phDosingHistory thead tr, #clDosingHistory thead tr').forEach(row => {
-        const headings = row.querySelectorAll('th');
-        if (headings.length >= 4) {
-            headings[0].textContent = translations[lang].time;
-            headings[1].textContent = translations[lang].duration;
-            headings[2].textContent = translations[lang].type;
-            // Special case for pH and chlorine
-            if (row.closest('#phDosingHistory')) {
-                headings[3].textContent = `pH ${translations[lang].before}`;
-            } else if (row.closest('#clDosingHistory')) {
-                headings[3].textContent = `Cl ${translations[lang].before}`;
+        
+        // Update card titles
+        document.querySelectorAll('.card-title').forEach(title => {
+            const text = title.textContent.trim();
+            if (text === 'pH') {
+                title.textContent = translations[lang].pHTitle;
+            } else if (text === 'ORP') {
+                title.textContent = translations[lang].ORPTitle;
+            } else if (text === 'Chlorine' || text === 'Klori') {
+                title.textContent = translations[lang].chlorineTitle;
+            } else if (text === 'Turbidity' || text === 'Turbullira') {
+                title.textContent = translations[lang].turbidityTitle;
+            } else if (text === 'Temperature' || text === 'Temperatura') {
+                title.textContent = translations[lang].temperatureTitle;
+            } else if (text === 'UV System' || text === 'Sistemi UV') {
+                title.textContent = translations[lang].uvSystemTitle;
+            } else if (text === 'Current Alerts' || text === 'Njoftimet Aktuale') {
+                title.textContent = translations[lang].currentAlerts;
+            } else if (text === 'pH Control' || text === 'Kontrolli i pH') {
+                title.textContent = translations[lang].phControl;
+            } else if (text === 'Chlorine Control' || text === 'Kontrolli i Klorit') {
+                title.textContent = translations[lang].chlorineControl;
+            } else if (text === 'Turbidity Monitoring' || text === 'Monitorimi i Turbullirës') {
+                title.textContent = translations[lang].turbidityMonitoring;
+            } else if (text === 'PAC Dosing Control' || text === 'Kontrolli i Dozimit PAC') {
+                title.textContent = translations[lang].pacDosingControl;
+            } else if (text === 'Account Settings' || text === 'Cilësimet e Llogarisë') {
+                title.textContent = translations[lang].accountSettings;
+            } else if (text === 'Notification Settings' || text === 'Cilësimet e Njoftimeve') {
+                title.textContent = translations[lang].notificationSettings;
+            } else if (text === 'System Configuration' || text === 'Konfigurimi i Sistemit') {
+                title.textContent = translations[lang].systemConfiguration;
+            } else if (text === 'Water Chemistry Targets' || text === 'Objektivat e Kimisë së Ujit') {
+                title.textContent = translations[lang].waterChemistryTargets;
+            } else if (text === 'Dosing Pump Configuration' || text === 'Konfigurimi i Pompës së Dozimit') {
+                title.textContent = translations[lang].dosingPumpConfiguration;
+            } else if (text === 'Turbidity Control Settings' || text === 'Cilësimet e Kontrollit të Turbullirës') {
+                title.textContent = translations[lang].turbidityControlSettings;
+            } else if (text === 'Data Management' || text === 'Menaxhimi i të Dhënave') {
+                title.textContent = translations[lang].dataManagement;
             }
-        }
-    });
-
-    // Update table headings in PAC tab
-    document.querySelectorAll('#pacDosingHistory thead tr').forEach(row => {
-        const headings = row.querySelectorAll('th');
-        if (headings.length >= 4) {
-            headings[0].textContent = translations[lang].time;
-            headings[1].textContent = translations[lang].duration;
-            headings[2].textContent = translations[lang].flowRate;
-            headings[3].textContent = translations[lang].type;
-        }
-    });
-
-    // Update manual control headings
-    document.querySelectorAll('h6').forEach(heading => {
-        const text = heading.textContent.trim();
-        if (text === 'Manual Control' || text === 'Kontrolli Manual') {
-            heading.textContent = translations[lang].manualControl;
-        } else if (text === 'Recent Dosing' || text === 'Dozimi i Fundit') {
-            heading.textContent = translations[lang].recentDosing;
-        } else if (text === 'Control Thresholds' || text === 'Pragjet e Kontrollit') {
-            heading.textContent = translations[lang].controlThresholds;
-        } else if (text === 'Filter Status' || text === 'Statusi i Filtrit') {
-            heading.textContent = translations[lang].filterStatus;
-        } else if (text === 'Backup & Restore' || text === 'Rezervo & Rikthe') {
-            heading.textContent = translations[lang].backupRestore;
-        } else if (text === 'Data Retention' || text === 'Ruajtja e të Dhënave') {
-            heading.textContent = translations[lang].dataRetention;
-        } else if (text === 'Reset & Maintenance' || text === 'Rivendosje & Mirëmbajtje') {
-            heading.textContent = translations[lang].resetMaintenance;
-        }
-    });
-
-    // Update text in visualizations area
-    document.querySelectorAll('label.form-label').forEach(label => {
-        const text = label.textContent.trim();
-        if (text === 'Visualization' || text === 'Vizualizimi') {
-            label.textContent = translations[lang].visualizationType;
-        } else if (text === 'Resolution' || text === 'Rezolucioni') {
-            label.textContent = translations[lang].dataResolution;
-        } else if (text === 'Time Range' || text === 'Intervali Kohor') {
-            label.textContent = translations[lang].timeRange;
-        } else if (text === 'Parameters' || text === 'Parametrat') {
-            label.textContent = translations[lang].parameters;
-        }
-    });
-
-    // Update text in data resolution dropdown
-    document.querySelectorAll('#dataResolution option').forEach(option => {
-        const text = option.textContent.trim();
-        if (text === 'Raw Data' || text === 'Të Dhëna të Papërpunuara') {
-            option.textContent = translations[lang].rawData;
-        } else if (text === '1 Minute' || text === 'Mesatare 1 Minutëshe') {
-            option.textContent = translations[lang].minuteAvg;
-        } else if (text === '1 Hour' || text === 'Mesatare 1 Orëshe') {
-            option.textContent = translations[lang].hourAvg;
-        } else if (text === '1 Day' || text === 'Mesatare 1 Ditore') {
-            option.textContent = translations[lang].dayAvg;
-        }
-    });
-
-    // Update visualization type dropdown
-    document.querySelectorAll('#visualizationType option').forEach(option => {
-        const text = option.textContent.trim();
-        if (text === 'Line Chart' || text === 'Grafik Linear') {
-            option.textContent = translations[lang].lineChart;
-        } else if (text === 'Scatter Plot' || text === 'Grafik me Pika') {
-            option.textContent = translations[lang].scatterPlot;
-        } else if (text === 'Bar Chart' || text === 'Grafik me Shtylla') {
-            option.textContent = translations[lang].barChart;
-        }
-    });
-
-    // Update event type filter dropdown
-    document.querySelectorAll('#eventTypeFilter option').forEach(option => {
-        const text = option.textContent.trim();
-        if (text === 'All Events' || text === 'Të Gjitha Ngjarjet') {
-            option.textContent = translations[lang].allEvents;
-        } else if (text === 'Dosing Events' || text === 'Ngjarjet e Dozimit') {
-            option.textContent = translations[lang].dosingEvents;
-        } else if (text === 'Alerts' || text === 'Alarmet') {
-            option.textContent = translations[lang].alertEvents;
-        } else if (text === 'System Events' || text === 'Ngjarjet e Sistemit') {
-            option.textContent = translations[lang].systemEvents;
-        } else if (text === 'User Actions' || text === 'Veprimet e Përdoruesit') {
-            option.textContent = translations[lang].userActions;
-        }
-    });
-
-    // Update form placeholder texts
-    document.querySelectorAll('input[placeholder]').forEach(input => {
-        const placeholder = input.getAttribute('placeholder');
-        if (placeholder.includes('Enter email') || placeholder.includes('Vendosni email')) {
-            input.setAttribute('placeholder', translations[lang].enterEmail);
-        } else if (placeholder.includes('Enter current password') || placeholder.includes('Vendosni fjalëkalimin aktual')) {
-            input.setAttribute('placeholder', `${translations[lang].enterCurrent} ${translations[lang].password}`);
-        } else if (placeholder.includes('Enter new password') || placeholder.includes('Vendosni fjalëkalimin e ri')) {
-            input.setAttribute('placeholder', `${translations[lang].enterNew} ${translations[lang].password}`);
-        } else if (placeholder.includes('Confirm new password') || placeholder.includes('Konfirmoni fjalëkalimin e ri')) {
-            input.setAttribute('placeholder', `${translations[lang].confirm} ${translations[lang].password}`);
-        }
-    });
-
-    // Update min/max labels
-    document.querySelectorAll('.input-group-text').forEach(text => {
-        if (text.textContent === 'Min' || text.textContent === 'Min') {
-            text.textContent = translations[lang].min;
-        } else if (text.textContent === 'Max' || text.textContent === 'Max') {
-            text.textContent = translations[lang].max;
-        }
-    });
-    
-    // Update form labels
-    document.querySelectorAll('.form-label').forEach(label => {
-        const text = label.textContent.trim();
-        if (text.includes('Language') || text.includes('Gjuha')) {
-            label.textContent = translations[lang].language;
-        } else if (text.includes('System Name') || text.includes('Emri i Sistemit')) {
-            label.textContent = translations[lang].systemName;
-        } else if (text.includes('Pool Size') || text.includes('Madhësia e Pishinës')) {
-            label.textContent = translations[lang].poolSize;
-        } else if (text.includes('Refresh Interval') || text.includes('Intervali i Rifreskimit')) {
-            label.textContent = translations[lang].refreshInterval;
-        } else if (text.includes('Default Operation') || text.includes('Mënyra e Parazgjedhur')) {
-            label.textContent = translations[lang].defaultMode;
-        } else if (text.includes('Username') || text.includes('Emri i përdoruesit')) {
-            label.textContent = translations[lang].username;
-        } else if (text.includes('Password') || text.includes('Fjalëkalimi')) {
-            label.textContent = translations[lang].password;
-        } else if (text.includes('Email') || text.includes('Email')) {
-            label.textContent = translations[lang].email;
-        }
-            // Check for specific labels with common text patterns
-        if (text.includes('pH Range') || text.includes('Diapazoni i pH')) {
-            label.textContent = translations[lang].phRange;
-        } else if (text.includes('ORP Range') || text.includes('Diapazoni i ORP')) {
-            label.textContent = translations[lang].orpRange;
-        } else if (text.includes('Free Chlorine Range') || text.includes('Diapazoni i Klorit')) {
-            label.textContent = translations[lang].freeChlorineRange;
-        } else if (text.includes('Combined Chlorine') || text.includes('Klorit të Kombinuar')) {
-            label.textContent = translations[lang].combinedChlorineMax;
-        }
-    });
-    
-    // Update form check labels
-    document.querySelectorAll('.form-check-label').forEach(label => {
-        if (label.getAttribute('for') === 'langEnglish') {
-            label.textContent = translations[lang].english;
-        } else if (label.getAttribute('for') === 'langAlbanian') {
-            label.textContent = translations[lang].albanian;
-        } else if (label.getAttribute('for') === 'defaultModeAuto') {
-            label.textContent = translations[lang].automatic;
-        } else if (label.getAttribute('for') === 'defaultModeManual') {
-            label.textContent = translations[lang].manual;
-        } else if (label.getAttribute('for') === 'showDosingEvents') {
-            label.textContent = translations[lang].showDosingEvents;
-        }
-    });
-    
-    // Update buttons
-    document.querySelectorAll('button').forEach(button => {
-        const text = button.textContent.trim();
-        if (text === 'Save System Settings' || text === 'Ruaj Cilësimet e Sistemit') {
-            button.textContent = translations[lang].saveSettings;
-        } else if (text === 'Save Chemistry Settings' || text === 'Ruaj Cilësimet e Kimisë') {
-            button.textContent = translations[lang].saveSettings;
-        } else if (text === 'Save Pump Settings' || text === 'Ruaj Cilësimet e Pompës') {
-            button.textContent = translations[lang].saveSettings;
-        } else if (text === 'Save Turbidity Settings' || text === 'Ruaj Cilësimet e Turbullirës') {
-            button.textContent = translations[lang].saveSettings;
-        } else if (text === 'Save Notification Settings' || text === 'Ruaj Cilësimet e Njoftimeve') {
-            button.textContent = translations[lang].saveSettings;
-        } else if (text === 'Change Password' || text === 'Ndrysho Fjalëkalimin') {
-            button.textContent = translations[lang].changePassword;
-        } else if (text === 'Export Settings' || text === 'Eksporto Cilësimet') {
-            button.textContent = translations[lang].export + ' ' + translations[lang].settings;
-        } else if (text === 'Import Settings' || text === 'Importo Cilësimet') {
-            button.textContent = translations[lang].import + ' ' + translations[lang].settings;
-        } else if (text === 'Save Retention Settings' || text === 'Ruaj Cilësimet e Ruajtjes') {
-            button.textContent = translations[lang].saveSettings;
-        } else if (text === 'Reset to Defaults' || text === 'Rivendos në Parazgjedhje') {
-            button.textContent = translations[lang].resetToDefaults;
-        } else if (text === 'Clear Historical Data' || text === 'Pastro të Dhënat Historike') {
-            button.textContent = translations[lang].clearHistoricalData;
-        } else if (text === 'Dose Acid' || text === 'Dozo Acid') {
-            button.textContent = translations[lang].doseAcid;
-        } else if (text === 'Dose Chlorine' || text === 'Dozo Klor') {
-            button.textContent = translations[lang].doseChlorine;
-        } else if (text === 'Stop Pump' || text === 'Ndalo Pompën') {
-            button.textContent = translations[lang].stopPump;
-        } else if (text === 'Start Dosing' || text === 'Fillo Dozimin') {
-            button.textContent = translations[lang].startDosing;
-        } else if (text === 'Apply' || text === 'Apliko') {
-            button.textContent = translations[lang].apply;
-        } else if (text === 'Export Data' || text === 'Eksporto të Dhënat') {
-            button.textContent = translations[lang].exportData;
-        }
-    });
-    
-    // Update select options for time durations
-    document.querySelectorAll('select option').forEach(option => {
-        const text = option.textContent;
-        if (text.includes('seconds') || text.includes('sekonda')) {
-            const value = option.value;
-            option.textContent = `${value} ${translations[lang].seconds}`;
-        } else if (text.includes('minute') || text.includes('minuta')) {
-            const value = option.value;
-            option.textContent = `${value} ${translations[lang].minutes}`;
-        } else if (text.includes('Last 24 Hours') || text.includes('24 Orët e Fundit')) {
-            option.textContent = translations[lang].last24Hours;
-        } else if (text.includes('Last 48 Hours') || text.includes('48 Orët e Fundit')) {
-            option.textContent = translations[lang].last48Hours;
-        } else if (text.includes('Last 7 Days') || text.includes('7 Ditët e Fundit')) {
-            option.textContent = translations[lang].last7Days;
-        } else if (text.includes('Last 30 Days') || text.includes('30 Ditët e Fundit')) {
-            option.textContent = translations[lang].last30Days;
-        } else if (text.includes('Custom Range') || text.includes('Interval i Personalizuar')) {
-            option.textContent = translations[lang].customRange;
-        }
-    });
-    
-    // Update table headers in history tab
-    if (document.querySelector('#historyDataTable')) {
-        const headings = document.querySelector('#historyDataTable thead tr').querySelectorAll('th');
-        if (headings.length >= 7) {
-            headings[0].textContent = translations[lang].timestamp;
-            // Keep parameter names unchanged (pH, ORP, etc.)
-        }
-    }
-    
-    if (document.querySelector('#eventsTable')) {
-        const headings = document.querySelector('#eventsTable thead tr').querySelectorAll('th');
-        if (headings.length >= 5) {
-            headings[0].textContent = translations[lang].timestamp;
-            headings[2].textContent = translations[lang].description;
-            headings[3].textContent = translations[lang].parameter;
-            headings[4].textContent = translations[lang].value;
-        }
-    }
-    
-    // Update record count text
-    document.querySelectorAll('.d-flex div').forEach(div => {
-        const text = div.textContent;
-        if (text.includes('Showing') || text.includes('Duke shfaqur')) {
-            const numbers = text.match(/\d+/g);
-            if (numbers && numbers.length >= 2) {
-                const shown = numbers[0];
-                const total = numbers[1];
-                if (text.includes('records') || text.includes('regjistrime')) {
-                    div.textContent = `${translations[lang].showing} ${shown} ${translations[lang].of} ${total} ${translations[lang].records}`;
-                } else if (text.includes('events') || text.includes('ngjarje')) {
-                    div.textContent = `${translations[lang].showing} ${shown} ${translations[lang].of} ${total} ${translations[lang].events}`;
+        });
+        
+        // Update status badges
+        document.querySelectorAll('.badge').forEach(badge => {
+            const text = badge.textContent.trim();
+            if (text === 'Good' || text === 'Mirë') {
+                badge.textContent = translations[lang].good;
+            } else if (text === 'Fair' || text === 'Mesatar') {
+                badge.textContent = translations[lang].fair;
+            } else if (text === 'Poor' || text === 'Dobët') {
+                badge.textContent = translations[lang].poor;
+            } else if (text === 'All Systems Normal' || text === 'Të Gjitha Sistemet Normale') {
+                badge.textContent = translations[lang].allSystemsNormal;
+            } else if (text === 'Optimized' || text === 'Optimizuar') {
+                badge.textContent = translations[lang].optimized;
+            }
+        });
+        
+        // Update pump status text
+        document.querySelectorAll('[id$="PumpStatus"]').forEach(status => {
+            if (status.textContent.includes('active') || status.textContent.includes('aktive')) {
+                if (status.id === 'pacPumpStatus') {
+                    status.textContent = translations[lang].pacPumpActive;
+                } else {
+                    status.textContent = translations[lang].pumpActive;
+                }
+            } else if (status.textContent.includes('inactive') || status.textContent.includes('joaktive')) {
+                if (status.id === 'pacPumpStatus') {
+                    status.textContent = translations[lang].pacPumpInactive;
+                } else {
+                    status.textContent = translations[lang].pumpInactive;
                 }
             }
+        });
+        
+        // Update alert messages
+        document.querySelectorAll('.card-text.text-muted').forEach(text => {
+            if (text.textContent.includes('No alerts') || text.textContent.includes('Nuk ka njoftime')) {
+                text.textContent = translations[lang].noAlerts;
+            }
+        });
+
+        // Update main title
+        const mainTitle = document.querySelector('.sidebar-header h3');
+        if (mainTitle) {
+            mainTitle.textContent = translations[lang].poolAutomationTitle;
         }
-    });
 
-    // Update chart translations
-    if (chemistryChart) {
-        updateChartTranslations(chemistryChart, lang);
-    }
+        // Update dashboard title
+        const dashTitle = document.querySelector('main h1.h2');
+        if (dashTitle) {
+            dashTitle.textContent = translations[lang].dashboard;
+        }
 
-    if (turbidityChart) {
-        updateChartTranslations(turbidityChart, lang);
-    }
+        // Update UV status
+        const uvStatus = document.getElementById('uvStatus');
+        if (uvStatus) {
+            uvStatus.textContent = translations[lang].active;
+        }
 
-    if (historyChart) {
-        updateChartTranslations(historyChart, lang);
+        // Update chart titles
+        document.querySelectorAll('h5.card-title').forEach(title => {
+            const text = title.textContent.trim();
+            if (text.includes('Historical Data')) {
+                title.textContent = translations[lang].historicalData;
+            } else if (text.includes('Turbidity History')) {
+                title.textContent = translations[lang].turbidityHistory;
+            } else if (text.includes('Sensor Data')) {
+                title.textContent = translations[lang].sensorData;
+            }
+        });
+
+        // Update parameter buttons
+        document.querySelectorAll('.btn-group label.btn').forEach(btn => {
+            const text = btn.textContent.trim();
+            if (text === 'Free Chlorine' || text === 'Klori i Lirë') {
+                btn.textContent = translations[lang].freeChlorine;
+            } else if (text === 'Combined Cl' || text === 'Klori i Kombinuar') {
+                btn.textContent = translations[lang].combinedCl;
+            }
+        });
+
+        // Update export buttons
+        const csvBtn = document.getElementById('exportCsvBtn');
+        if (csvBtn) {
+            csvBtn.textContent = translations[lang].csv;
+        }
+
+        const jsonBtn = document.getElementById('exportJsonBtn');
+        if (jsonBtn) {
+            jsonBtn.textContent = translations[lang].json;
+        }
+
+        // Update event type badges
+        document.querySelectorAll('.badge').forEach(badge => {
+            const text = badge.textContent.trim();
+            if (text === 'System' || text === 'Sistemi') {
+                badge.textContent = translations[lang].systemEvent;
+            } else if (text === 'Dosing' || text === 'Dozimi') {
+                badge.textContent = translations[lang].dosingEvent;
+            } else if (text === 'Alert' || text === 'Alarm') {
+                badge.textContent = translations[lang].alertEvent;
+            } else if (text === 'User' || text === 'Përdoruesi') {
+                badge.textContent = translations[lang].userEvent;
+            }
+        });
+
+        // Update form labels
+        document.querySelectorAll('label.form-label').forEach(label => {
+            const text = label.textContent.trim();
+            if (text.includes('Notification Preferences')) {
+                label.textContent = translations[lang].notificationPreferences;
+            } else if (text.includes('pH Pump Flow Rate')) {
+                label.textContent = translations[lang].phPumpFlowRate;
+            } else if (text.includes('Chlorine Pump Flow Rate')) {
+                label.textContent = translations[lang].chlorinePumpFlowRate;
+            } else if (text.includes('PAC Pump Flow Rate Configuration')) {
+                label.textContent = translations[lang].pacPumpFlowConfig;
+            } else if (text.includes('Minimum (ml/h)')) {
+                label.textContent = translations[lang].minimumMlh;
+            } else if (text.includes('Maximum (ml/h)')) {
+                label.textContent = translations[lang].maximumMlh;
+            } else if (text.includes('Maximum Dose Durations')) {
+                label.textContent = translations[lang].maxDoseDurations;
+            } else if (text.includes('pH Pump (seconds)')) {
+                label.textContent = translations[lang].phPumpSeconds;
+            } else if (text.includes('Chlorine Pump (seconds)')) {
+                label.textContent = translations[lang].chlorinePumpSeconds;
+            } else if (text.includes('Turbidity Target (NTU)')) {
+                label.textContent = translations[lang].turbidityTargetNTU;
+            } else if (text.includes('PAC Dosing Thresholds')) {
+                label.textContent = translations[lang].pacDosingThresholds;
+            } else if (text.includes('Low (NTU)')) {
+                label.textContent = translations[lang].lowNTU;
+            } else if (text.includes('High (NTU)')) {
+                label.textContent = translations[lang].highNTU;
+            } else if (text.includes('Filter Backwash Alert Level')) {
+                label.textContent = translations[lang].filterBackwashLevel;
+            } else if (text.includes('Sensor Readings Retention')) {
+                label.textContent = translations[lang].sensorReadingsRetention;
+            } else if (text.includes('System Events Retention')) {
+                label.textContent = translations[lang].systemEventsRetention;
+            } else if (text.includes('Additional Options')) {
+                label.textContent = translations[lang].additionalOptions;
+            }
+        });
+
+        // Update checkbox labels
+        document.querySelectorAll('.form-check-label').forEach(label => {
+            const text = label.textContent.trim();
+            if (text.includes('Enable Automatic Backwash Alerts')) {
+                label.textContent = translations[lang].enableAutoBackwash;
+            }
+        });
+
+        // Update system settings save button
+        const saveSystemBtn = document.querySelector('#systemConfigForm button.btn-primary');
+        if (saveSystemBtn) {
+            saveSystemBtn.textContent = translations[lang].saveSystemSettings;
+        }
+
+        // Update export settings button
+        const exportSettingsBtn = document.getElementById('exportSettingsBtn');
+        if (exportSettingsBtn) {
+            exportSettingsBtn.textContent = translations[lang].exportSettings;
+        }
+
+        // Update time-related text in UV System card
+        const uvRuntime = document.getElementById('uvRuntime');
+        if (uvRuntime) {
+            const hours = uvRuntime.textContent.match(/\d+,?\d*/);
+            if (hours) {
+                uvRuntime.textContent = `${hours[0]} ${translations[lang].hoursSince}`;
+            }
+        }
+
+        // Update table headings in Water Chemistry tab
+        document.querySelectorAll('#phDosingHistory thead tr, #clDosingHistory thead tr').forEach(row => {
+            const headings = row.querySelectorAll('th');
+            if (headings.length >= 4) {
+                headings[0].textContent = translations[lang].time;
+                headings[1].textContent = translations[lang].duration;
+                headings[2].textContent = translations[lang].type;
+                // Special case for pH and chlorine
+                if (row.closest('#phDosingHistory')) {
+                    headings[3].textContent = `pH ${translations[lang].before}`;
+                } else if (row.closest('#clDosingHistory')) {
+                    headings[3].textContent = `Cl ${translations[lang].before}`;
+                }
+            }
+        });
+
+        // Update table headings in PAC tab
+        document.querySelectorAll('#pacDosingHistory thead tr').forEach(row => {
+            const headings = row.querySelectorAll('th');
+            if (headings.length >= 4) {
+                headings[0].textContent = translations[lang].time;
+                headings[1].textContent = translations[lang].duration;
+                headings[2].textContent = translations[lang].flowRate;
+                headings[3].textContent = translations[lang].type;
+            }
+        });
+
+        // Update manual control headings
+        document.querySelectorAll('h6').forEach(heading => {
+            const text = heading.textContent.trim();
+            if (text === 'Manual Control' || text === 'Kontrolli Manual') {
+                heading.textContent = translations[lang].manualControl;
+            } else if (text === 'Recent Dosing' || text === 'Dozimi i Fundit') {
+                heading.textContent = translations[lang].recentDosing;
+            } else if (text === 'Control Thresholds' || text === 'Pragjet e Kontrollit') {
+                heading.textContent = translations[lang].controlThresholds;
+            } else if (text === 'Filter Status' || text === 'Statusi i Filtrit') {
+                heading.textContent = translations[lang].filterStatus;
+            } else if (text === 'Backup & Restore' || text === 'Rezervo & Rikthe') {
+                heading.textContent = translations[lang].backupRestore;
+            } else if (text === 'Data Retention' || text === 'Ruajtja e të Dhënave') {
+                heading.textContent = translations[lang].dataRetention;
+            } else if (text === 'Reset & Maintenance' || text === 'Rivendosje & Mirëmbajtje') {
+                heading.textContent = translations[lang].resetMaintenance;
+            }
+        });
+
+        // Update text in visualizations area
+        document.querySelectorAll('label.form-label').forEach(label => {
+            const text = label.textContent.trim();
+            if (text === 'Visualization' || text === 'Vizualizimi') {
+                label.textContent = translations[lang].visualizationType;
+            } else if (text === 'Resolution' || text === 'Rezolucioni') {
+                label.textContent = translations[lang].dataResolution;
+            } else if (text === 'Time Range' || text === 'Intervali Kohor') {
+                label.textContent = translations[lang].timeRange;
+            } else if (text === 'Parameters' || text === 'Parametrat') {
+                label.textContent = translations[lang].parameters;
+            }
+        });
+
+        // Update text in data resolution dropdown
+        document.querySelectorAll('#dataResolution option').forEach(option => {
+            const text = option.textContent.trim();
+            if (text === 'Raw Data' || text === 'Të Dhëna të Papërpunuara') {
+                option.textContent = translations[lang].rawData;
+            } else if (text === '1 Minute' || text === 'Mesatare 1 Minutëshe') {
+                option.textContent = translations[lang].minuteAvg;
+            } else if (text === '1 Hour' || text === 'Mesatare 1 Orëshe') {
+                option.textContent = translations[lang].hourAvg;
+            } else if (text === '1 Day' || text === 'Mesatare 1 Ditore') {
+                option.textContent = translations[lang].dayAvg;
+            }
+        });
+
+        // Update visualization type dropdown
+        document.querySelectorAll('#visualizationType option').forEach(option => {
+            const text = option.textContent.trim();
+            if (text === 'Line Chart' || text === 'Grafik Linear') {
+                option.textContent = translations[lang].lineChart;
+            } else if (text === 'Scatter Plot' || text === 'Grafik me Pika') {
+                option.textContent = translations[lang].scatterPlot;
+            } else if (text === 'Bar Chart' || text === 'Grafik me Shtylla') {
+                option.textContent = translations[lang].barChart;
+            }
+        });
+
+        // Update event type filter dropdown
+        document.querySelectorAll('#eventTypeFilter option').forEach(option => {
+            const text = option.textContent.trim();
+            if (text === 'All Events' || text === 'Të Gjitha Ngjarjet') {
+                option.textContent = translations[lang].allEvents;
+            } else if (text === 'Dosing Events' || text === 'Ngjarjet e Dozimit') {
+                option.textContent = translations[lang].dosingEvents;
+            } else if (text === 'Alerts' || text === 'Alarmet') {
+                option.textContent = translations[lang].alertEvents;
+            } else if (text === 'System Events' || text === 'Ngjarjet e Sistemit') {
+                option.textContent = translations[lang].systemEvents;
+            } else if (text === 'User Actions' || text === 'Veprimet e Përdoruesit') {
+                option.textContent = translations[lang].userActions;
+            }
+        });
+
+        // Update form placeholder texts
+        document.querySelectorAll('input[placeholder]').forEach(input => {
+            const placeholder = input.getAttribute('placeholder');
+            if (placeholder.includes('Enter email') || placeholder.includes('Vendosni email')) {
+                input.setAttribute('placeholder', translations[lang].enterEmail);
+            } else if (placeholder.includes('Enter current password') || placeholder.includes('Vendosni fjalëkalimin aktual')) {
+                input.setAttribute('placeholder', `${translations[lang].enterCurrent} ${translations[lang].password}`);
+            } else if (placeholder.includes('Enter new password') || placeholder.includes('Vendosni fjalëkalimin e ri')) {
+                input.setAttribute('placeholder', `${translations[lang].enterNew} ${translations[lang].password}`);
+            } else if (placeholder.includes('Confirm new password') || placeholder.includes('Konfirmoni fjalëkalimin e ri')) {
+                input.setAttribute('placeholder', `${translations[lang].confirm} ${translations[lang].password}`);
+            }
+        });
+
+        // Update min/max labels
+        document.querySelectorAll('.input-group-text').forEach(text => {
+            if (text.textContent === 'Min' || text.textContent === 'Min') {
+                text.textContent = translations[lang].min;
+            } else if (text.textContent === 'Max' || text.textContent === 'Max') {
+                text.textContent = translations[lang].max;
+            }
+        });
+        
+        // Update form labels
+        document.querySelectorAll('.form-label').forEach(label => {
+            const text = label.textContent.trim();
+            if (text.includes('Language') || text.includes('Gjuha')) {
+                label.textContent = translations[lang].language;
+            } else if (text.includes('System Name') || text.includes('Emri i Sistemit')) {
+                label.textContent = translations[lang].systemName;
+            } else if (text.includes('Pool Size') || text.includes('Madhësia e Pishinës')) {
+                label.textContent = translations[lang].poolSize;
+            } else if (text.includes('Refresh Interval') || text.includes('Intervali i Rifreskimit')) {
+                label.textContent = translations[lang].refreshInterval;
+            } else if (text.includes('Default Operation') || text.includes('Mënyra e Parazgjedhur')) {
+                label.textContent = translations[lang].defaultMode;
+            } else if (text.includes('Username') || text.includes('Emri i përdoruesit')) {
+                label.textContent = translations[lang].username;
+            } else if (text.includes('Password') || text.includes('Fjalëkalimi')) {
+                label.textContent = translations[lang].password;
+            } else if (text.includes('Email') || text.includes('Email')) {
+                label.textContent = translations[lang].email;
+            }
+            // Check for specific labels with common text patterns
+            if (text.includes('pH Range') || text.includes('Diapazoni i pH')) {
+                label.textContent = translations[lang].phRange;
+            } else if (text.includes('ORP Range') || text.includes('Diapazoni i ORP')) {
+                label.textContent = translations[lang].orpRange;
+            } else if (text.includes('Free Chlorine Range') || text.includes('Diapazoni i Klorit')) {
+                label.textContent = translations[lang].freeChlorineRange;
+            } else if (text.includes('Combined Chlorine') || text.includes('Klorit të Kombinuar')) {
+                label.textContent = translations[lang].combinedChlorineMax;
+            }
+        });
+        
+        // Update form check labels
+        document.querySelectorAll('.form-check-label').forEach(label => {
+            if (label.getAttribute('for') === 'langEnglish') {
+                label.textContent = translations[lang].english;
+            } else if (label.getAttribute('for') === 'langAlbanian') {
+                label.textContent = translations[lang].albanian;
+            } else if (label.getAttribute('for') === 'defaultModeAuto') {
+                label.textContent = translations[lang].automatic;
+            } else if (label.getAttribute('for') === 'defaultModeManual') {
+                label.textContent = translations[lang].manual;
+            } else if (label.getAttribute('for') === 'showDosingEvents') {
+                label.textContent = translations[lang].showDosingEvents;
+            }
+        });
+        
+        // Update buttons
+        document.querySelectorAll('button').forEach(button => {
+            const text = button.textContent.trim();
+            if (text === 'Save System Settings' || text === 'Ruaj Cilësimet e Sistemit') {
+                button.textContent = translations[lang].saveSystemSettings;
+            } else if (text === 'Save Chemistry Settings' || text === 'Ruaj Cilësimet e Kimisë') {
+                button.textContent = translations[lang].saveSettings;
+            } else if (text === 'Save Pump Settings' || text === 'Ruaj Cilësimet e Pompës') {
+                button.textContent = translations[lang].saveSettings;
+            } else if (text === 'Save Turbidity Settings' || text === 'Ruaj Cilësimet e Turbullirës') {
+                button.textContent = translations[lang].saveSettings;
+            } else if (text === 'Save Notification Settings' || text === 'Ruaj Cilësimet e Njoftimeve') {
+                button.textContent = translations[lang].saveSettings;
+            } else if (text === 'Change Password' || text === 'Ndrysho Fjalëkalimin') {
+                button.textContent = translations[lang].changePassword;
+            } else if (text === 'Export Settings' || text === 'Eksporto Cilësimet') {
+                button.textContent = translations[lang].exportSettings;
+            } else if (text === 'Import Settings' || text === 'Importo Cilësimet') {
+                button.textContent = translations[lang].importSettings;
+            } else if (text === 'Save Retention Settings' || text === 'Ruaj Cilësimet e Ruajtjes') {
+                button.textContent = translations[lang].saveSettings;
+            } else if (text === 'Reset to Defaults' || text === 'Rivendos në Parazgjedhje') {
+                button.textContent = translations[lang].resetSettings;
+            } else if (text === 'Clear Historical Data' || text === 'Pastro të Dhënat Historike') {
+                button.textContent = translations[lang].clearData;
+            } else if (text === 'Dose Acid' || text === 'Dozo Acid') {
+                button.textContent = translations[lang].doseAcid;
+            } else if (text === 'Dose Chlorine' || text === 'Dozo Klor') {
+                button.textContent = translations[lang].doseChlorine;
+            } else if (text === 'Stop Pump' || text === 'Ndalo Pompën') {
+                button.textContent = translations[lang].stopPump;
+            } else if (text === 'Start Dosing' || text === 'Fillo Dozimin') {
+                button.textContent = translations[lang].startDosing;
+            } else if (text === 'Apply' || text === 'Apliko') {
+                button.textContent = translations[lang].apply;
+            } else if (text === 'Export Data' || text === 'Eksporto të Dhënat') {
+                button.textContent = translations[lang].exportData;
+            }
+        });
+        
+        // Update select options for time durations
+        document.querySelectorAll('select option').forEach(option => {
+            const text = option.textContent;
+            if (text.includes('seconds') || text.includes('sekonda')) {
+                const value = option.value;
+                option.textContent = `${value} ${translations[lang].seconds}`;
+            } else if (text.includes('minute') || text.includes('minuta')) {
+                const value = option.value;
+                option.textContent = `${value} ${translations[lang].minutes}`;
+            } else if (text.includes('Last 24 Hours') || text.includes('24 Orët e Fundit')) {
+                option.textContent = translations[lang].last24Hours;
+            } else if (text.includes('Last 48 Hours') || text.includes('48 Orët e Fundit')) {
+                option.textContent = translations[lang].last48Hours;
+            } else if (text.includes('Last 7 Days') || text.includes('7 Ditët e Fundit')) {
+                option.textContent = translations[lang].last7Days;
+            } else if (text.includes('Last 30 Days') || text.includes('30 Ditët e Fundit')) {
+                option.textContent = translations[lang].last30Days;
+            } else if (text.includes('Custom Range') || text.includes('Interval i Personalizuar')) {
+                option.textContent = translations[lang].customRange;
+            }
+        });
+        
+        // Update table headers in history tab
+        if (document.querySelector('#historyDataTable')) {
+            const headings = document.querySelector('#historyDataTable thead tr').querySelectorAll('th');
+            if (headings.length >= 7) {
+                headings[0].textContent = translations[lang].timestamp;
+                // Keep parameter names unchanged (pH, ORP, etc.)
+            }
+        }
+        
+        if (document.querySelector('#eventsTable')) {
+            const headings = document.querySelector('#eventsTable thead tr').querySelectorAll('th');
+            if (headings.length >= 5) {
+                headings[0].textContent = translations[lang].timestamp;
+                headings[2].textContent = translations[lang].description;
+                headings[3].textContent = translations[lang].parameter;
+                headings[4].textContent = translations[lang].value;
+            }
+        }
+        
+        // Update record count text
+        document.querySelectorAll('.d-flex div').forEach(div => {
+            const text = div.textContent;
+            if (text.includes('Showing') || text.includes('Duke shfaqur')) {
+                const numbers = text.match(/\d+/g);
+                if (numbers && numbers.length >= 2) {
+                    const shown = numbers[0];
+                    const total = numbers[1];
+                    if (text.includes('records') || text.includes('regjistrime')) {
+                        div.textContent = `${translations[lang].showing} ${shown} ${translations[lang].of} ${total} ${translations[lang].records}`;
+                    } else if (text.includes('events') || text.includes('ngjarje')) {
+                        div.textContent = `${translations[lang].showing} ${shown} ${translations[lang].of} ${total} ${translations[lang].events}`;
+                    }
+                }
+            }
+        });
+
+        // Update chart translations
+        if (chemistryChart) {
+            updateChartTranslations(chemistryChart, lang);
+        }
+
+        if (turbidityChart) {
+            updateChartTranslations(turbidityChart, lang);
+        }
+
+        if (historyChart) {
+            updateChartTranslations(historyChart, lang);
+        }
+        
+        // Update radio buttons based on current language
+        if (lang === 'sq') {
+            document.getElementById('langAlbanian').checked = true;
+        } else {
+            document.getElementById('langEnglish').checked = true;
+        }
+        
+        // Show toast notification for language change
+        const message = lang === 'sq' ? 
+            translations.sq.languageChanged : 
+            translations.en.languageChanged;
+        
+        showToast(message);
+        
+    } catch (error) {
+        console.error('Error applying language:', error);
+        showToast(`Error changing language: ${error.message}`, 'danger');
     }
-    
-    // Update radio buttons based on current language
-    if (lang === 'sq') {
-        document.getElementById('langAlbanian').checked = true;
-    } else {
-        document.getElementById('langEnglish').checked = true;
-    }
-    
-    // Show toast notification for language change
-    const message = lang === 'sq' ? 
-        translations.sq.languageChanged : 
-        translations.en.languageChanged;
-    
-    showToast(message);
 }
 
 /**
@@ -4550,4 +4620,70 @@ function getElementPath(el) {
         el = el.parentNode;
     }
     return path.join(' > ');
+}
+
+function saveFormSettings(form, settingsName) {
+    try {
+        // Get button with fallbacks
+        const submitButton = form.querySelector('button[type="submit"]') || 
+                            form.querySelector('.btn-primary') ||
+                            form.querySelector('button');
+        
+        let originalButtonText = 'Save';
+        
+        // Set loading state if button exists
+        if (submitButton) {
+            originalButtonText = submitButton.innerHTML;
+            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+            submitButton.disabled = true;
+        } else {
+            console.warn(`Submit button not found in ${settingsName} form`);
+        }
+        
+        // Get form data
+        const formData = new FormData(form);
+        const settings = {};
+        
+        // Convert form data to object
+        for (const [key, value] of formData.entries()) {
+            settings[key] = value;
+        }
+        
+        // Check for checkboxes (won't be included in FormData if unchecked)
+        form.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            settings[checkbox.id] = checkbox.checked;
+        });
+        
+        // Special handling for radio buttons
+        form.querySelectorAll('input[type="radio"]:checked').forEach(radio => {
+            settings[radio.name] = radio.value;
+        });
+        
+        // Save to localStorage
+        localStorage.setItem(settingsName, JSON.stringify(settings));
+        
+        // Update UI if needed
+        updateUIFromSettings();
+        
+        // Reset form and button after a delay
+        setTimeout(function() {
+            if (submitButton) {
+                submitButton.innerHTML = originalButtonText;
+                submitButton.disabled = false;
+            }
+            showLocalizedToast('settingsSaved');
+        }, 800);
+        
+    } catch (error) {
+        console.error(`Error saving ${settingsName}:`, error);
+        showToast(`Error saving settings: ${error.message}`, 'danger');
+        
+        // Reset button if it exists
+        const submitButton = form.querySelector('button[type="submit"]') || 
+                           form.querySelector('.btn-primary');
+        if (submitButton) {
+            submitButton.innerHTML = 'Save';
+            submitButton.disabled = false;
+        }
+    }
 }
