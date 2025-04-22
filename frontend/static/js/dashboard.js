@@ -4132,12 +4132,6 @@ function loadSavedSettings() {
         } else {
             document.getElementById('defaultModeAuto').checked = true;
         }
-        
-        if (systemConfig.tempUnit === 'fahrenheit') {
-            document.getElementById('tempFahrenheit').checked = true;
-        } else {
-            document.getElementById('tempCelsius').checked = true;
-        }
     }
     
     // Load chemistry targets
