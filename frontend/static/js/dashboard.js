@@ -415,7 +415,7 @@ function initializeChemistryChart() {
                             };
                         }
                     },
-                    min: 7.2,
+                    min: 7.3,
                     max: 7.6,
                     grid: {
                         drawOnChartArea: true
@@ -434,8 +434,8 @@ function initializeChemistryChart() {
                             };
                         }
                     },
-                    min: 0.9,
-                    max: 1.7,
+                    min: 0.8,
+                    max: 1.6,
                     grid: {
                         drawOnChartArea: false
                     }
@@ -489,10 +489,6 @@ function initializeChemistryChart() {
     } else {
         console.warn('Chemistry auto scale button not found in the DOM');
     }
-
-    setTimeout(() => {
-        optimizeChartScales(chemistryChart);
-    }, 500); // Small delay to ensure data is loaded
 }
 
 /**
@@ -1444,8 +1440,8 @@ function initializeTurbidityChart() {
                 },
                 y: {
                     type: 'linear',
-                    min: 0.09,
-                    max: 0.21,
+                    min: 0.08,
+                    max: 0.22,
                     title: {
                         display: true,
                         text: 'Turbidity (NTU)',
@@ -1505,10 +1501,6 @@ function initializeTurbidityChart() {
     } else {
         console.warn('Turbidity auto scale button not found in the DOM');
     }
-
-    setTimeout(() => {
-        optimizeChartScales(turbidityChart);
-    }, 500); // Small delay to ensure data is loaded
 }
 
 /**
@@ -1579,106 +1571,6 @@ function updateTurbidityChart(hours) {
 
 // Global variables for history charts
 let historyChart = null;
-
-/**
- * Set optimal Y-axis range based on visible data
- * @param {Chart} chart - Chart.js chart object
- * @param {Number} paddingFactor - Padding percentage (0.1 = 10% padding)
- */
-function optimizeChartScales(chart, paddingFactor = 0.15) {
-    console.log("Optimizing chart scales...");
-    
-    if (!chart || !chart.data || !chart.options || !chart.options.scales) {
-        console.error("Invalid chart object");
-        return;
-    }
-    
-    // Apply to each dataset with data
-    const datasetsByAxis = {};
-    
-    // First pass: collect data points by axis ID
-    chart.data.datasets.forEach((dataset, index) => {
-        // Check if dataset is hidden - different approach
-        // We'll check the hidden property or meta data
-        let isHidden = false;
-        
-        // Method 1: Check dataset.hidden property directly
-        if (dataset.hidden) {
-            isHidden = true;
-        } 
-        // Method 2: Try to use meta data if available
-        else if (chart.getDatasetMeta && typeof chart.getDatasetMeta === 'function') {
-            try {
-                const meta = chart.getDatasetMeta(index);
-                if (meta && meta.hidden) {
-                    isHidden = true;
-                }
-            } catch (e) {
-                console.warn("Error checking dataset visibility:", e);
-            }
-        }
-        
-        // Skip hidden datasets and dosing events (triangles)
-        if (isHidden || dataset.pointStyle === 'triangle') return;
-        
-        const axisId = dataset.yAxisID || 'y';
-        if (!datasetsByAxis[axisId]) {
-            datasetsByAxis[axisId] = [];
-        }
-        
-        // Get all visible data points
-        const points = dataset.data.filter(point => point !== null && point !== undefined);
-        if (points.length > 0) {
-            // Extract y values (could be objects or plain numbers)
-            const values = points.map(point => 
-                (typeof point === 'object' && point !== null) ? point.y : point
-            ).filter(value => value !== undefined && value !== null);
-            
-            datasetsByAxis[axisId].push(...values);
-        }
-    });
-    
-    // Second pass: set min/max for each axis with data
-    for (const [axisId, values] of Object.entries(datasetsByAxis)) {
-        if (!values.length || !chart.options.scales[axisId]) continue;
-        
-        // Calculate min/max with padding
-        let min = Math.min(...values);
-        let max = Math.max(...values);
-        
-        console.log(`Axis ${axisId}: original min=${min}, max=${max}`);
-        
-        // Special handling based on axis type
-        if (axisId === 'y-ph') {
-            // For pH, don't go below 6.8 or above 8.0
-            min = Math.max(6.8, min - 0.1);
-            max = Math.min(8.0, max + 0.1);
-        } else {
-            // Apply percentage padding for other axes
-            const range = max - min;
-            const padding = range * paddingFactor;
-            
-            // Ensure min isn't negative for most parameters
-            min = Math.max(0, min - padding);
-            max = max + padding;
-            
-            // If values are very close, force a minimum range
-            if (max - min < 0.01) {
-                min = Math.max(0, min - 0.05);
-                max = max + 0.05;
-            }
-        }
-        
-        console.log(`Axis ${axisId}: new min=${min}, max=${max}`);
-        
-        // Update the axis scale
-        chart.options.scales[axisId].min = min;
-        chart.options.scales[axisId].max = max;
-    }
-    
-    chart.update('none'); // Update without animation for performance
-    console.log("Chart scales optimized");
-}
 
 /**
  * Initialize history tab functionality
@@ -1976,7 +1868,7 @@ function initializeHistoryChart() {
                             display: true,
                             text: 'pH'
                         },
-                        min: 7.2,
+                        min: 7.3,
                         max: 7.6,
                         grid: {
                             drawOnChartArea: true
@@ -1989,8 +1881,8 @@ function initializeHistoryChart() {
                             display: true,
                             text: 'Chlorine (mg/L)'
                         },
-                        min: 0.9,
-                        max: 1.7,
+                        min: 0.8,
+                        max: 1.6,
                         grid: {
                             drawOnChartArea: false
                         }
@@ -2002,8 +1894,8 @@ function initializeHistoryChart() {
                             display: false, // Hide by default
                             text: 'ORP (mV)'
                         },
-                        min: 650,
-                        max: 750,
+                        min: 680,
+                        max: 760,
                         display: false // Initially hidden
                     },
                     'y-turbidity': {
@@ -2013,8 +1905,8 @@ function initializeHistoryChart() {
                             display: false, // Hide by default
                             text: 'Turbidity (NTU)'
                         },
-                        min: 0.09, 
-                        max: 0.21,
+                        min: 0.08, 
+                        max: 0.22,
                         display: false // Initially hidden
                     },
                     'y-temp': {
@@ -2105,10 +1997,6 @@ function initializeHistoryChart() {
     } catch (error) {
         console.error('Error initializing chart:', error);
     }
-
-    setTimeout(() => {
-        optimizeChartScales(historyChart);
-    }, 500); // Small delay to ensure data is loaded
 }
 
 /**
