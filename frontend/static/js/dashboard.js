@@ -491,7 +491,7 @@ function initializeChemistryChart() {
     }
 
     setTimeout(() => {
-        optimizeChartScales(myChart); // Replace myChart with the actual chart variable
+        optimizeChartScales(chemistryChart);
     }, 500); // Small delay to ensure data is loaded
 }
 
@@ -1507,7 +1507,7 @@ function initializeTurbidityChart() {
     }
 
     setTimeout(() => {
-        optimizeChartScales(myChart); // Replace myChart with the actual chart variable
+        optimizeChartScales(turbidityChart);
     }, 500); // Small delay to ensure data is loaded
 }
 
@@ -2081,7 +2081,7 @@ function initializeHistoryChart() {
     }
 
     setTimeout(() => {
-        optimizeChartScales(myChart); // Replace myChart with the actual chart variable
+        optimizeChartScales(historyChart);
     }, 500); // Small delay to ensure data is loaded
 }
 
