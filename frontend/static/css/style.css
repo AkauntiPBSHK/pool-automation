@@ -644,3 +644,21 @@ main {
     from { transform: translateX(6px); }
     to { transform: translateX(0); }
   }
+
+button#chemistryAutoScale, 
+button#turbidityAutoScale,
+button#historyAutoScale {
+    background-color: #0d6efd;
+    color: white;
+    font-weight: bold;
+    padding: 5px 12px;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+button#chemistryAutoScale:hover, 
+button#turbidityAutoScale:hover,
+button#historyAutoScale:hover {
+    background-color: #0a58ca;
+    transform: translateY(-1px);
+}
