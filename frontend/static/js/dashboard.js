@@ -3781,81 +3781,146 @@ function confirmClearData() {
  * Load saved settings from localStorage
  */
 function loadSavedSettings() {
-    // Load notification settings
-    const notificationSettings = JSON.parse(localStorage.getItem('notificationSettings'));
-    if (notificationSettings) {
-        document.getElementById('notificationEmail').value = notificationSettings.notificationEmail || '';
-        document.getElementById('alertNotifications').checked = notificationSettings.alertNotifications !== false;
-        document.getElementById('warningNotifications').checked = notificationSettings.warningNotifications !== false;
-        document.getElementById('maintenanceNotifications').checked = notificationSettings.maintenanceNotifications !== false;
-        document.getElementById('dailyReportNotifications').checked = notificationSettings.dailyReportNotifications === true;
-    }
-    
-    // Load system configuration
-    const systemConfig = JSON.parse(localStorage.getItem('systemConfig'));
-    if (systemConfig) {
-        document.getElementById('systemName').value = systemConfig.systemName || 'Pool Automation System';
-        document.getElementById('poolSize').value = systemConfig.poolSize || '300';
-        document.getElementById('refreshInterval').value = systemConfig.refreshInterval || '10';
+    try {
+        // Load notification settings
+        const notificationSettings = JSON.parse(localStorage.getItem('notificationSettings') || '{}');
+        
+        const notificationEmail = document.getElementById('notificationEmail');
+        if (notificationEmail) notificationEmail.value = notificationSettings.notificationEmail || '';
+        
+        const alertNotifications = document.getElementById('alertNotifications');
+        if (alertNotifications) alertNotifications.checked = notificationSettings.alertNotifications !== false;
+        
+        const warningNotifications = document.getElementById('warningNotifications');
+        if (warningNotifications) warningNotifications.checked = notificationSettings.warningNotifications !== false;
+        
+        const maintenanceNotifications = document.getElementById('maintenanceNotifications');
+        if (maintenanceNotifications) maintenanceNotifications.checked = notificationSettings.maintenanceNotifications !== false;
+        
+        const dailyReportNotifications = document.getElementById('dailyReportNotifications');
+        if (dailyReportNotifications) dailyReportNotifications.checked = notificationSettings.dailyReportNotifications === true;
+
+        
+        // Load system configuration
+        const systemConfig = JSON.parse(localStorage.getItem('systemConfig') || '{}');
+        
+        const systemName = document.getElementById('systemName');
+        if (systemName) systemName.value = systemConfig.systemName || 'Pool Automation System';
+        
+        const poolSize = document.getElementById('poolSize');
+        if (poolSize) poolSize.value = systemConfig.poolSize || '300';
+        
+        const refreshInterval = document.getElementById('refreshInterval');
+        if (refreshInterval) refreshInterval.value = systemConfig.refreshInterval || '10';
         
         if (systemConfig.defaultMode === 'manual') {
-            document.getElementById('defaultModeManual').checked = true;
+            const defaultModeManual = document.getElementById('defaultModeManual');
+            if (defaultModeManual) defaultModeManual.checked = true;
         } else {
-            document.getElementById('defaultModeAuto').checked = true;
+            const defaultModeAuto = document.getElementById('defaultModeAuto');
+            if (defaultModeAuto) defaultModeAuto.checked = true;
         }
         
-        if (systemConfig.tempUnit === 'fahrenheit') {
-            document.getElementById('tempFahrenheit').checked = true;
+        // Remove or fix this section if tempFahrenheit/tempCelsius don't exist
+        if (systemConfig.tempUnit) {
+            const tempFahrenheit = document.getElementById('tempFahrenheit');
+            const tempCelsius = document.getElementById('tempCelsius');
+            
+            if (systemConfig.tempUnit === 'fahrenheit') {
+                if (tempFahrenheit) tempFahrenheit.checked = true;
+            } else {
+                if (tempCelsius) tempCelsius.checked = true;
+            }
+        }
+        
+        // Language settings
+        if (systemConfig.language === 'sq') {
+            const langAlbanian = document.getElementById('langAlbanian');
+            if (langAlbanian) langAlbanian.checked = true;
         } else {
-            document.getElementById('tempCelsius').checked = true;
+            const langEnglish = document.getElementById('langEnglish');
+            if (langEnglish) langEnglish.checked = true;
+        }
+        
+        // Load chemistry targets
+        const chemistryTargets = JSON.parse(localStorage.getItem('chemistryTargets') || '{}');
+        if (chemistryTargets) {
+            // Add null checks for all these elements
+            const phTargetMin = document.getElementById('phTargetMin');
+            if (phTargetMin) phTargetMin.value = chemistryTargets.phTargetMin || '7.2';
+            
+            const phTargetMax = document.getElementById('phTargetMax');
+            if (phTargetMax) phTargetMax.value = chemistryTargets.phTargetMax || '7.6';
+            
+            const orpTargetMin = document.getElementById('orpTargetMin');
+            if (orpTargetMin) orpTargetMin.value = chemistryTargets.orpTargetMin || '650';
+            
+            const orpTargetMax = document.getElementById('orpTargetMax');
+            if (orpTargetMax) orpTargetMax.value = chemistryTargets.orpTargetMax || '750';
+            
+            const freeClTargetMin = document.getElementById('freeClTargetMin');
+            if (freeClTargetMin) freeClTargetMin.value = chemistryTargets.freeClTargetMin || '1.0';
+            
+            const freeClTargetMax = document.getElementById('freeClTargetMax');
+            if (freeClTargetMax) freeClTargetMax.value = chemistryTargets.freeClTargetMax || '2.0';
+            
+            const combinedClMax = document.getElementById('combinedClMax');
+            if (combinedClMax) combinedClMax.value = chemistryTargets.combinedClMax || '0.3';
+        }
+        
+        // Load pump configuration
+        const pumpConfig = JSON.parse(localStorage.getItem('pumpConfig') || '{}');
+        if (pumpConfig) {
+            const phPumpFlowRate = document.getElementById('phPumpFlowRate');
+            if (phPumpFlowRate) phPumpFlowRate.value = pumpConfig.phPumpFlowRate || '120';
+            
+            const clPumpFlowRate = document.getElementById('clPumpFlowRate');
+            if (clPumpFlowRate) clPumpFlowRate.value = pumpConfig.clPumpFlowRate || '150';
+            
+            const pacMinFlow = document.getElementById('pacMinFlow');
+            if (pacMinFlow) pacMinFlow.value = pumpConfig.pacMinFlow || '60';
+            
+            const pacMaxFlow = document.getElementById('pacMaxFlow');
+            if (pacMaxFlow) pacMaxFlow.value = pumpConfig.pacMaxFlow || '150';
+            
+            const phMaxDoseDuration = document.getElementById('phMaxDoseDuration');
+            if (phMaxDoseDuration) phMaxDoseDuration.value = pumpConfig.phMaxDoseDuration || '300';
+            
+            const clMaxDoseDuration = document.getElementById('clMaxDoseDuration');
+            if (clMaxDoseDuration) clMaxDoseDuration.value = pumpConfig.clMaxDoseDuration || '300';
+        }
+        
+        // Load turbidity settings
+        const turbiditySettings = JSON.parse(localStorage.getItem('turbiditySettings') || '{}');
+        if (turbiditySettings) {
+            const turbidityTarget = document.getElementById('turbidityTarget');
+            if (turbidityTarget) turbidityTarget.value = turbiditySettings.turbidityTarget || '0.15';
+            
+            const turbidityLowThreshold = document.getElementById('turbidityLowThreshold');
+            if (turbidityLowThreshold) turbidityLowThreshold.value = turbiditySettings.turbidityLowThreshold || '0.12';
+            
+            const turbidityHighThreshold = document.getElementById('turbidityHighThreshold');
+            if (turbidityHighThreshold) turbidityHighThreshold.value = turbiditySettings.turbidityHighThreshold || '0.25';
+            
+            const filterBackwashLevel = document.getElementById('filterBackwashLevel');
+            if (filterBackwashLevel) filterBackwashLevel.value = turbiditySettings.filterBackwashLevel || '70';
+            
+            const autoBackwashAlerts = document.getElementById('autoBackwashAlerts');
+            if (autoBackwashAlerts) autoBackwashAlerts.checked = turbiditySettings.autoBackwashAlerts !== false;
+        }
+        
+        // Load retention settings
+        const retentionSettings = JSON.parse(localStorage.getItem('retentionSettings') || '{}');
+        if (retentionSettings) {
+            const dataRetention = document.getElementById('dataRetention');
+            if (dataRetention) dataRetention.value = retentionSettings.dataRetention || '90';
+            
+            const eventRetention = document.getElementById('eventRetention');
+            if (eventRetention) eventRetention.value = retentionSettings.eventRetention || '90';
         }
 
-        // Add this for language
-        if (systemConfig.language === 'sq') {
-            document.getElementById('langAlbanian').checked = true;
-        } else {
-            document.getElementById('langEnglish').checked = true;
-        }
-    }
-    
-    // Load chemistry targets
-    const chemistryTargets = JSON.parse(localStorage.getItem('chemistryTargets'));
-    if (chemistryTargets) {
-        document.getElementById('phTargetMin').value = chemistryTargets.phTargetMin || '7.2';
-        document.getElementById('phTargetMax').value = chemistryTargets.phTargetMax || '7.6';
-        document.getElementById('orpTargetMin').value = chemistryTargets.orpTargetMin || '650';
-        document.getElementById('orpTargetMax').value = chemistryTargets.orpTargetMax || '750';
-        document.getElementById('freeClTargetMin').value = chemistryTargets.freeClTargetMin || '1.0';
-        document.getElementById('freeClTargetMax').value = chemistryTargets.freeClTargetMax || '2.0';
-        document.getElementById('combinedClMax').value = chemistryTargets.combinedClMax || '0.3';
-    }
-    
-    // Load pump configuration
-    const pumpConfig = JSON.parse(localStorage.getItem('pumpConfig'));
-    if (pumpConfig) {
-        document.getElementById('phPumpFlowRate').value = pumpConfig.phPumpFlowRate || '120';
-        document.getElementById('clPumpFlowRate').value = pumpConfig.clPumpFlowRate || '150';
-        document.getElementById('pacMinFlow').value = pumpConfig.pacMinFlow || '60';
-        document.getElementById('pacMaxFlow').value = pumpConfig.pacMaxFlow || '150';
-        document.getElementById('phMaxDoseDuration').value = pumpConfig.phMaxDoseDuration || '300';
-        document.getElementById('clMaxDoseDuration').value = pumpConfig.clMaxDoseDuration || '300';
-    }
-    
-    // Load turbidity settings
-    const turbiditySettings = JSON.parse(localStorage.getItem('turbiditySettings'));
-    if (turbiditySettings) {
-        document.getElementById('turbidityTarget').value = turbiditySettings.turbidityTarget || '0.15';
-        document.getElementById('turbidityLowThreshold').value = turbiditySettings.turbidityLowThreshold || '0.12';
-        document.getElementById('turbidityHighThreshold').value = turbiditySettings.turbidityHighThreshold || '0.25';
-        document.getElementById('filterBackwashLevel').value = turbiditySettings.filterBackwashLevel || '70';
-        document.getElementById('autoBackwashAlerts').checked = turbiditySettings.autoBackwashAlerts !== false;
-    }
-    
-    // Load retention settings
-    const retentionSettings = JSON.parse(localStorage.getItem('retentionSettings'));
-    if (retentionSettings) {
-        document.getElementById('dataRetention').value = retentionSettings.dataRetention || '90';
-        document.getElementById('eventRetention').value = retentionSettings.eventRetention || '90';
+    } catch (error) {
+        console.error("Error loading saved settings:", error);
     }
 }
 
@@ -4883,6 +4948,38 @@ function applyMissingAttributes() {
                 button.setAttribute('data-i18n', 'changePassword');
             } else {
                 button.setAttribute('data-i18n', 'saveSettings');
+            }
+        }
+    });
+
+    // Special handling for the Email label
+    const emailLabels = document.querySelectorAll('label.form-label');
+    emailLabels.forEach(label => {
+        if (label.textContent.trim() === 'Email' && !label.hasAttribute('data-i18n')) {
+            label.setAttribute('data-i18n', 'email');
+        }
+    });
+}
+
+function getDetailedMissingTranslations() {
+    document.querySelectorAll('button, h1, h2, h3, h4, h5, h6, label, .card-title, .badge').forEach(el => {
+        const text = el.textContent.trim();
+        if (text && text.length > 1 && !/^\d+(\.\d+)?$/.test(text)) {
+            let found = false;
+            // Check both English and Albanian translations
+            for (const key in translations.en) {
+                if (translations.en[key] === text || translations.sq[key] === text) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                console.log("Missing translation for:", {
+                    element: el.tagName, 
+                    text: text,
+                    id: el.id,
+                    classes: el.className
+                });
             }
         }
     });
