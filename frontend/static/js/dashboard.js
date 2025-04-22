@@ -79,9 +79,8 @@ document.addEventListener('DOMContentLoaded', function() {
         updateStatusBar('Disconnected from server', 'danger');
     });
     
-    // Set up simulation data updates
     if (getParameterByName('simulate') !== 'false') {
-        setInterval(simulateDataChanges, 5000);
+        startSimulation();
     }
 
     // Initialize settings tab
@@ -237,9 +236,11 @@ function stopCLDosing() {
 }
 
 /**
- * Show a toast notification
+ * Show a toast notification with different styles for message types
+ * @param {string} message - Message to display
+ * @param {string} type - Message type: 'success', 'warning', 'danger', 'info'
  */
-function showToast(message) {
+function showToast(message, type = 'success') {
     // Check if toast container exists, create if not
     let toastContainer = document.getElementById('toastContainer');
     if (!toastContainer) {
@@ -248,15 +249,39 @@ function showToast(message) {
         toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
         document.body.appendChild(toastContainer);
     }
+
+    // Get appropriate icon for the message type
+    let icon = 'info-circle';
+    let bgClass = 'bg-primary';
     
+    switch (type) {
+        case 'success':
+            icon = 'check-circle';
+            bgClass = 'bg-success';
+            break;
+        case 'warning':
+            icon = 'exclamation-triangle';
+            bgClass = 'bg-warning text-dark';
+            break;
+        case 'danger':
+            icon = 'exclamation-circle';
+            bgClass = 'bg-danger';
+            break;
+        case 'info':
+            icon = 'info-circle';
+            bgClass = 'bg-info text-dark';
+            break;
+    }
+
     // Create toast element
     const toastId = 'toast-' + Date.now();
     const toastHtml = `
     <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
-        <div class="toast-header">
+        <div class="toast-header ${bgClass} text-white">
+            <i class="bi bi-${icon} me-2"></i>
             <strong class="me-auto">Pool Automation</strong>
             <small>Just now</small>
-            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
         </div>
         <div class="toast-body">
             ${message}
@@ -269,7 +294,10 @@ function showToast(message) {
     
     // Initialize and show toast
     const toastElement = document.getElementById(toastId);
-    const toast = new bootstrap.Toast(toastElement, { autohide: true, delay: 3000 });
+    const toast = new bootstrap.Toast(toastElement, { 
+        autohide: true, 
+        delay: type === 'danger' ? 5000 : 3000 // Show error messages longer
+    });
     toast.show();
     
     // Remove toast after it's hidden
@@ -333,6 +361,29 @@ function initializeChemistryChart() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            resizeDelay: 100,
+            onResize: function(chart, size) {
+                // Adjust point size and line width based on chart size
+                if (size.width < 400) {
+                    chart.data.datasets.forEach(dataset => {
+                        dataset.pointRadius = 1;
+                        dataset.borderWidth = 1;
+                    });
+                    chart.options.scales.x.ticks.maxTicksLimit = 4;
+                } else if (size.width < 768) {
+                    chart.data.datasets.forEach(dataset => {
+                        dataset.pointRadius = 2;
+                        dataset.borderWidth = 2;
+                    });
+                    chart.options.scales.x.ticks.maxTicksLimit = 6;
+                } else {
+                    chart.data.datasets.forEach(dataset => {
+                        dataset.pointRadius = 3;
+                        dataset.borderWidth = 2;
+                    });
+                    chart.options.scales.x.ticks.maxTicksLimit = 8;
+                }
+            },
             interaction: {
                 mode: 'index',
                 intersect: false
@@ -340,7 +391,15 @@ function initializeChemistryChart() {
             scales: {
                 x: {
                     ticks: {
-                        maxRotation: 0
+                        maxRotation: 0,
+                        autoSkip: true,
+                        maxTicksLimit: 8,
+                        font: function(context) {
+                            const chart = context.chart;
+                            return {
+                                size: chart.width < 400 ? 8 : 10
+                            };
+                        }
                     }
                 },
                 'y-ph': {
@@ -348,7 +407,13 @@ function initializeChemistryChart() {
                     position: 'left',
                     title: {
                         display: true,
-                        text: 'pH'
+                        text: 'pH',
+                        font: function(context) {
+                            const chart = context.chart;
+                            return {
+                                size: chart.width < 400 ? 10 : 12
+                            };
+                        }
                     },
                     min: 6.8,
                     max: 8.0,
@@ -361,7 +426,13 @@ function initializeChemistryChart() {
                     position: 'right',
                     title: {
                         display: true,
-                        text: 'Chlorine (mg/L)'
+                        text: 'Chlorine (mg/L)',
+                        font: function(context) {
+                            const chart = context.chart;
+                            return {
+                                size: chart.width < 400 ? 10 : 12
+                            };
+                        }
                     },
                     min: 0,
                     max: 3,
@@ -371,6 +442,22 @@ function initializeChemistryChart() {
                 }
             },
             plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        boxWidth: function(context) {
+                            const chart = context.chart;
+                            return chart.width < 400 ? 10 : 15;
+                        },
+                        font: function(context) {
+                            const chart = context.chart;
+                            return {
+                                size: chart.width < 400 ? 10 : 12
+                            };
+                        }
+                    }
+                },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
@@ -419,9 +506,38 @@ function updateChemistryChart(hours) {
     chemistryChart.data.labels = labels;
     chemistryChart.data.datasets[0].data = phData;
     chemistryChart.data.datasets[1].data = clData;
-    
+
+    // Update axis options for better display with different time ranges
+    if (hours <= 24) {
+        chemistryChart.options.scales.x.ticks.maxTicksLimit = 8;
+    } else if (hours <= 48) {
+        chemistryChart.options.scales.x.ticks.maxTicksLimit = 12;
+    } else {
+        chemistryChart.options.scales.x.ticks.maxTicksLimit = 14;
+    }
+
+    // Force responsive adaptation to current size
+    const currentWidth = chemistryChart.width;
+    chemistryChart.options.onResize(chemistryChart, {width: currentWidth, height: chemistryChart.height});
+
     // Update chart
     chemistryChart.update();
+
+    // Update ARIA label
+    const chartContainer = document.querySelector('#chemistryChart').closest('.chart-container');
+    if (chartContainer) {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setHours(startDate.getHours() - hours);
+        
+        // Format dates for accessibility description
+        const formatDate = (date) => {
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        };
+        
+        chartContainer.setAttribute('aria-label', 
+            `Chart showing pH and chlorine history from ${formatDate(startDate)} to ${formatDate(endDate)}`);
+    }
 }
 
 /**
@@ -440,9 +556,18 @@ function updateWaterChemistryDisplays() {
         document.getElementById('phPumpDetailStatus').className = 'text-secondary';
     }
     
-    // Update pH marker position
+    // Update pH marker position and ARIA attribute
     const phPercentage = ((mockData.ph - 6.8) / (8.0 - 6.8)) * 100;
-    document.querySelector('.ph-marker').style.left = `${phPercentage}%`;
+    const phMarker = document.querySelector('.ph-marker');
+    if (phMarker) {
+        phMarker.style.left = `${phPercentage}%`;
+        
+        // Update ARIA attributes for pH progress container
+        const phProgress = phMarker.closest('.progress, .parameter-range');
+        if (phProgress) {
+            phProgress.setAttribute('aria-valuenow', mockData.ph);
+        }
+    }
     
     // Update chlorine detail panel
     document.getElementById('freeChlorineDetailValue').textContent = mockData.freeChlorine.toFixed(2);
@@ -457,9 +582,18 @@ function updateWaterChemistryDisplays() {
         document.getElementById('clPumpDetailStatus').className = 'text-secondary';
     }
     
-    // Update chlorine marker position
+    // Update chlorine marker position and ARIA attribute
     const clPercentage = ((mockData.freeChlorine - 0.5) / (5.0 - 0.5)) * 100;
-    document.querySelector('.chlorine-marker').style.left = `${clPercentage}%`;
+    const chlorineMarker = document.querySelector('.chlorine-marker');
+    if (chlorineMarker) {
+        chlorineMarker.style.left = `${clPercentage}%`;
+        
+        // Update ARIA attributes for chlorine progress container
+        const clProgress = chlorineMarker.closest('.progress, .parameter-range');
+        if (clProgress) {
+            clProgress.setAttribute('aria-valuenow', mockData.freeChlorine);
+        }
+    }
     
     // Update trends randomly for simulation
     if (Math.random() > 0.7) {
@@ -473,10 +607,47 @@ function updateWaterChemistryDisplays() {
             '<i class="bi bi-arrow-down-short trend-down"></i> -0.1 in 1h';
         document.getElementById('chlorineTrend').innerHTML = clTrend;
     }
+
+    const phBlueIndicator = document.querySelector('.ph-control .blue-indicator');
+    if (phBlueIndicator) {
+        const phPosition = ((mockData.ph - 6.8) / (8.0 - 6.8)) * 100;
+        phBlueIndicator.style.left = `${phPosition}%`;
+        
+        const phProgressBar = phBlueIndicator.closest('.progress');
+        if (phProgressBar) {
+            phProgressBar.setAttribute('aria-valuenow', mockData.ph);
+        }
+    }
+
+    const clBlueIndicator = document.querySelector('.chlorine-control .blue-indicator');
+    if (clBlueIndicator) {
+        const clPosition = ((mockData.freeChlorine - 0.5) / (5.0 - 0.5)) * 100;
+        clBlueIndicator.style.left = `${clPosition}%`;
+        
+        const clProgressBar = clBlueIndicator.closest('.progress');
+        if (clProgressBar) {
+            clProgressBar.setAttribute('aria-valuenow', mockData.freeChlorine);
+        }
+    }
 }
 
 /**
- * Update all parameter displays with current values
+ * Updates all parameter displays with current values
+ * 
+ * This function refreshes the UI for all monitored parameters (pH, ORP, chlorine, etc.)
+ * It updates values, status indicators, and position markers for each parameter.
+ * 
+ * @param {Object} data - Object containing all current parameter values
+ * @param {number} data.ph - Current pH value
+ * @param {number} data.orp - Current ORP value in mV
+ * @param {number} data.freeChlorine - Current free chlorine value in mg/L
+ * @param {number} data.combinedChlorine - Current combined chlorine value in mg/L
+ * @param {number} data.turbidity - Current turbidity value in NTU
+ * @param {number} data.temperature - Current temperature in °C
+ * @param {number} data.uvIntensity - Current UV intensity percentage
+ * @param {boolean} data.phPumpRunning - Whether pH pump is currently active
+ * @param {boolean} data.clPumpRunning - Whether chlorine pump is currently active
+ * @param {boolean} data.pacPumpRunning - Whether PAC pump is currently active
  */
 function updateParameterDisplays(data) {
     // Update pH
@@ -508,23 +679,23 @@ function updateParameterDisplays(data) {
 }
 
 /**
- * Update a single parameter display
+ * Update a specific parameter in the UI
+ * 
+ * Updates the value display, status indicator (good/fair/poor), 
+ * and position marker for a given parameter.
+ * 
+ * @param {string} id - Parameter ID (e.g., 'ph', 'orp', 'turbidity')
+ * @param {number} value - Current parameter value
+ * @param {number} lowThreshold - Lower threshold for "good" status
+ * @param {number} highThreshold - Upper threshold for "good" status
+ * @param {number} minValue - Minimum value on the scale
+ * @param {number} maxValue - Maximum value on the scale
  */
 function updateParameter(id, value, lowThreshold, highThreshold, minValue, maxValue) {
-    // Update value
+    // Update value with consistent formatting
     const valueEl = document.getElementById(id + 'Value');
     if (valueEl) {
-        if (typeof value === 'number') {
-            if (id === 'orp' || id === 'uvIntensity') {
-                valueEl.textContent = Math.round(value);
-            } else if (value < 10) {
-                valueEl.textContent = value.toFixed(2);
-            } else {
-                valueEl.textContent = value.toFixed(1);
-            }
-        } else {
-            valueEl.textContent = value;
-        }
+        valueEl.textContent = formatParameterValue(value, id);
     }
     
     // Update status
@@ -548,6 +719,9 @@ function updateParameter(id, value, lowThreshold, highThreshold, minValue, maxVa
         const percentage = ((value - minValue) / (maxValue - minValue)) * 100;
         markerEl.style.left = `${Math.min(100, Math.max(0, percentage))}%`;
     }
+
+    // Update ARIA attributes
+    updateAriaAttributes(id, value, minValue, maxValue);
 }
 
 /**
@@ -619,9 +793,21 @@ function fetchStatus() {
  * Fetch dashboard data with error handling
  */
 function fetchDashboardData() {
-    // Show loading indicator
-    document.querySelectorAll('.card-body').forEach(card => {
-        card.classList.add('loading');
+    // Show loading state
+    document.querySelectorAll('.card').forEach(card => {
+        card.classList.add('card-loading');
+    });
+    
+    document.querySelectorAll('.chart-container').forEach(container => {
+        container.classList.add('chart-loading');
+        
+        // Add spinner if not already present
+        if (!container.querySelector('.spinner-container')) {
+            const spinner = document.createElement('div');
+            spinner.className = 'spinner-container';
+            spinner.innerHTML = '<div class="spinner"></div>';
+            container.appendChild(spinner);
+        }
     });
     
     fetch('/api/dashboard')
@@ -654,6 +840,21 @@ function fetchDashboardData() {
             // Fall back to mock data
             updateParameterDisplays(mockData);
         });
+
+    // In the success and error callbacks, remove loading states:
+    document.querySelectorAll('.card').forEach(card => {
+        card.classList.remove('card-loading');
+    });
+    
+    document.querySelectorAll('.chart-container').forEach(container => {
+        container.classList.remove('chart-loading');
+        
+        // Remove spinner
+        const spinner = container.querySelector('.spinner-container');
+        if (spinner) {
+            spinner.remove();
+        }
+    });
 }
 
 /**
@@ -695,36 +896,125 @@ function setMode(mode) {
 }
 
 /**
- * Simulate data changes for demonstration
+ * Simulate data changes for demonstration with improved performance
+ */
+/**
+ * Simulate data changes for demonstration with improved performance
  */
 function simulateDataChanges() {
-    // Add small random variations to mock data
-    mockData.ph = clamp(mockData.ph + (Math.random() - 0.5) * 0.1, 6.8, 8.0);
-    mockData.orp = clamp(mockData.orp + (Math.random() - 0.5) * 20, 600, 800);
-    mockData.freeChlorine = clamp(mockData.freeChlorine + (Math.random() - 0.5) * 0.1, 0.5, 3.0);
-    mockData.combinedChlorine = clamp(mockData.combinedChlorine + (Math.random() - 0.5) * 0.05, 0, 0.5);
-    mockData.turbidity = clamp(mockData.turbidity + (Math.random() - 0.5) * 0.02, 0.05, 0.5);
-    mockData.temperature = clamp(mockData.temperature + (Math.random() - 0.5) * 0.2, 20, 32);
+    // Track if any data changed that would require UI updates
+    let parameterChanged = false;
+    let waterChemistryChanged = false;
+    let turbidityChanged = false;
+    let pumpStatusChanged = false;
     
-    // Occasionally toggle pump states
+    // Only update each parameter with some probability to make changes more realistic
+    
+    // pH changes (30% chance)
+    if (Math.random() < 0.3) {
+        const oldPh = mockData.ph;
+        mockData.ph = clamp(mockData.ph + (Math.random() - 0.5) * 0.05, 6.8, 8.0);
+        parameterChanged = parameterChanged || (Math.abs(oldPh - mockData.ph) > 0.001);
+        waterChemistryChanged = waterChemistryChanged || (Math.abs(oldPh - mockData.ph) > 0.001);
+    }
+    
+    // ORP changes (20% chance)
+    if (Math.random() < 0.2) {
+        const oldOrp = mockData.orp;
+        mockData.orp = clamp(mockData.orp + (Math.random() - 0.5) * 10, 600, 800);
+        parameterChanged = parameterChanged || (Math.abs(oldOrp - mockData.orp) > 0.1);
+    }
+    
+    // Chlorine changes (25% chance)
+    if (Math.random() < 0.25) {
+        const oldFreeChlorine = mockData.freeChlorine;
+        mockData.freeChlorine = clamp(mockData.freeChlorine + (Math.random() - 0.5) * 0.05, 0.5, 3.0);
+        parameterChanged = parameterChanged || (Math.abs(oldFreeChlorine - mockData.freeChlorine) > 0.001);
+        waterChemistryChanged = waterChemistryChanged || (Math.abs(oldFreeChlorine - mockData.freeChlorine) > 0.001);
+    }
+    
+    // Combined chlorine changes (15% chance)
+    if (Math.random() < 0.15) {
+        const oldCombinedChlorine = mockData.combinedChlorine;
+        mockData.combinedChlorine = clamp(mockData.combinedChlorine + (Math.random() - 0.5) * 0.02, 0, 0.5);
+        parameterChanged = parameterChanged || (Math.abs(oldCombinedChlorine - mockData.combinedChlorine) > 0.001);
+        waterChemistryChanged = waterChemistryChanged || (Math.abs(oldCombinedChlorine - mockData.combinedChlorine) > 0.001);
+    }
+    
+    // Turbidity changes (20% chance)
+    if (Math.random() < 0.2) {
+        const oldTurbidity = mockData.turbidity;
+        mockData.turbidity = clamp(mockData.turbidity + (Math.random() - 0.5) * 0.01, 0.05, 0.5);
+        parameterChanged = parameterChanged || (Math.abs(oldTurbidity - mockData.turbidity) > 0.001);
+        turbidityChanged = turbidityChanged || (Math.abs(oldTurbidity - mockData.turbidity) > 0.001);
+    }
+    
+    // Temperature changes (10% chance - temperature changes slowly)
     if (Math.random() < 0.1) {
+        mockData.temperature = clamp(mockData.temperature + (Math.random() - 0.5) * 0.1, 20, 32);
+        parameterChanged = true;
+    }
+    
+    // Occasionally toggle pump states (5% chance for each pump)
+    if (Math.random() < 0.05) {
         mockData.phPumpRunning = !mockData.phPumpRunning;
+        pumpStatusChanged = true;
     }
-    if (Math.random() < 0.1) {
+    if (Math.random() < 0.05) {
         mockData.clPumpRunning = !mockData.clPumpRunning;
+        pumpStatusChanged = true;
     }
-    if (Math.random() < 0.1) {
+    if (Math.random() < 0.05) {
         mockData.pacPumpRunning = !mockData.pacPumpRunning;
+        pumpStatusChanged = true;
     }
     
-    // Update displays
-    updateParameterDisplays(mockData);
+    // Only update UI if something changed
+    if (parameterChanged) {
+        requestAnimationFrame(() => {
+            updateParameterDisplays(mockData);
+        });
+    }
+    
+    if (waterChemistryChanged) {
+        requestAnimationFrame(() => {
+            updateWaterChemistryDisplays();
+        });
+    }
+    
+    if (turbidityChanged) {
+        requestAnimationFrame(() => {
+            updateTurbidityPACDisplays();
+        });
+    }
+    
+    if (pumpStatusChanged) {
+        requestAnimationFrame(() => {
+            updatePumpStatus('phPump', mockData.phPumpRunning);
+            updatePumpStatus('phPumpDetail', mockData.phPumpRunning);
+            updatePumpStatus('clPump', mockData.clPumpRunning);
+            updatePumpStatus('clPumpDetail', mockData.clPumpRunning);
+            updatePumpStatus('pacPump', mockData.pacPumpRunning);
+            updatePumpStatus('pacPumpDetail', mockData.pacPumpRunning);
+        });
+    }
+}
 
-    // Update Water Chemistry displays
-    updateWaterChemistryDisplays();
-
-    // Update Turbidity & PAC displays
-    updateTurbidityPACDisplays();
+// Replace setInterval with a more efficient approach
+function startSimulation() {
+    let lastTimestamp = 0;
+    const simulationInterval = 5000; // 5 seconds
+    
+    function simulationLoop(timestamp) {
+        if (timestamp - lastTimestamp >= simulationInterval) {
+            simulateDataChanges();
+            lastTimestamp = timestamp;
+        }
+        
+        requestAnimationFrame(simulationLoop);
+    }
+    
+    requestAnimationFrame(simulationLoop);
 }
 
 /**
@@ -914,11 +1204,29 @@ function updateTurbidityPACDisplays() {
         turbidityDetailValue.textContent = mockData.turbidity.toFixed(2);
     }
     
-    // Update turbidity marker position
+    // Update turbidity marker position and ARIA attributes
+    const turbidityPercentage = ((mockData.turbidity - 0.05) / (0.5 - 0.05)) * 100;
     const turbidityMarker = document.querySelector('.turbidity-marker');
     if (turbidityMarker) {
-        const turbidityPercentage = ((mockData.turbidity - 0.05) / (0.5 - 0.05)) * 100;
         turbidityMarker.style.left = `${turbidityPercentage}%`;
+        
+        // Update ARIA attributes
+        const turbidityProgress = turbidityMarker.closest('.progress, .parameter-range');
+        if (turbidityProgress) {
+            turbidityProgress.setAttribute('aria-valuenow', mockData.turbidity);
+        }
+    }
+
+    // Add ARIA updates to the turbidity blue indicator
+    const turbidityBlueIndicator = document.querySelector('.turbidity-control .blue-indicator');
+    if (turbidityBlueIndicator) {
+        const turbPosition = ((mockData.turbidity - 0.05) / (0.5 - 0.05)) * 100;
+        turbidityBlueIndicator.style.left = `${turbPosition}%`;
+        
+        const turbProgressBar = turbidityBlueIndicator.closest('.progress');
+        if (turbProgressBar) {
+            turbProgressBar.setAttribute('aria-valuenow', mockData.turbidity);
+        }
     }
     
     // Update PAC panel
@@ -967,7 +1275,7 @@ function updateTurbidityPACDisplays() {
     if (pacLevelIndicator && Math.random() > 0.95) {
         const pacLevel = Math.round(Math.random() * 30) + 40; // 40-70%
         pacLevelIndicator.style.height = `${pacLevel}%`;
-        pacLevelIndicator.setAttribute('aria-valuenow', pacLevel);
+        pacLevelIndicator.parentElement.setAttribute('aria-valuenow', pacLevel);
         
         const pacLevelText = pacLevelIndicator.nextElementSibling;
         if (pacLevelText) {
@@ -1047,6 +1355,41 @@ function initializeTurbidityChart() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            resizeDelay: 100,
+            onResize: function(chart, size) {
+                // Adjust point size, triangle size, and line width based on chart size
+                if (size.width < 400) {
+                    // For main turbidity dataset
+                    chart.data.datasets[0].pointRadius = 1;
+                    chart.data.datasets[0].borderWidth = 1;
+                    
+                    // For dosing events triangles
+                    chart.data.datasets[1].pointRadius = 4;
+                    
+                    // Limit the number of x-axis labels
+                    chart.options.scales.x.ticks.maxTicksLimit = 4;
+                } else if (size.width < 768) {
+                    // For main turbidity dataset
+                    chart.data.datasets[0].pointRadius = 2;
+                    chart.data.datasets[0].borderWidth = 2;
+                    
+                    // For dosing events triangles
+                    chart.data.datasets[1].pointRadius = 5;
+                    
+                    // Limit the number of x-axis labels
+                    chart.options.scales.x.ticks.maxTicksLimit = 6;
+                } else {
+                    // For main turbidity dataset
+                    chart.data.datasets[0].pointRadius = 3;
+                    chart.data.datasets[0].borderWidth = 2;
+                    
+                    // For dosing events triangles
+                    chart.data.datasets[1].pointRadius = 6;
+                    
+                    // Limit the number of x-axis labels
+                    chart.options.scales.x.ticks.maxTicksLimit = 8;
+                }
+            },
             interaction: {
                 mode: 'nearest',
                 intersect: false
@@ -1054,7 +1397,15 @@ function initializeTurbidityChart() {
             scales: {
                 x: {
                     ticks: {
-                        maxRotation: 0
+                        maxRotation: 0,
+                        autoSkip: true,
+                        maxTicksLimit: 8,
+                        font: function(context) {
+                            const chart = context.chart;
+                            return {
+                                size: chart.width < 400 ? 8 : 10
+                            };
+                        }
                     }
                 },
                 y: {
@@ -1063,11 +1414,33 @@ function initializeTurbidityChart() {
                     max: 0.5,
                     title: {
                         display: true,
-                        text: 'Turbidity (NTU)'
+                        text: 'Turbidity (NTU)',
+                        font: function(context) {
+                            const chart = context.chart;
+                            return {
+                                size: chart.width < 400 ? 10 : 12
+                            };
+                        }
                     }
                 }
             },
             plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        boxWidth: function(context) {
+                            const chart = context.chart;
+                            return chart.width < 400 ? 10 : 15;
+                        },
+                        font: function(context) {
+                            const chart = context.chart;
+                            return {
+                                size: chart.width < 400 ? 10 : 12
+                            };
+                        }
+                    }
+                },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
@@ -1079,7 +1452,7 @@ function initializeTurbidityChart() {
                                 label += ': ';
                             }
                             if (context.parsed.y !== null) {
-                                label += context.parsed.y.toFixed(2) + ' NTU';
+                                label += context.parsed.y.toFixed(3) + ' NTU';
                             }
                             return label;
                         }
@@ -1122,9 +1495,38 @@ function updateTurbidityChart(hours) {
     turbidityChart.data.labels = labels;
     turbidityChart.data.datasets[0].data = turbidityData;
     turbidityChart.data.datasets[1].data = dosingEvents;
+
+    // Update axis options for better display with different time ranges
+    if (hours <= 24) {
+        turbidityChart.options.scales.x.ticks.maxTicksLimit = 8;
+    } else if (hours <= 48) {
+        turbidityChart.options.scales.x.ticks.maxTicksLimit = 12;
+    } else {
+        turbidityChart.options.scales.x.ticks.maxTicksLimit = 14;
+    }
+    
+    // Force responsive adaptation to current size
+    const currentWidth = turbidityChart.width;
+    turbidityChart.options.onResize(turbidityChart, {width: currentWidth, height: turbidityChart.height});
     
     // Update chart
     turbidityChart.update();
+
+    // Update ARIA label
+    const chartContainer = document.querySelector('#turbidityChart').closest('.chart-container');
+    if (chartContainer) {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setHours(startDate.getHours() - hours);
+        
+        // Format dates for accessibility description
+        const formatDate = (date) => {
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        };
+        
+        chartContainer.setAttribute('aria-label', 
+            `Chart showing turbidity history from ${formatDate(startDate)} to ${formatDate(endDate)}`);
+    }
 }
 
 // Global variables for history charts
@@ -1365,6 +1767,35 @@ function initializeHistoryChart() {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                resizeDelay: 100,
+                onResize: function(chart, size) {
+                    // Adjust point size and line width based on chart size
+                    if (size.width < 400) {
+                        chart.data.datasets.forEach(dataset => {
+                            if (dataset.pointStyle !== 'triangle') { // Don't adjust dosing events
+                                dataset.pointRadius = 1;
+                                dataset.borderWidth = 1;
+                            }
+                        });
+                        chart.options.scales.x.ticks.maxTicksLimit = 5;
+                    } else if (size.width < 768) {
+                        chart.data.datasets.forEach(dataset => {
+                            if (dataset.pointStyle !== 'triangle') {
+                                dataset.pointRadius = 2;
+                                dataset.borderWidth = 2;
+                            }
+                        });
+                        chart.options.scales.x.ticks.maxTicksLimit = 8;
+                    } else {
+                        chart.data.datasets.forEach(dataset => {
+                            if (dataset.pointStyle !== 'triangle') {
+                                dataset.pointRadius = 3;
+                                dataset.borderWidth = 2;
+                            }
+                        });
+                        chart.options.scales.x.ticks.maxTicksLimit = 10;
+                    }
+                },
                 interaction: {
                     mode: 'index',
                     intersect: false
@@ -1374,6 +1805,12 @@ function initializeHistoryChart() {
                         ticks: {
                             maxRotation: 0,
                             autoSkip: true,
+                            font: function(context) {
+                                const chart = context.chart;
+                                return {
+                                    size: chart.width < 400 ? 8 : 10
+                                };
+                            },
                             maxTicksLimit: 10
                         }
                     },
@@ -1439,10 +1876,21 @@ function initializeHistoryChart() {
                 },
                 plugins: {
                     legend: {
+                        display: true,
                         position: 'top',
                         labels: {
                             usePointStyle: true
-                        },
+                            },
+                            boxWidth: function(context) {
+                                const chart = context.chart;
+                                return chart.width < 400 ? 10 : 15;
+                            },
+                            font: function(context) {
+                                const chart = context.chart;
+                                return {
+                                    size: chart.width < 400 ? 10 : 12
+                                };
+                            },
                         // Make legend display-only by providing an empty click handler
                         onClick: function(e, legendItem, legend) {
                             // Do nothing - legend is display only
@@ -1519,10 +1967,17 @@ function initializeParameterButtons() {
         
         // Add our new handler
         newButton.addEventListener('click', function() {
-            // Get parameter name and dataset index
+            // Get parameter name
             const paramName = this.textContent.trim();
             const datasetIndex = paramMap[paramName];
-            
+
+            // Toggle visibility (inverse of current state)
+            const currentVisibility = this.classList.contains('active');
+            const newVisibility = !currentVisibility;
+
+            // Update synchronized state
+            syncParameterSelection('button', paramName, newVisibility);
+
             if (datasetIndex !== undefined) {
                 // Toggle visibility in the chart
                 const currentVisibility = historyChart.isDatasetVisible(datasetIndex);
@@ -1559,9 +2014,9 @@ function initializeParameterButtons() {
             }
         });
         
-        // Set initial state
+        // Set initial state based on chart visibility
         const paramName = newButton.textContent.trim();
-        const datasetIndex = paramMap[paramName];
+        const datasetIndex = buttonToDataset[paramName];
         if (datasetIndex !== undefined) {
             const isVisible = historyChart.isDatasetVisible(datasetIndex);
             newButton.classList.toggle('active', isVisible);
@@ -1735,6 +2190,34 @@ function updateHistoryChart(hours) {
     historyChart.update();
     
     updateTableDataForPage('historyDataTable', 1);
+
+    const chartContainer = document.querySelector('#historyChart').closest('.chart-container');
+    if (chartContainer) {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setHours(startDate.getHours() - hours);
+        
+        // Format dates for accessibility description
+        const formatDate = (date) => {
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        };
+        
+        // Get visible parameters for a more descriptive label
+        const visibleParams = [];
+        if (historyChart.isDatasetVisible(0)) visibleParams.push('pH');
+        if (historyChart.isDatasetVisible(1)) visibleParams.push('ORP');
+        if (historyChart.isDatasetVisible(2)) visibleParams.push('Free Chlorine');
+        if (historyChart.isDatasetVisible(3)) visibleParams.push('Combined Chlorine');
+        if (historyChart.isDatasetVisible(4)) visibleParams.push('Turbidity');
+        if (historyChart.isDatasetVisible(5)) visibleParams.push('Temperature');
+        
+        const paramText = visibleParams.length > 0 
+            ? `showing ${visibleParams.join(', ')}` 
+            : 'showing selected parameters';
+            
+        chartContainer.setAttribute('aria-label', 
+            `Chart ${paramText} from ${formatDate(startDate)} to ${formatDate(endDate)}`);
+    }
 }
 
 /**
@@ -1797,6 +2280,31 @@ function updateHistoryChartCustomRange(startDate, endDate) {
     historyChart.update();
     
     updateTableDataForPage('historyDataTable', 1);
+
+    // Update the ARIA label with the custom date range
+    const chartContainer = document.querySelector('#historyChart').closest('.chart-container');
+    if (chartContainer) {
+        // Format dates for accessibility description
+        const formatDate = (date) => {
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        };
+        
+        // Get visible parameters for a more descriptive label
+        const visibleParams = [];
+        if (historyChart.isDatasetVisible(0)) visibleParams.push('pH');
+        if (historyChart.isDatasetVisible(1)) visibleParams.push('ORP');
+        if (historyChart.isDatasetVisible(2)) visibleParams.push('Free Chlorine');
+        if (historyChart.isDatasetVisible(3)) visibleParams.push('Combined Chlorine');
+        if (historyChart.isDatasetVisible(4)) visibleParams.push('Turbidity');
+        if (historyChart.isDatasetVisible(5)) visibleParams.push('Temperature');
+        
+        const paramText = visibleParams.length > 0 
+            ? `showing ${visibleParams.join(', ')}` 
+            : 'showing selected parameters';
+            
+        chartContainer.setAttribute('aria-label', 
+            `Chart ${paramText} from ${formatDate(startDate)} to ${formatDate(endDate)}`);
+    }
 }
 
 /**
@@ -1831,6 +2339,11 @@ function updateHistoryChartVisibility() {
 
     // Update chart
     historyChart.update();
+
+    // Update dataset visibility based on checkboxes
+    document.querySelectorAll('#history-tab input[type="checkbox"]').forEach(checkbox => {
+        syncParameterSelection('checkbox', checkbox.id, checkbox.checked);
+    });
 }
 
 /**
@@ -2468,7 +2981,37 @@ function saveAccountSettings(form) {
     const newPassword = document.getElementById('newPassword');
     const confirmPassword = document.getElementById('confirmPassword');
     const submitButton = form.querySelector('button[type="submit"]');
+
+    // Validate form
+    const isValid = validateForm({
+        'currentPassword': {
+            label: 'Current Password',
+            required: true
+        },
+        'newPassword': {
+            label: 'New Password',
+            required: true
+        },
+        'confirmPassword': {
+            label: 'Confirm Password',
+            required: true
+        },
+        _relationships: [
+            {
+                type: 'equality',
+                field1: 'newPassword',
+                field2: 'confirmPassword',
+                field1Label: 'New Password',
+                field2Label: 'Confirm Password',
+                errorMessage: 'New passwords do not match'
+            }
+        ]
+    });
     
+    if (!isValid) {
+        return; // Don't proceed if validation fails
+    }
+
     // Set loading state
     const originalButtonText = submitButton.innerHTML;
     submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
@@ -2509,7 +3052,20 @@ function saveAccountSettings(form) {
 function saveNotificationSettings(form) {
     // Get form elements
     const submitButton = form.querySelector('button[type="submit"]');
+
+    // Validate form
+    const isValid = validateForm({
+        'notificationEmail': {
+            label: 'Notification Email',
+            required: false,
+            email: true
+        }
+    });
     
+    if (!isValid) {
+        return; // Don't proceed if validation fails
+    }
+
     // Set loading state
     const originalButtonText = submitButton.innerHTML;
     submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
@@ -2547,7 +3103,33 @@ function saveNotificationSettings(form) {
 function saveSystemConfig(form) {
     // Get form elements
     const submitButton = form.querySelector('button[type="submit"]');
+
+    // Validate form
+    const isValid = validateForm({
+        'systemName': {
+            label: 'System Name',
+            required: true
+        },
+        'poolSize': {
+            label: 'Pool Size',
+            required: true,
+            numeric: true,
+            min: 10,
+            max: 10000
+        },
+        'refreshInterval': {
+            label: 'Refresh Interval',
+            required: true,
+            numeric: true,
+            min: 5,
+            max: 3600
+        }
+    });
     
+    if (!isValid) {
+        return; // Don't proceed if validation fails
+    }
+
     // Set loading state
     const originalButtonText = submitButton.innerHTML;
     submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
@@ -2588,6 +3170,86 @@ function saveChemistryTargets(form) {
     // Get form elements
     const submitButton = form.querySelector('button[type="submit"]');
     
+    // Validate form
+    const isValid = validateForm({
+        'phTargetMin': {
+            label: 'Minimum pH',
+            required: true,
+            numeric: true,
+            min: 6.5,
+            max: 8.0
+        },
+        'phTargetMax': {
+            label: 'Maximum pH',
+            required: true,
+            numeric: true,
+            min: 6.5,
+            max: 8.0
+        },
+        'orpTargetMin': {
+            label: 'Minimum ORP',
+            required: true,
+            numeric: true,
+            min: 500,
+            max: 900
+        },
+        'orpTargetMax': {
+            label: 'Maximum ORP',
+            required: true,
+            numeric: true,
+            min: 500,
+            max: 900
+        },
+        'freeClTargetMin': {
+            label: 'Minimum Free Chlorine',
+            required: true,
+            numeric: true,
+            min: 0.5,
+            max: 5.0
+        },
+        'freeClTargetMax': {
+            label: 'Maximum Free Chlorine',
+            required: true,
+            numeric: true,
+            min: 0.5,
+            max: 5.0
+        },
+        'combinedClMax': {
+            label: 'Maximum Combined Chlorine',
+            required: true,
+            numeric: true,
+            min: 0,
+            max: 1.0
+        },
+        _relationships: [
+            {
+                type: 'minLessThanMax',
+                minField: 'phTargetMin',
+                maxField: 'phTargetMax',
+                label: 'Minimum pH',
+                maxLabel: 'Maximum pH'
+            },
+            {
+                type: 'minLessThanMax',
+                minField: 'orpTargetMin',
+                maxField: 'orpTargetMax',
+                label: 'Minimum ORP',
+                maxLabel: 'Maximum ORP'
+            },
+            {
+                type: 'minLessThanMax',
+                minField: 'freeClTargetMin',
+                maxField: 'freeClTargetMax',
+                label: 'Minimum Free Chlorine',
+                maxLabel: 'Maximum Free Chlorine'
+            }
+        ]
+    });
+    
+    if (!isValid) {
+        return; // Don't proceed if validation fails
+    }
+
     // Set loading state
     const originalButtonText = submitButton.innerHTML;
     submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
@@ -2601,7 +3263,7 @@ function saveChemistryTargets(form) {
     const freeClTargetMin = document.getElementById('freeClTargetMin').value;
     const freeClTargetMax = document.getElementById('freeClTargetMax').value;
     const combinedClMax = document.getElementById('combinedClMax').value;
-    
+
     // Validate ranges
     if (parseFloat(phTargetMin) >= parseFloat(phTargetMax)) {
         showToast('pH minimum must be lower than maximum', 'warning');
@@ -2646,7 +3308,7 @@ function saveChemistryTargets(form) {
     setTimeout(function() {
         submitButton.innerHTML = originalButtonText;
         submitButton.disabled = false;
-        showToast('Chemistry targets saved successfully');
+        showToast('Chemistry targets saved successfully', 'success');
         updateUIFromSettings();
     }, 800);
 }
@@ -2657,7 +3319,66 @@ function saveChemistryTargets(form) {
 function savePumpConfig(form) {
     // Get form elements
     const submitButton = form.querySelector('button[type="submit"]');
+
+    // Validate form
+    const isValid = validateForm({
+        'phPumpFlowRate': {
+            label: 'pH Pump Flow Rate',
+            required: true,
+            numeric: true,
+            min: 10,
+            max: 500
+        },
+        'clPumpFlowRate': {
+            label: 'Chlorine Pump Flow Rate',
+            required: true,
+            numeric: true,
+            min: 10,
+            max: 500
+        },
+        'pacMinFlow': {
+            label: 'PAC Minimum Flow',
+            required: true,
+            numeric: true,
+            min: 10,
+            max: 100
+        },
+        'pacMaxFlow': {
+            label: 'PAC Maximum Flow',
+            required: true,
+            numeric: true,
+            min: 100,
+            max: 500
+        },
+        'phMaxDoseDuration': {
+            label: 'pH Maximum Dose Duration',
+            required: true,
+            numeric: true,
+            min: 30,
+            max: 1800
+        },
+        'clMaxDoseDuration': {
+            label: 'Chlorine Maximum Dose Duration',
+            required: true,
+            numeric: true,
+            min: 30,
+            max: 1800
+        },
+        _relationships: [
+            {
+                type: 'minLessThanMax',
+                minField: 'pacMinFlow',
+                maxField: 'pacMaxFlow',
+                label: 'PAC Minimum Flow',
+                maxLabel: 'PAC Maximum Flow'
+            }
+        ]
+    });
     
+    if (!isValid) {
+        return; // Don't proceed if validation fails
+    }
+
     // Set loading state
     const originalButtonText = submitButton.innerHTML;
     submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
@@ -2730,6 +3451,60 @@ function savePumpConfig(form) {
 function saveTurbiditySettings(form) {
     // Get form elements
     const submitButton = form.querySelector('button[type="submit"]');
+
+    // Validate form
+    const isValid = validateForm({
+        'turbidityTarget': {
+            label: 'Turbidity Target',
+            required: true,
+            numeric: true,
+            min: 0.05,
+            max: 0.3
+        },
+        'turbidityLowThreshold': {
+            label: 'Turbidity Low Threshold',
+            required: true,
+            numeric: true,
+            min: 0.05,
+            max: 0.3
+        },
+        'turbidityHighThreshold': {
+            label: 'Turbidity High Threshold',
+            required: true,
+            numeric: true,
+            min: 0.1,
+            max: 0.5
+        },
+        'filterBackwashLevel': {
+            label: 'Filter Backwash Level',
+            required: true,
+            numeric: true,
+            min: 50,
+            max: 90
+        },
+        _relationships: [
+            {
+                type: 'minLessThanMax',
+                minField: 'turbidityLowThreshold',
+                maxField: 'turbidityHighThreshold',
+                label: 'Low Threshold',
+                maxLabel: 'High Threshold'
+            },
+            {
+                type: 'targetBetweenMinMax',
+                targetField: 'turbidityTarget',
+                minField: 'turbidityLowThreshold',
+                maxField: 'turbidityHighThreshold',
+                targetLabel: 'Target Value',
+                minLabel: 'Low Threshold',
+                maxLabel: 'High Threshold'
+            }
+        ]
+    });
+    
+    if (!isValid) {
+        return; // Don't proceed if validation fails
+    }
 
     // Validate thresholds
     if (!validateThresholds(
@@ -2945,7 +3720,29 @@ function importSettings(event) {
 function saveRetentionSettings() {
     // Get the button
     const button = document.getElementById('saveRetentionBtn');
+
+    // Validate form
+    const isValid = validateForm({
+        'dataRetention': {
+            label: 'Data Retention',
+            required: true,
+            numeric: true,
+            min: 7,
+            max: 365
+        },
+        'eventRetention': {
+            label: 'Event Retention',
+            required: true,
+            numeric: true,
+            min: 7,
+            max: 365
+        }
+    });
     
+    if (!isValid) {
+        return; // Don't proceed if validation fails
+    }
+
     // Set loading state
     const originalButtonText = button.innerHTML;
     button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
@@ -3242,15 +4039,52 @@ function loadSavedSettings() {
     }
 }
 
+/**
+ * Updates UI elements based on saved settings
+ * 
+ * This function reads settings from localStorage and updates all UI elements 
+ * to reflect these settings. Should be called on page load and after any settings changes.
+ * 
+ * Updates:
+ * - System name and document title
+ * - Target ranges in overview cards
+ * - Operation mode selection
+ * - PAC dosing thresholds
+ * - Pump flow rate options
+ * - Dose duration options
+ */
 function updateUIFromSettings() {
     // Get current settings
     const systemConfig = JSON.parse(localStorage.getItem('systemConfig') || '{}');
     const chemistryTargets = JSON.parse(localStorage.getItem('chemistryTargets') || '{}');
     const turbiditySettings = JSON.parse(localStorage.getItem('turbiditySettings') || '{}');
+    const pumpConfig = JSON.parse(localStorage.getItem('pumpConfig') || '{}');
+    
+    console.log("Updating UI from settings:", { systemConfig, chemistryTargets, turbiditySettings, pumpConfig });
     
     // Update system name
     if (systemConfig.systemName) {
-        document.querySelector('.sidebar-header h3').textContent = systemConfig.systemName;
+        const sidebarHeader = document.querySelector('.sidebar-header h3');
+        if (sidebarHeader) {
+            sidebarHeader.textContent = systemConfig.systemName;
+            // Also update document title
+            document.title = systemConfig.systemName;
+        }
+    }
+    
+    // Update operation mode
+    if (systemConfig.defaultMode) {
+        if (systemConfig.defaultMode === 'manual') {
+            const manualModeBtn = document.getElementById('manualMode');
+            if (manualModeBtn && !manualModeBtn.classList.contains('active')) {
+                manualModeBtn.click(); // Simulate clicking the manual mode button
+            }
+        } else {
+            const autoModeBtn = document.getElementById('autoMode');
+            if (autoModeBtn && !autoModeBtn.classList.contains('active')) {
+                autoModeBtn.click(); // Simulate clicking the auto mode button
+            }
+        }
     }
     
     // Update target ranges in overview cards
@@ -3258,6 +4092,12 @@ function updateUIFromSettings() {
         const phTargetEl = document.querySelector('#phValue').closest('.d-flex').querySelector('.parameter-info .text-muted.small');
         if (phTargetEl) {
             phTargetEl.textContent = `Target: ${chemistryTargets.phTargetMin} - ${chemistryTargets.phTargetMax}`;
+        }
+        
+        // Also update the range display in the pH Control panel
+        const phRangeEl = document.querySelector('.ph-control .active-range');
+        if (phRangeEl) {
+            phRangeEl.textContent = `${chemistryTargets.phTargetMin} - ${chemistryTargets.phTargetMax}`;
         }
     }
     
@@ -3273,11 +4113,23 @@ function updateUIFromSettings() {
         if (clTargetEl) {
             clTargetEl.textContent = `Free (mg/L) (Target: ${chemistryTargets.freeClTargetMin} - ${chemistryTargets.freeClTargetMax})`;
         }
+        
+        // Also update the range display in the Chlorine Control panel
+        const clRangeEl = document.querySelector('.chlorine-control .active-range');
+        if (clRangeEl) {
+            clRangeEl.textContent = `${chemistryTargets.freeClTargetMin} - ${chemistryTargets.freeClTargetMax}`;
+        }
     }
     
     // Update turbidity settings in PAC tab
     if (turbiditySettings.turbidityTarget) {
         document.getElementById('pacTargetValue').value = turbiditySettings.turbidityTarget;
+        
+        // Also update the turbidity target display in the overview
+        const turbidityTargetEl = document.querySelector('#turbidityValue').closest('.d-flex').querySelector('.parameter-info .text-muted.small');
+        if (turbidityTargetEl) {
+            turbidityTargetEl.textContent = `NTU (Target: ${turbiditySettings.turbidityLowThreshold} - ${turbiditySettings.turbidityHighThreshold})`;
+        }
     }
     
     if (turbiditySettings.turbidityLowThreshold) {
@@ -3287,6 +4139,95 @@ function updateUIFromSettings() {
     if (turbiditySettings.turbidityHighThreshold) {
         document.getElementById('pacHighThreshold').value = turbiditySettings.turbidityHighThreshold;
     }
+    
+    // Update PAC pump flow rate options
+    if (pumpConfig.pacMinFlow && pumpConfig.pacMaxFlow) {
+        const pacFlowRateSelect = document.getElementById('pacFlowRate');
+        if (pacFlowRateSelect) {
+            const minFlow = parseInt(pumpConfig.pacMinFlow);
+            const maxFlow = parseInt(pumpConfig.pacMaxFlow);
+            const medFlow = Math.round((minFlow + maxFlow) / 2);
+            const lowFlow = Math.round((minFlow + medFlow) / 2);
+            const highFlow = Math.round((medFlow + maxFlow) / 2);
+            
+            pacFlowRateSelect.innerHTML = `
+                <option value="${minFlow}">${minFlow} ml/h (Minimum)</option>
+                <option value="${lowFlow}" selected>${lowFlow} ml/h (Low)</option>
+                <option value="${medFlow}">${medFlow} ml/h (Medium)</option>
+                <option value="${highFlow}">${highFlow} ml/h (High)</option>
+                <option value="${maxFlow}">${maxFlow} ml/h (Maximum)</option>
+            `;
+            
+            // Update mock data PAC dosing rate to be within the new range
+            if (mockData) {
+                mockData.pacDosingRate = lowFlow;
+                
+                // Update displayed PAC dosing rate
+                const pacDosingRateEl = document.getElementById('pacDosingRate');
+                if (pacDosingRateEl) {
+                    pacDosingRateEl.textContent = mockData.pacDosingRate;
+                }
+            }
+        }
+    }
+    
+    // Update dose duration options based on configured max duration
+    if (pumpConfig.phMaxDoseDuration) {
+        updateDoseDurationOptions('phDoseDuration', parseInt(pumpConfig.phMaxDoseDuration));
+    }
+    
+    if (pumpConfig.clMaxDoseDuration) {
+        updateDoseDurationOptions('clDoseDuration', parseInt(pumpConfig.clMaxDoseDuration));
+    }
+}
+
+/**
+ * Update dose duration select options based on maximum duration
+ * @param {string} selectId - Select element ID
+ * @param {number} maxDuration - Maximum duration in seconds
+ */
+function updateDoseDurationOptions(selectId, maxDuration) {
+    const selectEl = document.getElementById(selectId);
+    if (!selectEl) return;
+    
+    // Clear existing options
+    selectEl.innerHTML = '';
+    
+    // Add standard options based on max duration
+    const options = [
+        { value: 5, text: '5 seconds' },
+        { value: 10, text: '10 seconds' },
+        { value: 30, text: '30 seconds' },
+        { value: 60, text: '1 minute' },
+        { value: 120, text: '2 minutes' },
+        { value: 300, text: '5 minutes' }
+    ];
+    
+    // Add any custom options if max duration is larger
+    if (maxDuration > 300) {
+        options.push({ value: 600, text: '10 minutes' });
+    }
+    
+    if (maxDuration > 600) {
+        options.push({ value: 900, text: '15 minutes' });
+    }
+    
+    // Keep only options that are <= maxDuration
+    const validOptions = options.filter(opt => opt.value <= maxDuration);
+    
+    // Add options to select
+    validOptions.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt.value;
+        option.textContent = opt.text;
+        
+        // Select 30 seconds by default
+        if (opt.value === 30) {
+            option.selected = true;
+        }
+        
+        selectEl.appendChild(option);
+    });
 }
 
 /**
@@ -3320,6 +4261,114 @@ function validateThresholds(minId, maxId, targetId, name) {
     }
     
     return true;
+}
+
+/**
+ * Create a comprehensive form validation utility
+ * @param {Object} validations - Object containing field IDs and validation rules
+ * @returns {boolean} - Whether validation passed
+ */
+function validateForm(validations) {
+    let isValid = true;
+    
+    for (const fieldId in validations) {
+        const field = document.getElementById(fieldId);
+        if (!field) continue;
+        
+        const rules = validations[fieldId];
+        const value = field.value;
+        
+        // Clear previous validation styling
+        field.classList.remove('is-invalid');
+        
+        // Required field validation
+        if (rules.required && !value.trim()) {
+            field.classList.add('is-invalid');
+            showToast(`${rules.label || fieldId} is required`, 'warning');
+            isValid = false;
+            continue;
+        }
+        
+        // Numeric validation
+        if (rules.numeric && value.trim()) {
+            const numValue = parseFloat(value);
+            
+            // Check if it's a valid number
+            if (isNaN(numValue)) {
+                field.classList.add('is-invalid');
+                showToast(`${rules.label || fieldId} must be a valid number`, 'warning');
+                isValid = false;
+                continue;
+            }
+            
+            // Min/max validation
+            if (rules.min !== undefined && numValue < rules.min) {
+                field.classList.add('is-invalid');
+                showToast(`${rules.label || fieldId} must be at least ${rules.min}`, 'warning');
+                isValid = false;
+                continue;
+            }
+            
+            if (rules.max !== undefined && numValue > rules.max) {
+                field.classList.add('is-invalid');
+                showToast(`${rules.label || fieldId} must be no more than ${rules.max}`, 'warning');
+                isValid = false;
+                continue;
+            }
+        }
+        
+        // Email validation
+        if (rules.email && value.trim() && !/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(value)) {
+            field.classList.add('is-invalid');
+            showToast(`Please enter a valid email address`, 'warning');
+            isValid = false;
+            continue;
+        }
+    }
+    
+    // Relationship validations (comparing fields)
+    for (const relationship of (validations._relationships || [])) {
+        // Min/max relationship validation
+        if (relationship.type === 'minLessThanMax') {
+            const minField = document.getElementById(relationship.minField);
+            const maxField = document.getElementById(relationship.maxField);
+            
+            if (minField && maxField) {
+                const minValue = parseFloat(minField.value);
+                const maxValue = parseFloat(maxField.value);
+                
+                if (!isNaN(minValue) && !isNaN(maxValue) && minValue >= maxValue) {
+                    minField.classList.add('is-invalid');
+                    maxField.classList.add('is-invalid');
+                    showToast(`${relationship.label || 'Min'} must be less than ${relationship.maxLabel || 'Max'}`, 'warning');
+                    isValid = false;
+                }
+            }
+        }
+        
+        // Target between min/max validation
+        if (relationship.type === 'targetBetweenMinMax') {
+            const minField = document.getElementById(relationship.minField);
+            const maxField = document.getElementById(relationship.maxField);
+            const targetField = document.getElementById(relationship.targetField);
+            
+            if (minField && maxField && targetField) {
+                const minValue = parseFloat(minField.value);
+                const maxValue = parseFloat(maxField.value);
+                const targetValue = parseFloat(targetField.value);
+                
+                if (!isNaN(minValue) && !isNaN(maxValue) && !isNaN(targetValue)) {
+                    if (targetValue <= minValue || targetValue >= maxValue) {
+                        targetField.classList.add('is-invalid');
+                        showToast(`${relationship.targetLabel || 'Target'} must be between ${relationship.minLabel || 'Min'} and ${relationship.maxLabel || 'Max'}`, 'warning');
+                        isValid = false;
+                    }
+                }
+            }
+        }
+    }
+    
+    return isValid;
 }
 
 // Initialize Socket.IO connection
@@ -3373,4 +4422,153 @@ function initializeSocketConnection() {
         updateStatusBar('Connection restored', 'success');
         fetchDashboardData();
     });
+}
+
+/**
+ * Update ARIA attributes for accessibility
+ * @param {string} id - Element ID
+ * @param {number} value - Current value
+ * @param {number} min - Minimum value
+ * @param {number} max - Maximum value
+ */
+function updateAriaAttributes(id, value, min, max) {
+    const element = document.querySelector(`#${id}Value`).closest('.d-flex').querySelector('.parameter-range');
+    if (element) {
+        element.setAttribute('aria-valuenow', value);
+        element.setAttribute('aria-valuemin', min);
+        element.setAttribute('aria-valuemax', max);
+    }
+}
+
+/**
+ * Format a numeric value with appropriate decimal places
+ * @param {number} value - Number to format
+ * @param {string} paramType - Parameter type (e.g., 'ph', 'orp', 'chlorine')
+ * @returns {string} - Formatted value
+ */
+function formatParameterValue(value, paramType) {
+    if (typeof value !== 'number' || isNaN(value)) {
+        return String(value);
+    }
+    
+    switch (paramType) {
+        case 'ph':
+            return value.toFixed(2);
+        case 'orp':
+        case 'uvIntensity':
+            return Math.round(value).toString();
+        case 'chlorine':
+        case 'freeChlorine':
+        case 'combinedChlorine':
+            return value.toFixed(2);
+        case 'turbidity':
+            return value.toFixed(3);
+        case 'temperature':
+            return value.toFixed(1);
+        default:
+            // Default formatting based on magnitude
+            return value < 10 ? value.toFixed(2) : value.toFixed(1);
+    }
+}
+
+/**
+ * Synchronize parameter checkboxes, buttons, and chart visibility
+ * @param {string} source - Source of the update ('checkbox', 'button', or 'chart')
+ * @param {string} id - ID of the element that triggered the update
+ * @param {boolean} isVisible - Whether the parameter should be visible
+ */
+function syncParameterSelection(source, id, isVisible) {
+    // Maps for relating different UI elements
+    const checkboxToDataset = {
+        'showPh': 0,
+        'showOrp': 1,
+        'showFreeChlorine': 2,
+        'showCombinedChlorine': 3,
+        'showTurbidity': 4,
+        'showTemp': 5,
+        'showDosingEvents': 6
+    };
+    
+    const datasetToCheckbox = {
+        0: 'showPh',
+        1: 'showOrp',
+        2: 'showFreeChlorine',
+        3: 'showCombinedChlorine',
+        4: 'showTurbidity',
+        5: 'showTemp',
+        6: 'showDosingEvents'
+    };
+    
+    const buttonToDataset = {
+        'pH': 0,
+        'ORP': 1,
+        'Free Chlorine': 2,
+        'Combined Cl': 3,
+        'Turbidity': 4,
+        'Temperature': 5
+    };
+    
+    const datasetToButton = {
+        0: 'pH',
+        1: 'ORP',
+        2: 'Free Chlorine',
+        3: 'Combined Cl',
+        4: 'Turbidity',
+        5: 'Temperature'
+    };
+    
+    if (!historyChart) return;
+    
+    if (source === 'checkbox') {
+        // Update from checkbox
+        const datasetIndex = checkboxToDataset[id];
+        if (datasetIndex === undefined) return;
+        
+        // Update chart visibility
+        historyChart.setDatasetVisibility(datasetIndex, isVisible);
+        
+        // Update button state
+        const buttonText = datasetToButton[datasetIndex];
+        if (buttonText) {
+            document.querySelectorAll('.parameters button').forEach(button => {
+                if (button.textContent.trim() === buttonText) {
+                    button.classList.toggle('active', isVisible);
+                    button.classList.toggle('btn-primary', isVisible);
+                    button.classList.toggle('btn-outline-secondary', !isVisible);
+                }
+            });
+        }
+    } else if (source === 'button') {
+        // Update from button
+        const datasetIndex = buttonToDataset[id];
+        if (datasetIndex === undefined) return;
+        
+        // Update chart visibility
+        historyChart.setDatasetVisibility(datasetIndex, isVisible);
+        
+        // Update checkbox state
+        const checkboxId = datasetToCheckbox[datasetIndex];
+        if (checkboxId) {
+            const checkbox = document.getElementById(checkboxId);
+            if (checkbox) {
+                checkbox.checked = isVisible;
+            }
+        }
+    }
+
+    // Add event listeners to checkboxes
+    document.querySelectorAll('#history-tab input[type="checkbox"]').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            syncParameterSelection('checkbox', this.id, this.checked);
+        });
+    });
+    
+    // Update axis visibility after any change
+    updateAllAxisVisibility();
+    
+    // Update chart
+    historyChart.update();
+    
+    // Update chart ARIA label
+    updateChartAriaLabel();
 }

@@ -78,9 +78,9 @@
                                         </div>
                                         <div class="parameter-info">
                                             <div class="text-muted small">Target: 7.2 - 7.6</div>
-                                            <div class="parameter-range">
+                                            <div class="parameter-range" role="progressbar" aria-valuemin="6.8" aria-valuemax="8.0" aria-valuenow="7.4">
                                                 <div class="parameter-marker" style="left: 60%"></div>
-                                            </div>
+                                            </div>                                            
                                         </div>
                                     </div>
                                     <div class="mt-3 d-flex align-items-center">
@@ -105,7 +105,7 @@
                                         </div>
                                         <div class="parameter-info">
                                             <div class="text-muted small">mV (Target: 650 - 750)</div>
-                                            <div class="parameter-range">
+                                            <div class="parameter-range" role="progressbar" aria-valuemin="600" aria-valuemax="800" aria-valuenow="720">
                                                 <div class="parameter-marker" style="left: 70%"></div>
                                             </div>
                                         </div>
@@ -128,7 +128,7 @@
                                         </div>
                                         <div class="parameter-info">
                                             <div class="text-muted small">Free (mg/L)</div>
-                                            <div class="parameter-range">
+                                            <div class="parameter-range" role="progressbar" aria-valuemin="0.5" aria-valuemax="3.0" aria-valuenow="1.2">
                                                 <div class="parameter-marker" style="left: 55%"></div>
                                             </div>
                                         </div>
@@ -163,7 +163,7 @@
                                         </div>
                                         <div class="parameter-info">
                                             <div class="text-muted small">NTU (Target: 0.12 - 0.25)</div>
-                                            <div class="parameter-range">
+                                            <div class="parameter-range" role="progressbar" aria-valuemin="0.05" aria-valuemax="0.5" aria-valuenow="0.14">
                                                 <div class="parameter-marker" style="left: 45%"></div>
                                             </div>
                                         </div>
@@ -190,7 +190,7 @@
                                         </div>
                                         <div class="parameter-info">
                                             <div class="text-muted small">°C (Target: 26 - 30)</div>
-                                            <div class="parameter-range">
+                                            <div class="parameter-range" role="progressbar" aria-valuemin="20" aria-valuemax="32" aria-valuenow="28.2">
                                                 <div class="parameter-marker" style="left: 55%"></div>
                                             </div>
                                         </div>
@@ -213,7 +213,7 @@
                                         </div>
                                         <div class="parameter-info">
                                             <div class="text-muted small">% (Intensity)</div>
-                                            <div class="parameter-range">
+                                            <div class="parameter-range" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="94">
                                                 <div class="parameter-marker" style="left: 94%"></div>
                                             </div>
                                         </div>
@@ -264,7 +264,7 @@
                                             </div>
                                         </div>
                                         
-                                        <div class="progress mb-2" style="height: 8px; position: relative;">
+                                        <div class="progress" style="height: 8px; position: relative;" role="progressbar" aria-valuemin="6.8" aria-valuemax="8.0" aria-valuenow="7.4">
                                             <div class="progress-bar bg-danger" role="progressbar" style="width: 10%"></div>
                                             <div class="progress-bar bg-warning" role="progressbar" style="width: 10%"></div>
                                             <div class="progress-bar bg-success" role="progressbar" style="width: 20%"></div>
@@ -311,6 +311,7 @@
                                         <h6>Manual Control</h6>
                                         <div class="row g-2">
                                             <div class="col-md-6">
+                                                <label for="phDoseDuration" class="visually-hidden">pH Dose Duration</label>
                                                 <select class="form-select" id="phDoseDuration">
                                                     <option value="5">5 seconds</option>
                                                     <option value="10">10 seconds</option>
@@ -395,7 +396,7 @@
                                             </div>
                                         </div>
                                         
-                                        <div class="progress mb-2" style="height: 8px; position: relative;">
+                                        <div class="progress" style="height: 8px; position: relative;" role="progressbar" aria-valuemin="0.5" aria-valuemax="5.0" aria-valuenow="1.2">
                                             <div class="progress-bar bg-danger" role="progressbar" style="width: 10%"></div>
                                             <div class="progress-bar bg-warning" role="progressbar" style="width: 10%"></div>
                                             <div class="progress-bar bg-success" role="progressbar" style="width: 30%"></div>
@@ -442,6 +443,7 @@
                                         <h6>Manual Control</h6>
                                         <div class="row g-2">
                                             <div class="col-md-6">
+                                                <label for="clDoseDuration" class="visually-hidden">cl Dose Duration</label>
                                                 <select class="form-select" id="clDoseDuration">
                                                     <option value="5">5 seconds</option>
                                                     <option value="10">10 seconds</option>
@@ -518,7 +520,9 @@
                                 </div>
                                 <div class="card-body">
                                     <div style="height: 300px;">
-                                        <canvas id="chemistryChart"></canvas>
+                                        <div class="chart-container" role="img" aria-label="Chart showing water chemistry history">
+                                            <canvas id="chemistryChart"></canvas>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -549,7 +553,7 @@
                                             </div>
                                         </div>
                                         
-                                        <div class="progress mb-2" style="height: 8px;">
+                                        <div class="progress" style="height: 8px;" role="progressbar" aria-valuemin="0.05" aria-valuemax="0.50" aria-valuenow="0.15">
                                             <div class="progress-bar bg-success" role="progressbar" style="width: 25%"></div>
                                             <div class="progress-bar bg-warning" role="progressbar" style="width: 25%"></div>
                                             <div class="progress-bar bg-danger" role="progressbar" style="width: 50%"></div>
@@ -631,9 +635,8 @@
                                             </div>
                                             <div class="text-end">
                                                 <div class="text-muted small">PAC Level</div>
-                                                <div class="progress-vertical">
-                                                    <div class="progress-bar bg-primary" role="progressbar" style="height: 65%;" 
-                                                         id="pacLevelIndicator" aria-valuenow="65" aria-valuemin="0" aria-valuemax="100"></div>
+                                                <div class="progress-vertical" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="65">
+                                                    <div class="progress-bar bg-primary" style="height: 65%;" id="pacLevelIndicator"></div>
                                                 </div>
                                                 <div class="small text-muted">65%</div>
                                             </div>
@@ -675,6 +678,7 @@
                                         <h6>Manual Control</h6>
                                         <div class="row g-2">
                                             <div class="col-md-6">
+                                                <label for="pacFlowRate" class="visually-hidden">PAC Flow Rate</label>
                                                 <select class="form-select" id="pacFlowRate">
                                                     <option value="60">60 ml/h (Minimum)</option>
                                                     <option value="75" selected>75 ml/h (Low)</option>
@@ -750,7 +754,9 @@
                                 </div>
                                 <div class="card-body">
                                     <div style="height: 300px;">
-                                        <canvas id="turbidityChart"></canvas>
+                                        <div class="chart-container" role="img" aria-label="Chart showing turbidity history">
+                                            <canvas id="turbidityChart"></canvas>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -768,6 +774,7 @@
                                 <div class="col-md-5">
                                     <label class="form-label">Time Range</label>
                                     <div class="d-flex gap-2">
+                                        <label for="historyPresetRange" class="visually-hidden">History Preset Range</label>
                                         <select class="form-select" id="historyPresetRange">
                                             <option value="24">Last 24 Hours</option>
                                             <option value="48">Last 48 Hours</option>
@@ -867,7 +874,9 @@
                         </div>
                         <div class="card-body">
                             <div style="height: 400px;">
-                                <canvas id="historyChart"></canvas>
+                                <div class="chart-container" role="img" aria-label="Chart showing historical parameter data">
+                                    <canvas id="historyChart"></canvas>
+                                </div>
                             </div>
                         </div>
                     </div>
