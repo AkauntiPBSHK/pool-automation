@@ -415,3 +415,232 @@ main {
         transform: rotate(360deg);
     }
 }
+
+/* Make chart containers position relative for absolute positioning of buttons */
+.chart-container {
+    position: relative;
+}
+
+/* Add a subtle animation for the auto-scale buttons when active */
+.btn-outline-secondary:active {
+    transform: scale(0.95);
+    transition: transform 0.1s;
+}
+
+/* Add a loading state class for charts during optimization */
+.chart-optimizing {
+    opacity: 0.7;
+    transition: opacity 0.3s;
+}
+
+/* Style for the target zone (optional, if you implement the threshold visualization) */
+.target-zone {
+    fill: rgba(40, 167, 69, 0.1);
+    stroke: rgba(40, 167, 69, 0.5);
+    stroke-width: 1px;
+    stroke-dasharray: 3,3;
+}
+
+/* Tooltip enhancements */
+.chartjs-tooltip {
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    border-radius: 4px;
+    padding: 5px 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    pointer-events: none;
+    font-size: 0.85rem;
+}
+
+/* Pool-themed color variables */
+:root {
+    --pool-blue: #0d6efd;
+    --pool-blue-light: #e6f2ff;
+    --pool-blue-dark: #0a4bb3;
+    --water-ripple: #e1f5fe;
+  }
+  
+  /* Subtle water background pattern for main content */
+  main {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cpath fill='%23f1f8ff' fill-opacity='0.6' d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z'%3E%3C/path%3E%3C/svg%3E");
+  }
+  
+  /* Improved card styling */
+  .card {
+    border-radius: 0.75rem;
+    border-top: 3px solid var(--pool-blue);
+    overflow: hidden;
+  }
+  
+  /* Enhanced card headers with gradient */
+  .card-header {
+    background: linear-gradient(to right, var(--pool-blue), #0dcaf0);
+    border-bottom: none;
+    color: white;
+    padding: 0.85rem 1.25rem;
+  }
+  
+  .card-header h5 {
+    color: white;
+    font-weight: 600;
+    margin-bottom: 0;
+  }
+  
+  /* Water-like progress bars */
+  .progress {
+    background-color: var(--pool-blue-light);
+    height: 6px;
+    overflow: visible;
+  }
+  
+  .progress-bar {
+    background: linear-gradient(to right, #00a1ff, #0dcaf0);
+    box-shadow: 0 0 10px rgba(13, 110, 253, 0.5);
+  }
+  
+  /* Water level styling for PAC reservoir */
+  .progress-vertical {
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.5), rgba(225, 245, 254, 0.3));
+    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.1);
+    height: 80px;
+    border-radius: 6px;
+  }
+  
+  .progress-vertical .progress-bar {
+    background: linear-gradient(to top, #0d6efd 0%, #7cc2ff 100%);
+    border-radius: 0 0 4px 4px;
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .progress-vertical .progress-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 10px;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.1));
+    opacity: 0.6;
+    animation: wave 2s infinite linear;
+  }
+  
+  @keyframes wave {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(3px); }
+    100% { transform: translateY(0); }
+  }
+  
+  /* Enhanced parameter markers */
+  .parameter-marker, .ph-marker, .chlorine-marker, .turbidity-marker {
+    background-color: white;
+    border: 2px solid var(--pool-blue);
+    height: 16px;
+    width: 8px;
+    box-shadow: 0 0 8px rgba(13, 110, 253, 0.5);
+  }
+  
+  /* Enhanced blue indicator for more visibility */
+  .blue-indicator {
+    background-color: white;
+    border: 2px solid var(--pool-blue);
+    width: 14px;
+    height: 14px;
+    box-shadow: 0 0 12px rgba(13, 110, 253, 0.6);
+  }
+  
+  /* Improved chart containers */
+  .chart-container {
+    border-radius: 8px;
+    background-color: white;
+    padding: 1rem;
+    box-shadow: inset 0 0 20px rgba(225, 245, 254, 0.5);
+  }
+  
+  /* Auto-scale button enhancements */
+  button#chemistryAutoScale, 
+  button#turbidityAutoScale,
+  button#historyAutoScale {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 10;
+    background-color: rgba(255, 255, 255, 0.9);
+    border-color: var(--pool-blue);
+    color: var(--pool-blue);
+  }
+  
+  button#chemistryAutoScale:hover,
+  button#turbidityAutoScale:hover,
+  button#historyAutoScale:hover {
+    background-color: var(--pool-blue);
+    color: white;
+  }
+  
+  /* Toast notification improvements */
+  .toast {
+    border-radius: 8px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    border: none;
+  }
+  
+  .toast-header {
+    border-radius: 8px 8px 0 0;
+  }
+  
+  /* Improved form elements for water controls */
+  .form-select, .form-control {
+    border-radius: 6px;
+    border-color: #ced4da;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  
+  .form-select:focus, .form-control:focus {
+    border-color: var(--pool-blue);
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+  }
+  
+  /* Target value visualization for thresholds */
+  .progress.threshold-progress {
+    position: relative;
+  }
+  
+  .threshold-marker-low, .threshold-marker-high {
+    position: absolute;
+    top: -8px;
+    width: 2px;
+    height: 20px;
+    background-color: #ffc107;
+    z-index: 2;
+  }
+  
+  .threshold-marker-target {
+    position: absolute;
+    top: -10px;
+    width: 4px;
+    height: 24px;
+    background-color: #20c997;
+    z-index: 3;
+  }
+  
+  /* Improved active tab indication */
+  #sidebar .nav-link.active {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  #sidebar .nav-link.active::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 6px;
+    height: 100%;
+    background: linear-gradient(to bottom, #7cc2ff, #0dcaf0);
+    animation: slideIn 0.3s forwards;
+  }
+  
+  @keyframes slideIn {
+    from { transform: translateX(6px); }
+    to { transform: translateX(0); }
+  }

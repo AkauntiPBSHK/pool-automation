@@ -415,8 +415,8 @@ function initializeChemistryChart() {
                             };
                         }
                     },
-                    min: 6.8,
-                    max: 8.0,
+                    min: 7.0,
+                    max: 7.8,
                     grid: {
                         drawOnChartArea: true
                     }
@@ -434,8 +434,8 @@ function initializeChemistryChart() {
                             };
                         }
                     },
-                    min: 0,
-                    max: 3,
+                    min: 0.5,
+                    max: 2.5,
                     grid: {
                         drawOnChartArea: false
                     }
@@ -479,6 +479,10 @@ function initializeChemistryChart() {
                 }
             }
         }
+    });
+    
+    document.getElementById('chemistryAutoScale').addEventListener('click', function() {
+        optimizeChartScales(chemistryChart);
     });
 }
 
@@ -1365,8 +1369,8 @@ function initializeTurbidityChart() {
                     data: dosingEvents,
                     borderColor: 'rgba(220, 53, 69, 0.8)',
                     backgroundColor: 'rgba(220, 53, 69, 0.8)',
-                    borderWidth: 1,
-                    pointRadius: 6,
+                    borderWidth: 2,
+                    pointRadius: 8,
                     pointStyle: 'triangle',
                     pointRotation: 180,
                     showLine: false
@@ -1431,8 +1435,8 @@ function initializeTurbidityChart() {
                 },
                 y: {
                     type: 'linear',
-                    min: 0,
-                    max: 0.5,
+                    min: 0.5,
+                    max: 0.25,
                     title: {
                         display: true,
                         text: 'Turbidity (NTU)',
@@ -1481,6 +1485,10 @@ function initializeTurbidityChart() {
                 }
             }
         }
+    });
+    
+    document.getElementById('turbidityAutoScale').addEventListener('click', function() {
+        optimizeChartScales(turbidityChart);
     });
 }
 
@@ -1552,6 +1560,68 @@ function updateTurbidityChart(hours) {
 
 // Global variables for history charts
 let historyChart = null;
+
+/**
+ * Set optimal Y-axis range based on visible data
+ * @param {Chart} chart - Chart.js chart object
+ * @param {Number} paddingFactor - Padding percentage (0.1 = 10% padding)
+ */
+function optimizeChartScales(chart, paddingFactor = 0.1) {
+    // Add loading class to chart container
+    const container = chart.canvas.closest('.chart-container');
+    if (container) {
+        container.classList.add('chart-optimizing');
+    }
+
+    // Process each visible dataset
+    chart.data.datasets.forEach((dataset, index) => {
+        if (chart.isDatasetHidden(index)) return;
+        
+        // Skip dosing events for scaling
+        if (dataset.pointStyle === 'triangle') return;
+        
+        const axisId = dataset.yAxisID;
+        if (!axisId || !chart.options.scales[axisId]) return;
+        
+        // Get min/max of visible data
+        const validData = dataset.data.filter(val => 
+            val !== null && val !== undefined && 
+            (typeof val === 'number' || (typeof val === 'object' && val.y !== undefined))
+        );
+        
+        if (validData.length === 0) return;
+        
+        // Extract y values (handle both number and point formats)
+        const yValues = validData.map(val => typeof val === 'number' ? val : val.y);
+        let min = Math.min(...yValues);
+        let max = Math.max(...yValues);
+        
+        // Add padding
+        const range = max - min;
+        const padding = range * paddingFactor;
+        min = Math.max(0, min - padding); // Don't go below zero for most parameters
+        max = max + padding;
+        
+        // Special handling for pH (never below 6.8)
+        if (axisId === 'y-ph') {
+            min = Math.max(6.8, min);
+        }
+        
+        // Update axis limits
+        chart.options.scales[axisId].min = min;
+        chart.options.scales[axisId].max = max;
+    });
+    
+    // Update the chart
+    chart.update();
+    
+    // Remove loading class after small delay
+    setTimeout(() => {
+        if (container) {
+            container.classList.remove('chart-optimizing');
+        }
+    }, 300);
+}
 
 /**
  * Initialize history tab functionality
@@ -1849,8 +1919,8 @@ function initializeHistoryChart() {
                             display: true,
                             text: 'pH'
                         },
-                        min: 6.8,
-                        max: 8.0,
+                        min: 7.0,
+                        max: 7.8,
                         grid: {
                             drawOnChartArea: true
                         }
@@ -1862,8 +1932,8 @@ function initializeHistoryChart() {
                             display: true,
                             text: 'Chlorine (mg/L)'
                         },
-                        min: 0,
-                        max: 3,
+                        min: 0.5,
+                        max: 2.5,
                         grid: {
                             drawOnChartArea: false
                         }
@@ -1886,8 +1956,8 @@ function initializeHistoryChart() {
                             display: false, // Hide by default
                             text: 'Turbidity (NTU)'
                         },
-                        min: 0,
-                        max: 0.5,
+                        min: 0.05,
+                        max: 0.25,
                         display: false // Initially hidden
                     },
                     'y-temp': {
@@ -1965,6 +2035,10 @@ function initializeHistoryChart() {
         
         // Initialize parameter buttons
         initializeParameterButtons();
+
+        document.getElementById('historyAutoScale').addEventListener('click', function() {
+            optimizeChartScales(historyChart);
+        });
         
     } catch (error) {
         console.error('Error initializing chart:', error);
