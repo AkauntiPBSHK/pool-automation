@@ -757,11 +757,19 @@ function updatePumpStatus(id, running) {
     if (running) {
         statusEl.textContent = isPac ? 'PAC pump active' : 'Pump active';
         statusEl.className = 'text-primary pump-active';
-        statusEl.previousElementSibling.className = 'bi bi-droplet-fill me-2 text-primary';
+        
+        // Add null check before accessing previousElementSibling
+        if (statusEl.previousElementSibling) {
+            statusEl.previousElementSibling.className = 'bi bi-droplet-fill me-2 text-primary';
+        }
     } else {
         statusEl.textContent = isPac ? 'PAC pump inactive' : 'Pump inactive';
         statusEl.className = 'text-secondary';
-        statusEl.previousElementSibling.className = 'bi bi-droplet me-2';
+        
+        // Add null check before accessing previousElementSibling
+        if (statusEl.previousElementSibling) {
+            statusEl.previousElementSibling.className = 'bi bi-droplet me-2';
+        }
     }
 }
 
@@ -907,7 +915,11 @@ function simulateDataChanges() {
     let waterChemistryChanged = false;
     let turbidityChanged = false;
     let pumpStatusChanged = false;
-    
+
+    // Get active tab
+    const activeTabLink = document.querySelector('#sidebar .nav-link.active');
+    const activeTabId = activeTabLink ? activeTabLink.getAttribute('href') : '#overview-tab';
+
     // Only update each parameter with some probability to make changes more realistic
     
     // pH changes (30% chance)
@@ -969,20 +981,21 @@ function simulateDataChanges() {
         pumpStatusChanged = true;
     }
     
-    // Only update UI if something changed
+    // Only update UI if something changed and we're on the relevant tab
     if (parameterChanged) {
+        // Overview is always updated regardless of tab
         requestAnimationFrame(() => {
             updateParameterDisplays(mockData);
         });
     }
     
-    if (waterChemistryChanged) {
+    if (waterChemistryChanged && (activeTabId === '#overview-tab' || activeTabId === '#water-chemistry-tab')) {
         requestAnimationFrame(() => {
             updateWaterChemistryDisplays();
         });
     }
     
-    if (turbidityChanged) {
+    if (turbidityChanged && (activeTabId === '#overview-tab' || activeTabId === '#turbidity-pac-tab')) {
         requestAnimationFrame(() => {
             updateTurbidityPACDisplays();
         });
@@ -990,12 +1003,20 @@ function simulateDataChanges() {
     
     if (pumpStatusChanged) {
         requestAnimationFrame(() => {
-            updatePumpStatus('phPump', mockData.phPumpRunning);
-            updatePumpStatus('phPumpDetail', mockData.phPumpRunning);
-            updatePumpStatus('clPump', mockData.clPumpRunning);
-            updatePumpStatus('clPumpDetail', mockData.clPumpRunning);
-            updatePumpStatus('pacPump', mockData.pacPumpRunning);
-            updatePumpStatus('pacPumpDetail', mockData.pacPumpRunning);
+            // Check if elements exist before updating them
+            const phPumpStatus = document.getElementById('phPumpStatus');
+            const phPumpDetailStatus = document.getElementById('phPumpDetailStatus');
+            const clPumpStatus = document.getElementById('clPumpStatus');
+            const clPumpDetailStatus = document.getElementById('clPumpDetailStatus');
+            const pacPumpStatus = document.getElementById('pacPumpStatus');
+            const pacPumpDetailStatus = document.getElementById('pacPumpDetailStatus');
+            
+            if (phPumpStatus) updatePumpStatus('phPump', mockData.phPumpRunning);
+            if (phPumpDetailStatus) updatePumpStatus('phPumpDetail', mockData.phPumpRunning);
+            if (clPumpStatus) updatePumpStatus('clPump', mockData.clPumpRunning);
+            if (clPumpDetailStatus) updatePumpStatus('clPumpDetail', mockData.clPumpRunning);
+            if (pacPumpStatus) updatePumpStatus('pacPump', mockData.pacPumpRunning);
+            if (pacPumpDetailStatus) updatePumpStatus('pacPumpDetail', mockData.pacPumpRunning);
         });
     }
 }
@@ -4619,6 +4640,6 @@ function syncParameterSelection(source, id, isVisible) {
         dosingEvents: document.getElementById('showDosingEvents')?.checked || false
     };
     
-    // Update chart ARIA label with the right parameters
+    // Update chart ARIA label with necessary parameters
     updateChartAriaLabel(historyChart, visibilityState);
 }
