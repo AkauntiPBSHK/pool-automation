@@ -99,6 +99,41 @@ const translations = {
         "resetComplete": "Settings reset to defaults completed",
         "clearDataComplete": "Historical data cleared successfully",
         "saving": "Saving",
+
+        "showingPage": "Showing page",
+        "chemical": "Chemical",
+        "calibration": "Calibration",
+        "flowRate": "Flow Rate",
+        "level": "Level",
+        "status": "Status",
+        "confirmReset": "Are you sure you want to reset all settings to default values? This cannot be undone.",
+        "confirmClear": "Are you sure you want to clear all historical data? This cannot be undone.",
+        "maxFlow": "Maximum Flow",
+        "lastUpdate": "Last Update",
+        "options": "Options",
+        "downloadChart": "Download Chart",
+        "showingRecords": "Showing records",
+        "page": "Page",
+        "next": "Next",
+        "previous": "Previous",
+        "exportChartData": "Export Chart Data",
+        "importing": "Importing...",
+        "exported": "Exported",
+        "currentPassword": "Current Password",
+        "newPassword": "New Password",
+        "confirmPassword": "Confirm Password",
+        "showDosingEvents": "Show Dosing Events",
+        "enterCurrent": "Enter current",
+        "enterNew": "Enter new",
+        "confirm": "Confirm",
+        "resetToDefaults": "Reset to Defaults",
+        "clearHistoricalData": "Clear Historical Data",
+        "combinedChlorineTitle": "Combined Chlorine",
+        "importSettings": "Import Settings",
+        "enterPassword": "Enter password",
+        "resetSettings": "Reset Settings",
+        "clearData": "Clear Data",
+        "saving": "Saving",
         
         // Button actions
         "refresh": "Refresh",
@@ -592,6 +627,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Apply any saved settings to the UI
     updateUIFromSettings();
+
+    // Apply missing data-i18n attributes
+    applyMissingAttributes();
     
     // Setup socket events
     socket.on('connect', function() {
@@ -3080,13 +3118,14 @@ function saveNotificationSettings(form) {
  */
 function saveSystemConfig(form) {
     try {
-        // Get form elements with more specific selector
-        const submitButton = form.querySelector('button[type="submit"][data-i18n="saveSystemSettings"]');
+        // Get form elements with a more specific selector
+        const submitButton = form.querySelector('button[type="submit"]');
         
         let originalButtonText = submitButton ? submitButton.innerHTML : 'Save System Settings';
         
         // Set loading state
         if (submitButton) {
+            // Add the saving translation
             submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> ' + t('saving') + '...';
             submitButton.disabled = true;
         } else {
@@ -3120,11 +3159,10 @@ function saveSystemConfig(form) {
 
         // Apply language change
         applyLanguage(language);
-        
-        // Simulated delay to show loading state
+        // When resetting the button after timeout
         setTimeout(function() {
             if (submitButton) {
-                submitButton.innerHTML = originalButtonText;
+                submitButton.innerHTML = t('saveSystemSettings');
                 submitButton.disabled = false;
             }
             
@@ -3886,6 +3924,9 @@ function updateUIFromSettings() {
  */
 function applyLanguage(lang) {
     try {
+        // Ensure we have all necessary attributes first
+        applyMissingAttributes();
+
         // Validate language
         if (!translations[lang]) {
             console.error(`Language ${lang} not supported`);
@@ -4775,4 +4816,74 @@ function saveFormSettings(form, settingsName) {
             submitButton.disabled = false;
         }
     }
+}
+
+/**
+ * Apply data-i18n attributes to elements that are missing them
+ */
+function applyMissingAttributes() {
+    // Map of element selectors to translation keys
+    const attributeMap = {
+        '#autoMode': 'automatic',
+        '#manualMode': 'manual',
+        '#refreshBtn': 'refresh',
+        '#phDoseBtn': 'doseAcid',
+        '#phStopBtn': 'stopPump',
+        '#clDoseBtn': 'doseChlorine',
+        '#clStopBtn': 'stopPump',
+        '#pacDoseBtn': 'startDosing',
+        '#pacStopBtn': 'stopPump',
+        '#applyCustomRange': 'apply',
+        '#downloadChartBtn': 'exportData',
+        '#exportSettingsBtn': 'exportSettings',
+        '#saveRetentionBtn': 'saveSettings',
+        '#resetSettingsBtn': 'resetSettings',
+        '#clearDataBtn': 'clearData'
+    };
+    
+    // Apply attributes to matching elements
+    for (const [selector, key] of Object.entries(attributeMap)) {
+        const element = document.querySelector(selector);
+        if (element && !element.hasAttribute('data-i18n')) {
+            element.setAttribute('data-i18n', key);
+        }
+    }
+    
+    // Form label mapping
+    const labelMap = {
+        'Time Range': 'timeRange',
+        'Custom Range': 'customRange',
+        'Parameters': 'parameters',
+        'Visualization': 'visualizationType',
+        'Resolution': 'dataResolution',
+        'Email': 'email',
+        'System Name': 'systemName',
+        'Pool Size (m³)': 'poolSize',
+        'Data Refresh Interval': 'refreshInterval',
+        'Default Operation Mode': 'defaultMode',
+        'Language / Gjuha': 'language',
+        'pH Range': 'phRange',
+        'ORP Range (mV)': 'orpRange',
+        'Free Chlorine Range (mg/L)': 'freeChlorineRange',
+        'Combined Chlorine Maximum (mg/L)': 'combinedChlorineMax'
+    };
+    
+    // Apply to form labels by content
+    document.querySelectorAll('label.form-label').forEach(label => {
+        const text = label.textContent.trim();
+        if (!label.hasAttribute('data-i18n') && labelMap[text]) {
+            label.setAttribute('data-i18n', labelMap[text]);
+        }
+    });
+    
+    // Add attributes to all submit buttons without them
+    document.querySelectorAll('button[type="submit"]').forEach(button => {
+        if (!button.hasAttribute('data-i18n')) {
+            if (button.textContent.includes('Password')) {
+                button.setAttribute('data-i18n', 'changePassword');
+            } else {
+                button.setAttribute('data-i18n', 'saveSettings');
+            }
+        }
+    });
 }
