@@ -46,6 +46,12 @@ document.addEventListener('DOMContentLoaded', function() {
         fetchStatus();
         updateParameterDisplays(mockData);
     });
+
+    // Initialize accessibility enhancements
+    enhanceSidebarAccessibility();
+    enhanceParameterCardsAccessibility();
+    enhanceControlsAccessibility();
+    updateAllRangeAriaAttributes();
     
     // Initialize water chemistry section
     initializeWaterChemistryControls();
@@ -777,92 +783,66 @@ function updatePumpStatus(id, running) {
  * Fetch current system status
  */
 function fetchStatus() {
-    fetch('/api/status')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Server error: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
+    apiCall('/api/status', 
+        {}, // Default options
+        (data) => {
             console.log('Status:', data);
             const mode = data.simulation_mode ? 'simulation' : 'production';
             updateStatusBar(`System running in ${mode} mode (v${data.version})`, 'info');
-        })
-        .catch(error => {
+        },
+        (error) => {
             console.error('Error fetching status:', error);
             updateStatusBar('Error connecting to server. Using simulation mode.', 'danger');
             // Fall back to simulation mode
             simulateDataChanges();
-        });
+        }
+    );
 }
 
 /**
- * Fetch dashboard data with error handling
+ * Fetch dashboard data
  */
 function fetchDashboardData() {
-    // Show loading state
-    document.querySelectorAll('.card').forEach(card => {
-        card.classList.add('card-loading');
-    });
-    
-    document.querySelectorAll('.chart-container').forEach(container => {
-        container.classList.add('chart-loading');
-        
-        // Add spinner if not already present
-        if (!container.querySelector('.spinner-container')) {
-            const spinner = document.createElement('div');
-            spinner.className = 'spinner-container';
-            spinner.innerHTML = '<div class="spinner"></div>';
-            container.appendChild(spinner);
-        }
-    });
-    
-    fetch('/api/dashboard')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Server error: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
+    apiCall('/api/dashboard',
+        {}, // Default options
+        (data) => {
             // Update UI with real data
             updateParameterDisplays(data);
             updateWaterChemistryDisplays();
             updateTurbidityPACDisplays();
             
-            // Remove loading indicators
-            document.querySelectorAll('.card-body').forEach(card => {
-                card.classList.remove('loading');
-            });
-        })
-        .catch(error => {
+            // Cache the data for offline use
+            localStorage.setItem('lastDashboardData', JSON.stringify({
+                timestamp: Date.now(),
+                data: data
+            }));
+        },
+        (error) => {
             console.error('Error fetching dashboard data:', error);
-            updateStatusBar('Using simulated data due to server error', 'warning');
             
-            // Remove loading indicators
-            document.querySelectorAll('.card-body').forEach(card => {
-                card.classList.remove('loading');
-            });
+            // Check if we have cached data that's not too old (< 1 hour)
+            const cachedDataJSON = localStorage.getItem('lastDashboardData');
+            if (cachedDataJSON) {
+                try {
+                    const cachedData = JSON.parse(cachedDataJSON);
+                    const isCacheValid = (Date.now() - cachedData.timestamp) < (60 * 60 * 1000); // 1 hour
+                    
+                    if (isCacheValid) {
+                        showToast('Using cached data from previous session', 'info');
+                        updateParameterDisplays(cachedData.data);
+                        updateWaterChemistryDisplays();
+                        updateTurbidityPACDisplays();
+                        return;
+                    }
+                } catch (err) {
+                    console.error('Error parsing cached data:', err);
+                }
+            }
             
-            // Fall back to mock data
+            // Fall back to mock data if no valid cache
             updateParameterDisplays(mockData);
-        });
-
-    // In the success and error callbacks, remove loading states:
-    document.querySelectorAll('.card').forEach(card => {
-        card.classList.remove('card-loading');
-    });
-    
-    document.querySelectorAll('.chart-container').forEach(container => {
-        container.classList.remove('chart-loading');
-        
-        // Remove spinner
-        const spinner = container.querySelector('.spinner-container');
-        if (spinner) {
-            spinner.remove();
         }
-    });
+    );
 }
 
 /**
@@ -901,124 +881,6 @@ function setMode(mode) {
 
     // Update control availability based on mode
     updateControlsBasedOnMode();
-}
-
-/**
- * Simulate data changes for demonstration with improved performance
- */
-/**
- * Simulate data changes for demonstration with improved performance
- */
-function simulateDataChanges() {
-    // Track if any data changed that would require UI updates
-    let parameterChanged = false;
-    let waterChemistryChanged = false;
-    let turbidityChanged = false;
-    let pumpStatusChanged = false;
-
-    // Get active tab
-    const activeTabLink = document.querySelector('#sidebar .nav-link.active');
-    const activeTabId = activeTabLink ? activeTabLink.getAttribute('href') : '#overview-tab';
-
-    // Only update each parameter with some probability to make changes more realistic
-    
-    // pH changes (30% chance)
-    if (Math.random() < 0.3) {
-        const oldPh = mockData.ph;
-        mockData.ph = clamp(mockData.ph + (Math.random() - 0.5) * 0.05, 6.8, 8.0);
-        parameterChanged = parameterChanged || (Math.abs(oldPh - mockData.ph) > 0.001);
-        waterChemistryChanged = waterChemistryChanged || (Math.abs(oldPh - mockData.ph) > 0.001);
-    }
-    
-    // ORP changes (20% chance)
-    if (Math.random() < 0.2) {
-        const oldOrp = mockData.orp;
-        mockData.orp = clamp(mockData.orp + (Math.random() - 0.5) * 10, 600, 800);
-        parameterChanged = parameterChanged || (Math.abs(oldOrp - mockData.orp) > 0.1);
-    }
-    
-    // Chlorine changes (25% chance)
-    if (Math.random() < 0.25) {
-        const oldFreeChlorine = mockData.freeChlorine;
-        mockData.freeChlorine = clamp(mockData.freeChlorine + (Math.random() - 0.5) * 0.05, 0.5, 3.0);
-        parameterChanged = parameterChanged || (Math.abs(oldFreeChlorine - mockData.freeChlorine) > 0.001);
-        waterChemistryChanged = waterChemistryChanged || (Math.abs(oldFreeChlorine - mockData.freeChlorine) > 0.001);
-    }
-    
-    // Combined chlorine changes (15% chance)
-    if (Math.random() < 0.15) {
-        const oldCombinedChlorine = mockData.combinedChlorine;
-        mockData.combinedChlorine = clamp(mockData.combinedChlorine + (Math.random() - 0.5) * 0.02, 0, 0.5);
-        parameterChanged = parameterChanged || (Math.abs(oldCombinedChlorine - mockData.combinedChlorine) > 0.001);
-        waterChemistryChanged = waterChemistryChanged || (Math.abs(oldCombinedChlorine - mockData.combinedChlorine) > 0.001);
-    }
-    
-    // Turbidity changes (20% chance)
-    if (Math.random() < 0.2) {
-        const oldTurbidity = mockData.turbidity;
-        mockData.turbidity = clamp(mockData.turbidity + (Math.random() - 0.5) * 0.01, 0.05, 0.5);
-        parameterChanged = parameterChanged || (Math.abs(oldTurbidity - mockData.turbidity) > 0.001);
-        turbidityChanged = turbidityChanged || (Math.abs(oldTurbidity - mockData.turbidity) > 0.001);
-    }
-    
-    // Temperature changes (10% chance - temperature changes slowly)
-    if (Math.random() < 0.1) {
-        mockData.temperature = clamp(mockData.temperature + (Math.random() - 0.5) * 0.1, 20, 32);
-        parameterChanged = true;
-    }
-    
-    // Occasionally toggle pump states (5% chance for each pump)
-    if (Math.random() < 0.05) {
-        mockData.phPumpRunning = !mockData.phPumpRunning;
-        pumpStatusChanged = true;
-    }
-    if (Math.random() < 0.05) {
-        mockData.clPumpRunning = !mockData.clPumpRunning;
-        pumpStatusChanged = true;
-    }
-    if (Math.random() < 0.05) {
-        mockData.pacPumpRunning = !mockData.pacPumpRunning;
-        pumpStatusChanged = true;
-    }
-    
-    // Only update UI if something changed and we're on the relevant tab
-    if (parameterChanged) {
-        // Overview is always updated regardless of tab
-        requestAnimationFrame(() => {
-            updateParameterDisplays(mockData);
-        });
-    }
-    
-    if (waterChemistryChanged && (activeTabId === '#overview-tab' || activeTabId === '#water-chemistry-tab')) {
-        requestAnimationFrame(() => {
-            updateWaterChemistryDisplays();
-        });
-    }
-    
-    if (turbidityChanged && (activeTabId === '#overview-tab' || activeTabId === '#turbidity-pac-tab')) {
-        requestAnimationFrame(() => {
-            updateTurbidityPACDisplays();
-        });
-    }
-    
-    if (pumpStatusChanged) {
-        requestAnimationFrame(() => {
-            // Check if elements exist before updating them
-            const phPumpStatus = document.getElementById('phPumpStatus');
-            const phPumpDetailStatus = document.getElementById('phPumpDetailStatus');
-            const clPumpStatus = document.getElementById('clPumpStatus');
-            const clPumpDetailStatus = document.getElementById('clPumpDetailStatus');
-            const pacPumpStatus = document.getElementById('pacPumpStatus');
-            const pacPumpDetailStatus = document.getElementById('pacPumpDetailStatus');
-            
-            if (phPumpStatus) updatePumpStatus('phPump', mockData.phPumpRunning);
-            if (phPumpDetailStatus) updatePumpStatus('phPumpDetail', mockData.phPumpRunning);
-            if (clPumpStatus) updatePumpStatus('clPump', mockData.clPumpRunning);
-            if (clPumpDetailStatus) updatePumpStatus('clPumpDetail', mockData.clPumpRunning);
-            if (pacPumpStatus) updatePumpStatus('pacPump', mockData.pacPumpRunning);
-            if (pacPumpDetailStatus) updatePumpStatus('pacPumpDetail', mockData.pacPumpRunning);
-        });
-    }
 }
 
 // Replace setInterval with a more efficient approach
@@ -2169,86 +2031,6 @@ function linkCheckboxesToChart() {
 }
 
 /**
- * Update history chart with new data for a time period
- */
-function updateHistoryChart(hours) {
-    if (!historyChart) return;
-    
-    // Generate sample data
-    const labels = [];
-    const now = new Date();
-    
-    for (let i = hours - 1; i >= 0; i--) {
-        const date = new Date(now);
-        date.setHours(date.getHours() - i);
-        labels.push(formatDateTime(date));
-    }
-    
-    // Sample data sets
-    const phData = generateSampleData(7.4, 0.2, hours);
-    const orpData = generateSampleData(720, 30, hours);
-    const freeChlorineData = generateSampleData(1.2, 0.3, hours);
-    const combinedChlorineData = generateSampleData(0.2, 0.1, hours);
-    const turbidityData = generateSampleData(0.15, 0.05, hours);
-    const temperatureData = generateSampleData(28, 1, hours);
-    
-    // Generate dosing events
-    const dosingEvents = generateSampleEvents(hours, Math.max(5, Math.floor(hours / 12)));
-    
-    // Update chart data
-    historyChart.data.labels = labels;
-    historyChart.data.datasets[0].data = phData;
-    historyChart.data.datasets[1].data = orpData;
-    historyChart.data.datasets[2].data = freeChlorineData;
-    historyChart.data.datasets[3].data = combinedChlorineData;
-    historyChart.data.datasets[4].data = turbidityData;
-    historyChart.data.datasets[5].data = temperatureData;
-    historyChart.data.datasets[6].data = dosingEvents;
-    
-    // Update axis options for better display with different time ranges
-    if (hours <= 48) {
-        historyChart.options.scales.x.ticks.maxTicksLimit = 24;
-    } else if (hours <= 168) {
-        historyChart.options.scales.x.ticks.maxTicksLimit = 14;
-    } else {
-        historyChart.options.scales.x.ticks.maxTicksLimit = 10;
-    }
-    
-    // Update chart
-    historyChart.update();
-    
-    updateTableDataForPage('historyDataTable', 1);
-
-    const chartContainer = document.querySelector('#historyChart').closest('.chart-container');
-    if (chartContainer) {
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setHours(startDate.getHours() - hours);
-        
-        // Format dates for accessibility description
-        const formatDate = (date) => {
-            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-        };
-        
-        // Get visible parameters for a more descriptive label
-        const visibleParams = [];
-        if (historyChart.isDatasetVisible(0)) visibleParams.push('pH');
-        if (historyChart.isDatasetVisible(1)) visibleParams.push('ORP');
-        if (historyChart.isDatasetVisible(2)) visibleParams.push('Free Chlorine');
-        if (historyChart.isDatasetVisible(3)) visibleParams.push('Combined Chlorine');
-        if (historyChart.isDatasetVisible(4)) visibleParams.push('Turbidity');
-        if (historyChart.isDatasetVisible(5)) visibleParams.push('Temperature');
-        
-        const paramText = visibleParams.length > 0 
-            ? `showing ${visibleParams.join(', ')}` 
-            : 'showing selected parameters';
-            
-        chartContainer.setAttribute('aria-label', 
-            `Chart ${paramText} from ${formatDate(startDate)} to ${formatDate(endDate)}`);
-    }
-}
-
-/**
  * Update history chart with custom date range
  */
 function updateHistoryChartCustomRange(startDate, endDate) {
@@ -3045,25 +2827,16 @@ function saveAccountSettings(form) {
     submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
     submitButton.disabled = true;
     
-    // Validate passwords
-    if (!currentPassword.value) {
-        showToast('Please enter your current password', 'warning');
-        submitButton.innerHTML = originalButtonText;
-        submitButton.disabled = false;
-        return;
-    }
-    
-    if (newPassword.value !== confirmPassword.value) {
-        showToast('New passwords do not match', 'warning');
-        submitButton.innerHTML = originalButtonText;
-        submitButton.disabled = false;
-        return;
-    }
+    // Show loading state on the card
+    showLoading(form.closest('.card'));
     
     // For demo, we'll just simulate an API call with a timeout
     setTimeout(function() {
         // In a real app, you would send this to an API
         console.log('Password change saved');
+        
+        // Hide loading state
+        hideLoading(form.closest('.card'));
         
         // Reset form and button
         form.reset();
@@ -3099,6 +2872,9 @@ function saveNotificationSettings(form) {
     submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
     submitButton.disabled = true;
     
+    // Show loading state on the card
+    showLoading(form.closest('.card'));
+    
     // Get settings
     const notificationEmail = document.getElementById('notificationEmail').value;
     const alertNotifications = document.getElementById('alertNotifications').checked;
@@ -3106,7 +2882,7 @@ function saveNotificationSettings(form) {
     const maintenanceNotifications = document.getElementById('maintenanceNotifications').checked;
     const dailyReportNotifications = document.getElementById('dailyReportNotifications').checked;
     
-    // Save to localStorage for demo - ensure this happens
+    // Save to localStorage for demo
     const notificationSettings = {
         notificationEmail,
         alertNotifications,
@@ -3119,8 +2895,13 @@ function saveNotificationSettings(form) {
     
     // Simulated delay to show loading state
     setTimeout(function() {
+        // Hide loading state
+        hideLoading(form.closest('.card'));
+        
+        // Reset button state
         submitButton.innerHTML = originalButtonText;
         submitButton.disabled = false;
+        
         showToast('Notification settings saved successfully');
     }, 800);
 }
@@ -3162,6 +2943,9 @@ function saveSystemConfig(form) {
     const originalButtonText = submitButton.innerHTML;
     submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
     submitButton.disabled = true;
+
+    // Show loading state on the card
+    showLoading(form.closest('.card'));
     
     // Get settings
     const systemName = document.getElementById('systemName').value;
@@ -3169,23 +2953,28 @@ function saveSystemConfig(form) {
     const refreshInterval = document.getElementById('refreshInterval').value;
     const defaultMode = document.getElementById('defaultModeAuto').checked ? 'auto' : 'manual';
     
-    // Save to localStorage for demo
-    const systemConfig = {
-        systemName,
-        poolSize,
-        refreshInterval,
-        defaultMode,
-    };
-    
-    localStorage.setItem('systemConfig', JSON.stringify(systemConfig));
-    
-    // Update UI elements that depend on these settings
-    document.querySelector('.sidebar-header h3').textContent = systemName;
-    
-    // Simulated delay to show loading state
+    // Simulate API call with delay
     setTimeout(function() {
+        // Save to localStorage for demo
+        const systemConfig = {
+            systemName,
+            poolSize,
+            refreshInterval,
+            defaultMode,
+        };
+
+        localStorage.setItem('systemConfig', JSON.stringify(systemConfig));
+
+        // Update UI elements that depend on these settings
+        document.querySelector('.sidebar-header h3').textContent = systemName;
+    
+        // Hide loading state
+        hideLoading(form.closest('.card'));
+        
+        // Reset button
         submitButton.innerHTML = originalButtonText;
         submitButton.disabled = false;
+        
         showToast('System settings saved successfully');
         updateUIFromSettings();
     }, 800);
@@ -3283,6 +3072,9 @@ function saveChemistryTargets(form) {
     submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
     submitButton.disabled = true;
     
+    // Show loading state on the card
+    showLoading(form.closest('.card'));
+    
     // Get settings
     const phTargetMin = document.getElementById('phTargetMin').value;
     const phTargetMax = document.getElementById('phTargetMax').value;
@@ -3291,28 +3083,6 @@ function saveChemistryTargets(form) {
     const freeClTargetMin = document.getElementById('freeClTargetMin').value;
     const freeClTargetMax = document.getElementById('freeClTargetMax').value;
     const combinedClMax = document.getElementById('combinedClMax').value;
-
-    // Validate ranges
-    if (parseFloat(phTargetMin) >= parseFloat(phTargetMax)) {
-        showToast('pH minimum must be lower than maximum', 'warning');
-        submitButton.innerHTML = originalButtonText;
-        submitButton.disabled = false;
-        return;
-    }
-    
-    if (parseFloat(orpTargetMin) >= parseFloat(orpTargetMax)) {
-        showToast('ORP minimum must be lower than maximum', 'warning');
-        submitButton.innerHTML = originalButtonText;
-        submitButton.disabled = false;
-        return;
-    }
-    
-    if (parseFloat(freeClTargetMin) >= parseFloat(freeClTargetMax)) {
-        showToast('Chlorine minimum must be lower than maximum', 'warning');
-        submitButton.innerHTML = originalButtonText;
-        submitButton.disabled = false;
-        return;
-    }
     
     // Save to localStorage for demo
     const chemistryTargets = {
@@ -3327,15 +3097,15 @@ function saveChemistryTargets(form) {
     
     localStorage.setItem('chemistryTargets', JSON.stringify(chemistryTargets));
     
-    // Update UI elements that display target ranges
-    document.querySelector('#phValue').closest('.d-flex').querySelector('.parameter-info .text-muted.small').textContent = `Target: ${phTargetMin} - ${phTargetMax}`;
-    document.querySelector('#orpValue').closest('.d-flex').querySelector('.parameter-info .text-muted.small').textContent = `mV (Target: ${orpTargetMin} - ${orpTargetMax})`;
-    document.querySelector('#freeChlorineValue').closest('.d-flex').querySelector('.parameter-info .text-muted.small').textContent = `Free (mg/L) (Target: ${freeClTargetMin} - ${freeClTargetMax})`;
-    
     // Simulated delay to show loading state
     setTimeout(function() {
+        // Hide loading state
+        hideLoading(form.closest('.card'));
+        
+        // Reset button state
         submitButton.innerHTML = originalButtonText;
         submitButton.disabled = false;
+        
         showToast('Chemistry targets saved successfully', 'success');
         updateUIFromSettings();
     }, 800);
@@ -3412,6 +3182,9 @@ function savePumpConfig(form) {
     submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
     submitButton.disabled = true;
     
+    // Show loading state on the card
+    showLoading(form.closest('.card'));
+    
     // Get settings
     const phPumpFlowRate = document.getElementById('phPumpFlowRate').value;
     const clPumpFlowRate = document.getElementById('clPumpFlowRate').value;
@@ -3419,14 +3192,6 @@ function savePumpConfig(form) {
     const pacMaxFlow = document.getElementById('pacMaxFlow').value;
     const phMaxDoseDuration = document.getElementById('phMaxDoseDuration').value;
     const clMaxDoseDuration = document.getElementById('clMaxDoseDuration').value;
-    
-    // Validate values
-    if (parseInt(pacMinFlow) >= parseInt(pacMaxFlow)) {
-        showToast('PAC minimum flow must be lower than maximum', 'warning');
-        submitButton.innerHTML = originalButtonText;
-        submitButton.disabled = false;
-        return;
-    }
     
     // Save to localStorage for demo
     const pumpConfig = {
@@ -3444,30 +3209,17 @@ function savePumpConfig(form) {
     if (mockData) {
         // Recalculate PAC dosing rate based on new min/max
         mockData.pacDosingRate = parseInt(pacMinFlow) + Math.floor(Math.random() * (parseInt(pacMaxFlow) - parseInt(pacMinFlow)));
-        
-        // Update displayed PAC dosing rate
-        const pacDosingRateEl = document.getElementById('pacDosingRate');
-        if (pacDosingRateEl) {
-            pacDosingRateEl.textContent = mockData.pacDosingRate;
-        }
-        
-        // Also update the flowrate select options in the PAC tab
-        const pacFlowRateSelect = document.getElementById('pacFlowRate');
-        if (pacFlowRateSelect) {
-            pacFlowRateSelect.innerHTML = `
-                <option value="${pacMinFlow}">${pacMinFlow} ml/h (Minimum)</option>
-                <option value="${Math.round((parseInt(pacMinFlow) + parseInt(pacMaxFlow))/3)}" selected>${Math.round((parseInt(pacMinFlow) + parseInt(pacMaxFlow))/3)} ml/h (Low)</option>
-                <option value="${Math.round((parseInt(pacMinFlow) + parseInt(pacMaxFlow))/2)}">${Math.round((parseInt(pacMinFlow) + parseInt(pacMaxFlow))/2)} ml/h (Medium)</option>
-                <option value="${Math.round(parseInt(pacMinFlow) + (parseInt(pacMaxFlow) - parseInt(pacMinFlow)) * 0.75)}">${Math.round(parseInt(pacMinFlow) + (parseInt(pacMaxFlow) - parseInt(pacMinFlow)) * 0.75)} ml/h (High)</option>
-                <option value="${pacMaxFlow}">${pacMaxFlow} ml/h (Maximum)</option>
-            `;
-        }
     }
     
     // Simulated delay to show loading state
     setTimeout(function() {
+        // Hide loading state
+        hideLoading(form.closest('.card'));
+        
+        // Reset button state
         submitButton.innerHTML = originalButtonText;
         submitButton.disabled = false;
+        
         showToast('Pump settings saved successfully');
         updateUIFromSettings();
     }, 800);
@@ -3549,28 +3301,15 @@ function saveTurbiditySettings(form) {
     submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
     submitButton.disabled = true;
     
+    // Show loading state on the card
+    showLoading(form.closest('.card'));
+    
     // Get settings
     const turbidityTarget = document.getElementById('turbidityTarget').value;
     const turbidityLowThreshold = document.getElementById('turbidityLowThreshold').value;
     const turbidityHighThreshold = document.getElementById('turbidityHighThreshold').value;
     const filterBackwashLevel = document.getElementById('filterBackwashLevel').value;
     const autoBackwashAlerts = document.getElementById('autoBackwashAlerts').checked;
-    
-    // Validate thresholds
-    if (parseFloat(turbidityLowThreshold) >= parseFloat(turbidityHighThreshold)) {
-        showToast('Low threshold must be lower than high threshold', 'warning');
-        submitButton.innerHTML = originalButtonText;
-        submitButton.disabled = false;
-        return;
-    }
-    
-    if (parseFloat(turbidityTarget) <= parseFloat(turbidityLowThreshold) || 
-        parseFloat(turbidityTarget) >= parseFloat(turbidityHighThreshold)) {
-        showToast('Target must be between low and high thresholds', 'warning');
-        submitButton.innerHTML = originalButtonText;
-        submitButton.disabled = false;
-        return;
-    }
     
     // Save to localStorage for demo
     const turbiditySettings = {
@@ -3591,8 +3330,13 @@ function saveTurbiditySettings(form) {
     
     // Simulated delay to show loading state
     setTimeout(function() {
+        // Hide loading state
+        hideLoading(form.closest('.card'));
+        
+        // Reset button state
         submitButton.innerHTML = originalButtonText;
         submitButton.disabled = false;
+        
         showToast('Turbidity settings saved successfully');
         updateUIFromSettings();
     }, 800);
@@ -3602,6 +3346,9 @@ function saveTurbiditySettings(form) {
  * Export settings as a JSON file
  */
 function exportSettings() {
+    // Show loading on settings cards
+    showLoading('.data-management-section .card');
+    
     // Collect all settings from localStorage
     const allSettings = {
         systemConfig: JSON.parse(localStorage.getItem('systemConfig') || '{}'),
@@ -3611,22 +3358,26 @@ function exportSettings() {
         turbiditySettings: JSON.parse(localStorage.getItem('turbiditySettings') || '{}')
     };
     
-    // Create a blob and download link
-    const blob = new Blob([JSON.stringify(allSettings, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `pool_settings_${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    
-    // Clean up
+    // Simulated processing delay
     setTimeout(() => {
+        // Create a blob and download link
+        const blob = new Blob([JSON.stringify(allSettings, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pool_settings_${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        
+        // Clean up
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
-    }, 0);
-    
-    showToast('Settings exported successfully');
+        
+        // Hide loading
+        hideLoading('.data-management-section .card');
+        
+        showToast('Settings exported successfully');
+    }, 600);
 }
 
 /**
@@ -3635,6 +3386,9 @@ function exportSettings() {
 function importSettings(event) {
     const file = event.target.files[0];
     if (!file) return;
+    
+    // Show loading on settings cards
+    showLoading('.data-management-section .card');
     
     const reader = new FileReader();
     reader.onload = function(e) {
@@ -3667,71 +3421,26 @@ function importSettings(event) {
                 localStorage.setItem('retentionSettings', JSON.stringify(settings.retentionSettings));
             }
             
-            // Manually load settings into form fields
-            if (settings.systemConfig) {
-                document.getElementById('systemName').value = settings.systemConfig.systemName || 'Pool Automation System';
-                document.getElementById('poolSize').value = settings.systemConfig.poolSize || '300';
-                document.getElementById('refreshInterval').value = settings.systemConfig.refreshInterval || '10';
+            // Update all form fields with imported values
+            // This will take some time, so we keep the loading state active
+            setTimeout(() => {
+                // Load all form field values
+                loadSavedSettings();
                 
-                if (settings.systemConfig.defaultMode === 'manual') {
-                    document.getElementById('defaultModeManual').checked = true;
-                } else {
-                    document.getElementById('defaultModeAuto').checked = true;
-                }
+                // Update UI elements
+                updateUIFromSettings();
                 
-                if (settings.systemConfig.tempUnit === 'fahrenheit') {
-                    document.getElementById('tempFahrenheit').checked = true;
-                } else {
-                    document.getElementById('tempCelsius').checked = true;
-                }
-            }
-            
-            if (settings.notificationSettings) {
-                document.getElementById('notificationEmail').value = settings.notificationSettings.notificationEmail || '';
-                document.getElementById('alertNotifications').checked = settings.notificationSettings.alertNotifications !== false;
-                document.getElementById('warningNotifications').checked = settings.notificationSettings.warningNotifications !== false;
-                document.getElementById('maintenanceNotifications').checked = settings.notificationSettings.maintenanceNotifications !== false;
-                document.getElementById('dailyReportNotifications').checked = settings.notificationSettings.dailyReportNotifications === true;
-            }
-            
-            if (settings.chemistryTargets) {
-                document.getElementById('phTargetMin').value = settings.chemistryTargets.phTargetMin || '7.2';
-                document.getElementById('phTargetMax').value = settings.chemistryTargets.phTargetMax || '7.6';
-                document.getElementById('orpTargetMin').value = settings.chemistryTargets.orpTargetMin || '650';
-                document.getElementById('orpTargetMax').value = settings.chemistryTargets.orpTargetMax || '750';
-                document.getElementById('freeClTargetMin').value = settings.chemistryTargets.freeClTargetMin || '1.0';
-                document.getElementById('freeClTargetMax').value = settings.chemistryTargets.freeClTargetMax || '2.0';
-                document.getElementById('combinedClMax').value = settings.chemistryTargets.combinedClMax || '0.3';
-            }
-            
-            if (settings.pumpConfig) {
-                document.getElementById('phPumpFlowRate').value = settings.pumpConfig.phPumpFlowRate || '120';
-                document.getElementById('clPumpFlowRate').value = settings.pumpConfig.clPumpFlowRate || '150';
-                document.getElementById('pacMinFlow').value = settings.pumpConfig.pacMinFlow || '60';
-                document.getElementById('pacMaxFlow').value = settings.pumpConfig.pacMaxFlow || '150';
-                document.getElementById('phMaxDoseDuration').value = settings.pumpConfig.phMaxDoseDuration || '300';
-                document.getElementById('clMaxDoseDuration').value = settings.pumpConfig.clMaxDoseDuration || '300';
-            }
-            
-            if (settings.turbiditySettings) {
-                document.getElementById('turbidityTarget').value = settings.turbiditySettings.turbidityTarget || '0.15';
-                document.getElementById('turbidityLowThreshold').value = settings.turbiditySettings.turbidityLowThreshold || '0.12';
-                document.getElementById('turbidityHighThreshold').value = settings.turbiditySettings.turbidityHighThreshold || '0.25';
-                document.getElementById('filterBackwashLevel').value = settings.turbiditySettings.filterBackwashLevel || '70';
-                document.getElementById('autoBackwashAlerts').checked = settings.turbiditySettings.autoBackwashAlerts !== false;
-            }
-            
-            if (settings.retentionSettings) {
-                document.getElementById('dataRetention').value = settings.retentionSettings.dataRetention || '90';
-                document.getElementById('eventRetention').value = settings.retentionSettings.eventRetention || '90';
-            }
-            
-            // Update UI elements
-            updateUIFromSettings();
-            
-            showToast('Settings imported successfully');
+                // Hide loading
+                hideLoading('.data-management-section .card');
+                
+                showToast('Settings imported successfully');
+            }, 800);
         } catch (error) {
             console.error('Error importing settings:', error);
+            
+            // Hide loading
+            hideLoading('.data-management-section .card');
+            
             showToast('Error importing settings. Invalid file format.', 'warning');
         }
     };
@@ -3776,6 +3485,9 @@ function saveRetentionSettings() {
     button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
     button.disabled = true;
     
+    // Show loading state
+    showLoading(button.closest('.card'));
+    
     const dataRetention = document.getElementById('dataRetention').value;
     const eventRetention = document.getElementById('eventRetention').value;
     
@@ -3789,8 +3501,13 @@ function saveRetentionSettings() {
 
     // Simulated delay to show loading state
     setTimeout(function() {
+        // Hide loading state
+        hideLoading(button.closest('.card'));
+        
+        // Reset button
         button.innerHTML = originalButtonText;
         button.disabled = false;
+        
         showToast('Data retention settings saved');
     }, 800);
 }
@@ -3800,6 +3517,9 @@ function saveRetentionSettings() {
  */
 function confirmResetSettings() {
     if (confirm('Are you sure you want to reset all settings to default values? This cannot be undone.')) {
+        // Show loading indicator on all settings cards
+        showLoading('.settings-tab .card');
+        
         console.log("Resetting settings to defaults");
         
         // Clear localStorage
@@ -3811,8 +3531,6 @@ function confirmResetSettings() {
         localStorage.removeItem('retentionSettings');
         
         // Set form fields to defaults
-        // Account for all the form fields we need to reset
-        
         // System config defaults
         document.getElementById('systemName').value = 'Pool Automation System';
         document.getElementById('poolSize').value = '300';
@@ -3854,9 +3572,7 @@ function confirmResetSettings() {
         document.getElementById('dataRetention').value = '90';
         document.getElementById('eventRetention').value = '90';
         
-        // Now manually trigger each save function to ensure localStorage is updated and UI is refreshed
-        
-        // Save system config (simple approach without loading spinner)
+        // Save all default values to localStorage
         const systemConfig = {
             systemName: 'Pool Automation System',
             poolSize: '300',
@@ -3865,7 +3581,6 @@ function confirmResetSettings() {
         };
         localStorage.setItem('systemConfig', JSON.stringify(systemConfig));
         
-        // Save chemistry targets
         const chemistryTargets = {
             phTargetMin: '7.2',
             phTargetMax: '7.6',
@@ -3877,7 +3592,6 @@ function confirmResetSettings() {
         };
         localStorage.setItem('chemistryTargets', JSON.stringify(chemistryTargets));
         
-        // Save pump config
         const pumpConfig = {
             phPumpFlowRate: '120',
             clPumpFlowRate: '150',
@@ -3888,7 +3602,6 @@ function confirmResetSettings() {
         };
         localStorage.setItem('pumpConfig', JSON.stringify(pumpConfig));
         
-        // Save turbidity settings
         const turbiditySettings = {
             turbidityTarget: '0.15',
             turbidityLowThreshold: '0.12',
@@ -3898,7 +3611,6 @@ function confirmResetSettings() {
         };
         localStorage.setItem('turbiditySettings', JSON.stringify(turbiditySettings));
         
-        // Save notification settings
         const notificationSettings = {
             notificationEmail: '',
             alertNotifications: true,
@@ -3908,7 +3620,6 @@ function confirmResetSettings() {
         };
         localStorage.setItem('notificationSettings', JSON.stringify(notificationSettings));
         
-        // Save retention settings
         const retentionSettings = {
             dataRetention: '90',
             eventRetention: '90'
@@ -3920,34 +3631,17 @@ function confirmResetSettings() {
             mockData.pacDosingRate = 75; // Default value
         }
         
-        // Update UI
-        updateUIFromSettings();
-        
-        // Update other UI components
-        
-        // Update pH target display
-        const phTargetEl = document.querySelector('#phValue').closest('.d-flex').querySelector('.parameter-info .text-muted.small');
-        if (phTargetEl) {
-            phTargetEl.textContent = `Target: 7.2 - 7.6`;
-        }
-        
-        // Update ORP target display
-        const orpTargetEl = document.querySelector('#orpValue').closest('.d-flex').querySelector('.parameter-info .text-muted.small');
-        if (orpTargetEl) {
-            orpTargetEl.textContent = `mV (Target: 650 - 750)`;
-        }
-        
-        // Update chlorine target display
-        const clTargetEl = document.querySelector('#freeChlorineValue').closest('.d-flex').querySelector('.parameter-info .text-muted.small');
-        if (clTargetEl) {
-            clTargetEl.textContent = `Free (mg/L) (Target: 1.0 - 2.0)`;
-        }
-        
-        // Update system name in header
-        document.querySelector('.sidebar-header h3').textContent = 'Pool Automation System';
-        
-        console.log("Reset complete - UI should be updated");
-        showToast('Settings reset to defaults');
+        // Simulated delay to show loading state 
+        setTimeout(function() {
+            // Hide loading state
+            hideLoading('.settings-tab .card');
+            
+            // Update UI to reflect defaults
+            updateUIFromSettings();
+            
+            console.log("Reset complete - UI should be updated");
+            showToast('Settings reset to defaults');
+        }, 1200);
     }
 }
 
@@ -3961,6 +3655,11 @@ function confirmClearData() {
         const originalButtonText = button.innerHTML;
         button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Clearing...';
         button.disabled = true;
+        
+        // Show loading state on related elements
+        showLoading('#historyDataTable');
+        showLoading('#eventsTable');
+        showLoading('#historyChart');
         
         // In a real app, this would call an API to clear data
         setTimeout(function() {
@@ -3976,7 +3675,7 @@ function confirmClearData() {
                 historyChart.update();
             }
             
-            // Clear table data (if we're on the history tab)
+            // Clear table data
             const historyTable = document.getElementById('historyDataTable');
             if (historyTable && historyTable.querySelector('tbody')) {
                 historyTable.querySelector('tbody').innerHTML = '<tr><td colspan="7" class="text-center">No data available</td></tr>';
@@ -3986,6 +3685,11 @@ function confirmClearData() {
             if (eventsTable && eventsTable.querySelector('tbody')) {
                 eventsTable.querySelector('tbody').innerHTML = '<tr><td colspan="5" class="text-center">No events available</td></tr>';
             }
+            
+            // Hide loading states
+            hideLoading('#historyDataTable');
+            hideLoading('#eventsTable');
+            hideLoading('#historyChart');
             
             showToast('Historical data cleared successfully');
         }, 1500);
@@ -4636,4 +4340,400 @@ function syncParameterSelection(source, id, isVisible) {
     
     // Update chart ARIA label with necessary parameters
     updateChartAriaLabel(historyChart, visibilityState);
+}
+
+/**
+ * Generate a random parameter change with constraints
+ * @param {number} currentValue - Current parameter value
+ * @param {number} magnitude - Maximum change magnitude
+ * @param {number} min - Minimum allowed value
+ * @param {number} max - Maximum allowed value
+ * @param {number} probability - Probability of change (0-1)
+ * @returns {Object} - Object with newValue and changed flag
+ */
+function generateParameterChange(currentValue, magnitude, min, max, probability = 0.3) {
+    if (Math.random() >= probability) {
+        return { newValue: currentValue, changed: false };
+    }
+    
+    const change = (Math.random() - 0.5) * magnitude;
+    const newValue = clamp(currentValue + change, min, max);
+    const changed = Math.abs(newValue - currentValue) > 0.001;
+    
+    return { newValue, changed };
+}
+
+/**
+ * Generate changes for chemistry parameters (pH, ORP, chlorine)
+ * @returns {Object} - Object with updated parameters and change flags
+ */
+function generateChemistryChanges() {
+    const data = { ...mockData };
+    let changed = false;
+    let chemistryChanged = false;
+    
+    // pH changes (30% chance)
+    const phChange = generateParameterChange(data.ph, 0.05, 6.8, 8.0);
+    data.ph = phChange.newValue;
+    changed = changed || phChange.changed;
+    chemistryChanged = chemistryChanged || phChange.changed;
+    
+    // ORP changes (20% chance)
+    const orpChange = generateParameterChange(data.orp, 10, 600, 800, 0.2);
+    data.orp = orpChange.newValue;
+    changed = changed || orpChange.changed;
+    
+    // Free chlorine changes (25% chance)
+    const clChange = generateParameterChange(data.freeChlorine, 0.05, 0.5, 3.0, 0.25);
+    data.freeChlorine = clChange.newValue;
+    changed = changed || clChange.changed;
+    chemistryChanged = chemistryChanged || clChange.changed;
+    
+    // Combined chlorine changes (15% chance)
+    const combClChange = generateParameterChange(data.combinedChlorine, 0.02, 0, 0.5, 0.15);
+    data.combinedChlorine = combClChange.newValue;
+    changed = changed || combClChange.changed;
+    chemistryChanged = chemistryChanged || combClChange.changed;
+    
+    return { data, changed, chemistryChanged };
+}
+
+/**
+ * Generate changes for physical parameters (turbidity, temperature)
+ * @returns {Object} - Object with updated parameters and change flags
+ */
+function generatePhysicalChanges() {
+    const data = { ...mockData };
+    let changed = false;
+    let turbidityChanged = false;
+    
+    // Turbidity changes (20% chance)
+    const turbChange = generateParameterChange(data.turbidity, 0.01, 0.05, 0.5, 0.2);
+    data.turbidity = turbChange.newValue;
+    changed = changed || turbChange.changed;
+    turbidityChanged = turbChange.changed;
+    
+    // Temperature changes (10% chance - temperature changes slowly)
+    const tempChange = generateParameterChange(data.temperature, 0.1, 20, 32, 0.1);
+    data.temperature = tempChange.newValue;
+    changed = changed || tempChange.changed;
+    
+    return { data, changed, turbidityChanged };
+}
+
+/**
+ * Generate pump status changes
+ * @returns {Object} - Object with updated pump statuses and change flag
+ */
+function generatePumpChanges() {
+    const data = { ...mockData };
+    let changed = false;
+    
+    // Occasionally toggle pump states (5% chance for each pump)
+    if (Math.random() < 0.05) {
+        data.phPumpRunning = !data.phPumpRunning;
+        changed = true;
+    }
+    
+    if (Math.random() < 0.05) {
+        data.clPumpRunning = !data.clPumpRunning;
+        changed = true;
+    }
+    
+    if (Math.random() < 0.05) {
+        data.pacPumpRunning = !data.pacPumpRunning;
+        changed = true;
+    }
+    
+    return { data, changed };
+}
+
+/**
+ * Simulate data changes for demonstration with improved performance
+ */
+function simulateDataChanges() {
+    // Get active tab
+    const activeTabLink = document.querySelector('#sidebar .nav-link.active');
+    const activeTabId = activeTabLink ? activeTabLink.getAttribute('href') : '#overview-tab';
+    
+    // Generate chemistry parameter changes
+    const chemChanges = generateChemistryChanges();
+    
+    // Generate physical parameter changes
+    const physChanges = generatePhysicalChanges();
+    
+    // Generate pump status changes
+    const pumpChanges = generatePumpChanges();
+    
+    // Merge all changes into mockData
+    Object.assign(mockData, chemChanges.data, physChanges.data, pumpChanges.data);
+    
+    // Only update UI if something changed and we're on the relevant tab
+    if (chemChanges.changed || physChanges.changed) {
+        // Overview is always updated regardless of tab
+        requestAnimationFrame(() => {
+            updateParameterDisplays(mockData);
+        });
+    }
+    
+    if (chemChanges.chemistryChanged && (activeTabId === '#overview-tab' || activeTabId === '#water-chemistry-tab')) {
+        requestAnimationFrame(() => {
+            updateWaterChemistryDisplays();
+        });
+    }
+    
+    if (physChanges.turbidityChanged && (activeTabId === '#overview-tab' || activeTabId === '#turbidity-pac-tab')) {
+        requestAnimationFrame(() => {
+            updateTurbidityPACDisplays();
+        });
+    }
+    
+    if (pumpChanges.changed) {
+        requestAnimationFrame(() => {
+            updateAllPumpStatuses();
+        });
+    }
+}
+
+/**
+ * Update all pump statuses based on current state
+ */
+function updateAllPumpStatuses() {
+    // Check if elements exist before updating them
+    const phPumpStatus = document.getElementById('phPumpStatus');
+    const phPumpDetailStatus = document.getElementById('phPumpDetailStatus');
+    const clPumpStatus = document.getElementById('clPumpStatus');
+    const clPumpDetailStatus = document.getElementById('clPumpDetailStatus');
+    const pacPumpStatus = document.getElementById('pacPumpStatus');
+    const pacPumpDetailStatus = document.getElementById('pacPumpDetailStatus');
+    
+    if (phPumpStatus) updatePumpStatus('phPump', mockData.phPumpRunning);
+    if (phPumpDetailStatus) updatePumpStatus('phPumpDetail', mockData.phPumpRunning);
+    if (clPumpStatus) updatePumpStatus('clPump', mockData.clPumpRunning);
+    if (clPumpDetailStatus) updatePumpStatus('clPumpDetail', mockData.clPumpRunning);
+    if (pacPumpStatus) updatePumpStatus('pacPump', mockData.pacPumpRunning);
+    if (pacPumpDetailStatus) updatePumpStatus('pacPumpDetail', mockData.pacPumpRunning);
+}
+
+/**
+ * Generate sample data for history chart
+ * @param {number} baseValue - Base value for data generation
+ * @param {number} variation - Maximum variation from base value
+ * @param {number} count - Number of data points to generate
+ * @returns {Array} - Array of data points
+ */
+function generateHistoryData(baseValue, variation, count) {
+    const data = [];
+    for (let i = 0; i < count; i++) {
+        // Add some trend using sine wave
+        const trend = Math.sin(i / 20) * variation * 0.5;
+        // Add randomness
+        const random = (Math.random() - 0.5) * variation;
+        // Combine for final value
+        const value = baseValue + trend + random;
+        data.push(value);
+    }
+    return data;
+}
+
+/**
+ * Generate time labels for history chart
+ * @param {number} hours - Number of hours to generate labels for
+ * @returns {Array} - Array of formatted time labels
+ */
+function generateTimeLabels(hours) {
+    const labels = [];
+    const now = new Date();
+    
+    for (let i = hours - 1; i >= 0; i--) {
+        const date = new Date(now);
+        date.setHours(date.getHours() - i);
+        labels.push(formatDateTime(date));
+    }
+    
+    return labels;
+}
+
+/**
+ * Configure chart axis options based on time range
+ * @param {Object} chart - Chart.js chart object
+ * @param {number} hours - Number of hours in the time range
+ */
+function configureChartTimeAxis(chart, hours) {
+    // Update axis options for better display with different time ranges
+    if (hours <= 48) {
+        chart.options.scales.x.ticks.maxTicksLimit = 24;
+    } else if (hours <= 168) {
+        chart.options.scales.x.ticks.maxTicksLimit = 14;
+    } else {
+        chart.options.scales.x.ticks.maxTicksLimit = 10;
+    }
+    
+    // Force responsive adaptation to current size
+    const currentWidth = chart.width;
+    chart.options.onResize(chart, {width: currentWidth, height: chart.height});
+}
+
+/**
+ * Update chart ARIA label with time range information
+ * @param {string} chartId - ID of the chart canvas
+ * @param {number} hours - Number of hours in the time range
+ */
+function updateChartAriaLabel(chartId, hours) {
+    const chartContainer = document.querySelector(`#${chartId}`).closest('.chart-container');
+    if (!chartContainer) return;
+    
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setHours(startDate.getHours() - hours);
+    
+    // Format dates for accessibility description
+    const formatDate = (date) => {
+        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    };
+    
+    // Get visible parameters for a more descriptive label
+    const visibleParams = [];
+    if (historyChart.isDatasetVisible(0)) visibleParams.push('pH');
+    if (historyChart.isDatasetVisible(1)) visibleParams.push('ORP');
+    if (historyChart.isDatasetVisible(2)) visibleParams.push('Free Chlorine');
+    if (historyChart.isDatasetVisible(3)) visibleParams.push('Combined Chlorine');
+    if (historyChart.isDatasetVisible(4)) visibleParams.push('Turbidity');
+    if (historyChart.isDatasetVisible(5)) visibleParams.push('Temperature');
+    
+    const paramText = visibleParams.length > 0 
+        ? `showing ${visibleParams.join(', ')}` 
+        : 'showing selected parameters';
+        
+    chartContainer.setAttribute('aria-label', 
+        `Chart ${paramText} from ${formatDate(startDate)} to ${formatDate(endDate)}`);
+}
+
+/**
+ * Update history chart with new data for a time period
+ * @param {number} hours - Number of hours to display
+ */
+function updateHistoryChart(hours) {
+    if (!historyChart) return;
+    
+    // Show loading state
+    showLoading('#historyChart');
+    
+    // Generate sample data
+    const labels = generateTimeLabels(hours);
+    
+    // Generate data for each parameter
+    const phData = generateHistoryData(7.4, 0.2, hours);
+    const orpData = generateHistoryData(720, 30, hours);
+    const freeChlorineData = generateHistoryData(1.2, 0.3, hours);
+    const combinedChlorineData = generateHistoryData(0.2, 0.1, hours);
+    const turbidityData = generateHistoryData(0.15, 0.05, hours);
+    const temperatureData = generateHistoryData(28, 1, hours);
+    
+    // Generate dosing events
+    const dosingEvents = generateSampleEvents(hours, Math.max(5, Math.floor(hours / 12)));
+    
+    // Update chart data
+    historyChart.data.labels = labels;
+    historyChart.data.datasets[0].data = phData;
+    historyChart.data.datasets[1].data = orpData;
+    historyChart.data.datasets[2].data = freeChlorineData;
+    historyChart.data.datasets[3].data = combinedChlorineData;
+    historyChart.data.datasets[4].data = turbidityData;
+    historyChart.data.datasets[5].data = temperatureData;
+    historyChart.data.datasets[6].data = dosingEvents;
+    
+    // Configure chart options based on time range
+    configureChartTimeAxis(historyChart, hours);
+    
+    // Update ARIA label
+    updateChartAriaLabel('historyChart', hours);
+    
+    // Update table data
+    updateTableDataForPage('historyDataTable', 1);
+    
+    // Update chart
+    historyChart.update();
+    
+    // Hide loading state
+    hideLoading('#historyChart');
+}
+
+/**
+ * Enhance accessibility for control buttons and forms
+ */
+function enhanceControlsAccessibility() {
+    // Add descriptive labels to buttons
+    document.querySelectorAll('button').forEach(button => {
+        if (!button.getAttribute('aria-label') && !button.textContent.trim()) {
+            // For icon-only buttons, add aria-label
+            const icon = button.querySelector('.bi');
+            if (icon) {
+                const iconClass = Array.from(icon.classList)
+                    .find(cls => cls.startsWith('bi-'));
+                
+                if (iconClass) {
+                    // Generate a descriptive label from the icon class
+                    const iconName = iconClass.replace('bi-', '').replace(/-/g, ' ');
+                    button.setAttribute('aria-label', iconName);
+                }
+            }
+        }
+    });
+    
+    // Add aria-controls attributes to buttons that control specific panels
+    document.querySelectorAll('[data-bs-toggle="tab"]').forEach(button => {
+        const targetId = button.getAttribute('href') || button.getAttribute('data-bs-target');
+        if (targetId) {
+            button.setAttribute('aria-controls', targetId.replace('#', ''));
+        }
+    });
+    
+    // Enhance form controls with better labels and descriptions
+    document.querySelectorAll('form').forEach(form => {
+        form.querySelectorAll('input, select, textarea').forEach(input => {
+            // Ensure form controls have associated labels
+            const id = input.getAttribute('id');
+            if (id) {
+                const label = document.querySelector(`label[for="${id}"]`);
+                if (!label) {
+                    // Create a label if missing
+                    const newLabel = document.createElement('label');
+                    newLabel.setAttribute('for', id);
+                    newLabel.textContent = id.replace(/([A-Z])/g, ' $1')
+                        .replace(/^./, str => str.toUpperCase());
+                    
+                    input.parentNode.insertBefore(newLabel, input);
+                }
+            }
+            
+            // Add aria-describedby for inputs with help text
+            const helpText = input.nextElementSibling;
+            if (helpText && helpText.classList.contains('form-text')) {
+                const helpId = `${id}-help`;
+                helpText.setAttribute('id', helpId);
+                input.setAttribute('aria-describedby', helpId);
+            }
+        });
+    });
+}
+
+/**
+ * Update ARIA attributes for all parameter ranges
+ */
+function updateAllRangeAriaAttributes() {
+    // Update pH range
+    updateAriaAttributes('ph', mockData.ph, 6.8, 8.0);
+    
+    // Update ORP range
+    updateAriaAttributes('orp', mockData.orp, 600, 800);
+    
+    // Update chlorine ranges
+    updateAriaAttributes('freeChlorine', mockData.freeChlorine, 0.5, 3.0);
+    
+    // Update turbidity range
+    updateAriaAttributes('turbidity', mockData.turbidity, 0.05, 0.5);
+    
+    // Update temperature range
+    updateAriaAttributes('temp', mockData.temperature, 20, 32);
 }

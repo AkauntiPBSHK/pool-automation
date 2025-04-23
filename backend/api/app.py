@@ -1,75 +1,82 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-"""
-Pool Automation System - Main API Application
-"""
-
+# app.py
+from flask import Flask, jsonify, request, render_template
+from flask_socketio import SocketIO
 import os
 import json
 import logging
-from flask import Flask, jsonify, render_template, request
-from flask_socketio import SocketIO
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
+from datetime import datetime
+import time
 
 # Configure logging
 logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler("pool_automation.log"),
+        logging.StreamHandler()
+    ]
 )
 logger = logging.getLogger(__name__)
 
-# Initialize Flask application
+# Initialize Flask app
 app = Flask(__name__, 
-    static_folder='../../frontend/static',
-    template_folder='../../frontend/templates'
-)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-key')
-socketio = SocketIO(app)
+    static_folder='static',
+    template_folder='templates')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'pool_automation_secret')
 
-# Load configuration
-def load_config():
-    env = os.getenv('FLASK_ENV', 'development')
-    config_path = os.path.join(os.path.dirname(__file__), f'../../config/{env}/config.json')
-    try:
-        with open(config_path, 'r') as f:
-            return json.load(f)
-    except Exception as e:
-        logger.error(f"Error loading configuration: {e}")
-        return {}
+# Initialize Socket.IO
+socketio = SocketIO(app, cors_allowed_origins="*")
 
-config = load_config()
+# Simulation mode flag (True when hardware is not connected)
+SIMULATION_MODE = os.environ.get('SIMULATION_MODE', 'True').lower() == 'true'
 
-# Routes
+# Current system state (will be expanded)
+system_state = {
+    "ph": 7.4,
+    "orp": 720,
+    "freeChlorine": 1.2,
+    "combinedChlorine": 0.2,
+    "turbidity": 0.14,
+    "temperature": 28.2,
+    "uvIntensity": 94,
+    "phPumpRunning": False,
+    "clPumpRunning": False,
+    "pacPumpRunning": False,
+    "pacDosingRate": 75,
+    "version": "0.1.0",
+    "simulation_mode": SIMULATION_MODE
+}
+
+# Basic routes
 @app.route('/')
 def index():
-    """Render the main dashboard page."""
     return render_template('index.html')
 
 @app.route('/api/status')
 def status():
-    """Get the current system status."""
-    # In a real implementation, this would fetch actual data
+    """Get current system status"""
     return jsonify({
         "status": "ok",
-        "simulation_mode": config.get('system', {}).get('simulation_mode', True),
-        "version": "0.1.0"
+        "simulation_mode": system_state["simulation_mode"],
+        "version": system_state["version"]
     })
 
-# WebSocket events
+@app.route('/api/dashboard')
+def dashboard():
+    """Get current dashboard data"""
+    return jsonify(system_state)
+
+# Socket.IO events
 @socketio.on('connect')
 def handle_connect():
-    logger.info(f"Client connected: {request.sid}")
-    socketio.emit('status', {'connected': True})
+    logger.info('Client connected')
+    socketio.emit('parameter_update', {'status': 'connected'})
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    logger.info(f"Client disconnected: {request.sid}")
+    logger.info('Client disconnected')
 
 # Main entry point
 if __name__ == '__main__':
-    port = int(os.getenv('PORT', 5000))
-    socketio.run(app, host='0.0.0.0', port=port, debug=True)
+    logger.info(f"Starting Pool Automation System in {'SIMULATION' if SIMULATION_MODE else 'PRODUCTION'} mode")
+    socketio.run(app, debug=True, host='0.0.0.0', port=5000)

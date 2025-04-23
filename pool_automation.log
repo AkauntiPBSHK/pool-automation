@@ -1,0 +1,9 @@
+2025-04-23 10:45:30,659 - __main__ - INFO - Starting Pool Automation System in SIMULATION mode
+2025-04-23 10:45:30,671 - werkzeug - WARNING -  * Debugger is active!
+2025-04-23 10:45:30,676 - werkzeug - INFO -  * Debugger PIN: 132-969-129
+2025-04-23 10:45:31,627 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 10:45:31] "GET /socket.io/?EIO=4&transport=polling&t=PPXqjvc HTTP/1.1" 200 -
+2025-04-23 10:45:31,632 - __main__ - INFO - Client connected
+2025-04-23 10:45:31,633 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 10:45:31] "POST /socket.io/?EIO=4&transport=polling&t=PPXqjvk&sid=0xFkZLOJB7a3tKuNAAAA HTTP/1.1" 200 -
+2025-04-23 10:45:31,633 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 10:45:31] "GET /api/dashboard HTTP/1.1" 200 -
+2025-04-23 10:45:31,636 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 10:45:31] "GET /socket.io/?EIO=4&transport=polling&t=PPXqjvm&sid=0xFkZLOJB7a3tKuNAAAA HTTP/1.1" 200 -
+2025-04-23 10:45:31,643 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 10:45:31] "GET /socket.io/?EIO=4&transport=polling&t=PPXqjvv&sid=0xFkZLOJB7a3tKuNAAAA HTTP/1.1" 200 -

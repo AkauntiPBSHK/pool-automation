@@ -611,3 +611,58 @@ main {
 .chart-container {
     height: 400px !important; /* Increase from current 300px */
 }
+
+/* Improved keyboard focus indicators */
+:focus-visible {
+    outline: 3px solid rgba(13, 110, 253, 0.5) !important;
+    outline-offset: 2px !important;
+    border-radius: 4px;
+}
+
+/* Visually hidden text for screen readers */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+/* Improved loading animations */
+.loading {
+    position: relative;
+    pointer-events: none;
+}
+
+.loading::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(13, 110, 253, 0.1) 50%,
+        rgba(255, 255, 255, 0) 100%
+    );
+    animation: loading 1.5s infinite;
+    z-index: 1;
+    border-radius: inherit;
+}
+
+/* Loading spinner improvements */
+.spinner {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 3px solid rgba(13, 110, 253, 0.1);
+    border-top-color: rgba(13, 110, 253, 0.8);
+    animation: spin 1s infinite linear;
+    margin: 20px auto;
+}
