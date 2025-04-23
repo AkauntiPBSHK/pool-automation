@@ -1,36 +1,24 @@
-2025-04-23 10:45:30,659 - __main__ - INFO - Starting Pool Automation System in SIMULATION mode
-2025-04-23 10:45:30,671 - werkzeug - WARNING -  * Debugger is active!
-2025-04-23 10:45:30,676 - werkzeug - INFO -  * Debugger PIN: 132-969-129
-2025-04-23 10:45:31,627 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 10:45:31] "GET /socket.io/?EIO=4&transport=polling&t=PPXqjvc HTTP/1.1" 200 -
-2025-04-23 10:45:31,632 - __main__ - INFO - Client connected
-2025-04-23 10:45:31,633 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 10:45:31] "POST /socket.io/?EIO=4&transport=polling&t=PPXqjvk&sid=0xFkZLOJB7a3tKuNAAAA HTTP/1.1" 200 -
-2025-04-23 10:45:31,633 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 10:45:31] "GET /api/dashboard HTTP/1.1" 200 -
-2025-04-23 10:45:31,636 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 10:45:31] "GET /socket.io/?EIO=4&transport=polling&t=PPXqjvm&sid=0xFkZLOJB7a3tKuNAAAA HTTP/1.1" 200 -
-2025-04-23 10:45:31,643 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 10:45:31] "GET /socket.io/?EIO=4&transport=polling&t=PPXqjvv&sid=0xFkZLOJB7a3tKuNAAAA HTTP/1.1" 200 -
-2025-04-23 11:17:22,260 - __main__ - INFO - Client disconnected
-2025-04-23 11:17:22,260 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:17:22] "GET /socket.io/?EIO=4&transport=websocket&sid=0xFkZLOJB7a3tKuNAAAA HTTP/1.1" 200 -
-2025-04-23 11:17:22,325 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:17:22] "[35m[1mGET / HTTP/1.1[0m" 500 -
-2025-04-23 11:17:22,446 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:17:22] "GET /?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1" 200 -
-2025-04-23 11:17:22,461 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:17:22] "GET /?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1" 200 -
-2025-04-23 11:17:22,502 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:17:22] "GET /?__debugger__=yes&cmd=resource&f=console.png&s=iDeFTSbWuG0WFXonsaYE HTTP/1.1" 200 -
-2025-04-23 11:17:22,514 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:17:22] "GET /?__debugger__=yes&cmd=resource&f=console.png HTTP/1.1" 200 -
-2025-04-23 11:17:24,258 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:17:24] "[35m[1mGET / HTTP/1.1[0m" 500 -
-2025-04-23 11:17:24,273 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:17:24] "[36mGET /?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1[0m" 304 -
-2025-04-23 11:17:24,273 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:17:24] "[36mGET /?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1[0m" 304 -
-2025-04-23 11:17:24,287 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:17:24] "[36mGET /?__debugger__=yes&cmd=resource&f=console.png&s=iDeFTSbWuG0WFXonsaYE HTTP/1.1[0m" 304 -
-2025-04-23 11:17:24,297 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:17:24] "[36mGET /?__debugger__=yes&cmd=resource&f=console.png HTTP/1.1[0m" 304 -
-2025-04-23 11:19:04,295 - __main__ - INFO - Starting Pool Automation System in SIMULATION mode
-2025-04-23 11:19:04,320 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+2025-04-23 11:44:09,585 - __main__ - INFO - Starting Pool Automation System in SIMULATION mode
+2025-04-23 11:44:09,611 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
  * Running on all addresses (0.0.0.0)
  * Running on http://127.0.0.1:5000
  * Running on http://192.168.0.6:5000
-2025-04-23 11:19:04,320 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
-2025-04-23 11:19:04,320 - werkzeug - INFO -  * Restarting with stat
-2025-04-23 11:19:04,750 - __main__ - INFO - Starting Pool Automation System in SIMULATION mode
-2025-04-23 11:19:04,761 - werkzeug - WARNING -  * Debugger is active!
-2025-04-23 11:19:04,766 - werkzeug - INFO -  * Debugger PIN: 132-969-129
-2025-04-23 11:19:08,397 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:19:08] "[35m[1mGET / HTTP/1.1[0m" 500 -
-2025-04-23 11:19:08,497 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:19:08] "[36mGET /?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1[0m" 304 -
-2025-04-23 11:19:08,499 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:19:08] "[36mGET /?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1[0m" 304 -
-2025-04-23 11:19:08,798 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:19:08] "GET /?__debugger__=yes&cmd=resource&f=console.png&s=udZu31moATz0qPaM0HGG HTTP/1.1" 200 -
-2025-04-23 11:19:58,719 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:19:58] "[36mGET /?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1[0m" 304 -
+2025-04-23 11:44:09,611 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-04-23 11:44:09,611 - werkzeug - INFO -  * Restarting with stat
+2025-04-23 11:44:10,074 - __main__ - INFO - Starting Pool Automation System in SIMULATION mode
+2025-04-23 11:44:10,085 - werkzeug - WARNING -  * Debugger is active!
+2025-04-23 11:44:10,088 - werkzeug - INFO -  * Debugger PIN: 132-969-129
+2025-04-23 11:44:18,201 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:44:18] "GET / HTTP/1.1" 200 -
+2025-04-23 11:44:18,222 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:44:18] "[33mGET /static/js/utility.js HTTP/1.1[0m" 404 -
+2025-04-23 11:44:18,224 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:44:18] "[33mGET /static/css/style.css HTTP/1.1[0m" 404 -
+2025-04-23 11:44:18,226 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:44:18] "[33mGET /static/js/dashboard.js HTTP/1.1[0m" 404 -
+2025-04-23 11:44:28,440 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:44:28] "GET / HTTP/1.1" 200 -
+2025-04-23 11:44:28,461 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:44:28] "[33mGET /static/js/utility.js HTTP/1.1[0m" 404 -
+2025-04-23 11:44:28,461 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:44:28] "[33mGET /static/css/style.css HTTP/1.1[0m" 404 -
+2025-04-23 11:44:28,463 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:44:28] "[33mGET /static/js/dashboard.js HTTP/1.1[0m" 404 -
+2025-04-23 11:44:28,930 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:44:28] "GET / HTTP/1.1" 200 -
+2025-04-23 11:44:28,947 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:44:28] "[33mGET /static/css/style.css HTTP/1.1[0m" 404 -
+2025-04-23 11:44:28,948 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:44:28] "[33mGET /static/js/utility.js HTTP/1.1[0m" 404 -
+2025-04-23 11:44:28,949 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:44:28] "[33mGET /static/js/dashboard.js HTTP/1.1[0m" 404 -
+2025-04-23 11:54:49,981 - werkzeug - INFO -  * Detected change in 'C:\\Users\\User\\pool-automation\\app.py', reloading
+2025-04-23 11:54:50,033 - werkzeug - INFO -  * Restarting with stat
