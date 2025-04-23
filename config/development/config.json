@@ -1,5 +1,26 @@
 {
   "system": {
-    "simulation_mode": true
+    "simulation_mode": true,
+    "name": "Pool Automation System"
+  },
+  "hardware": {
+    "turbidity_sensor": {
+      "type": "ChemitecS461LT",
+      "port": "/dev/ttyUSB0",
+      "modbus_address": 1,
+      "baud_rate": 9600
+    },
+    "pac_pump": {
+      "type": "ChonryWP110",
+      "control_pin": 17,
+      "min_flow_ml_h": 60,
+      "max_flow_ml_h": 150
+    }
+  },
+  "dosing": {
+    "high_threshold_ntu": 0.25,
+    "low_threshold_ntu": 0.12,
+    "target_ntu": 0.15,
+    "moving_avg_samples": 10
   }
 }

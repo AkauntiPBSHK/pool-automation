@@ -14,6 +14,8 @@ from flask import Flask, jsonify, render_template, request
 from flask_socketio import SocketIO
 from flask_cors import CORS
 from dotenv import load_dotenv
+from backend.models.database import DatabaseHandler
+from backend.utils.simulator import DataSimulator
 
 # Load environment variables
 load_dotenv()
@@ -89,47 +91,104 @@ def status():
 
 @app.route('/api/dashboard')
 def dashboard_data():
-    """Get all dashboard data for the frontend."""
-    # This is the endpoint your frontend was trying to call
-    if config.get('system', {}).get('simulation_mode', True):
-        return jsonify(get_simulated_data())
-    else:
-        # In production, this would fetch real data from sensors
-        # For now, return simulated data anyway
-        return jsonify(get_simulated_data())
-
-@app.route('/api/turbidity')
-def turbidity_data():
-    """Get turbidity-specific data."""
-    data = get_simulated_data()
-    return jsonify(data["turbidity"])
-
-@app.route('/api/dosing/status')
-def dosing_status():
-    """Get current dosing status."""
+    """Get all dashboard data."""
+    # Create a simulated data response that matches the frontend expectations
+    turbidity_value = round(random.uniform(0.12, 0.18), 3)
+    
     return jsonify({
-        "mode": "auto",
-        "running": False,
-        "last_dose": time.time() - 3600,
-        "pump_status": "stopped"
+        "ph": round(random.uniform(7.2, 7.6), 1),
+        "orp": random.randint(680, 760),
+        "freeChlorine": round(random.uniform(1.0, 1.4), 2),
+        "combinedChlorine": round(random.uniform(0.1, 0.3), 1),
+        "turbidity": turbidity_value,
+        "temperature": round(random.uniform(27.0, 29.0), 1),
+        "uvIntensity": random.randint(90, 96),
+        "phPumpRunning": False,
+        "clPumpRunning": False,
+        "pacPumpRunning": False,
+        "pacDosingRate": 75  # Default value in ml/h
     })
 
-@app.route('/api/dosing/mode', methods=['POST'])
-def set_dosing_mode():
-    """Set the dosing mode (auto/manual)."""
-    data = request.json
-    mode = data.get('mode', 'auto')
-    return jsonify({"success": True, "mode": mode})
+@app.route('/api/history/turbidity')
+def turbidity_history():
+    """Get historical turbidity data for charts."""
+    hours = request.args.get('hours', default=24, type=int)
+    db = DatabaseHandler()
+    data = db.get_turbidity_history(hours)
+    
+    # Format for frontend charts
+    timestamps = [entry['timestamp'] for entry in data]
+    values = [entry['value'] for entry in data]
+    moving_avg = [entry['moving_avg'] for entry in data if entry['moving_avg'] is not None]
+    
+    return jsonify({
+        "timestamps": timestamps,
+        "values": values,
+        "moving_avg": moving_avg
+    })
 
-@app.route('/api/dosing/start', methods=['POST'])
-def start_dosing():
-    """Start manual dosing."""
-    return jsonify({"success": True, "message": "Dosing started"})
+@app.route('/api/history/parameters')
+def parameter_history():
+    """Get historical data for multiple parameters."""
+    hours = request.args.get('hours', default=24, type=int)
+    db = DatabaseHandler()
+    
+    # Get Steiel data (pH, ORP, chlorine)
+    steiel_data = db.get_steiel_history(hours)
+    
+    # Format for frontend charts
+    timestamps = [entry['timestamp'] for entry in steiel_data]
+    
+    ph_values = [entry['ph'] for entry in steiel_data]
+    orp_values = [entry['orp'] for entry in steiel_data]
+    free_cl_values = [entry['free_cl'] for entry in steiel_data]
+    comb_cl_values = [entry['comb_cl'] for entry in steiel_data]
+    
+    return jsonify({
+        "timestamps": timestamps,
+        "parameters": {
+            "ph": ph_values,
+            "orp": orp_values,
+            "freeChlorine": free_cl_values,
+            "combinedChlorine": comb_cl_values
+        }
+    })
 
-@app.route('/api/dosing/stop', methods=['POST'])
-def stop_dosing():
-    """Stop dosing."""
-    return jsonify({"success": True, "message": "Dosing stopped"})
+@app.route('/api/history/events')
+def events_history():
+    """Get system and dosing events history."""
+    hours = request.args.get('hours', default=24, type=int)
+    event_type = request.args.get('type', default=None)
+    db = DatabaseHandler()
+    
+    # Get dosing events
+    dosing_events = db.get_dosing_events(hours)
+    
+    # Format events for frontend
+    events = []
+    for event in dosing_events:
+        formatted_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(event['timestamp']))
+        events.append({
+            "timestamp": formatted_time,
+            "type": "Dosing",
+            "description": f"{event['event_type']} dosing",
+            "parameter": "Turbidity",
+            "value": f"{event['turbidity']:.3f} NTU"
+        })
+    
+    return jsonify(events)
+
+@app.route('/api/init')
+def initialize_database():
+    """Initialize the database with sample data (for development)."""
+    try:
+        db = DatabaseHandler()
+        simulator = DataSimulator(db)
+        simulator.generate_historical_data(days=7)
+        return jsonify({"success": True, "message": "Database initialized with sample data"})
+    except Exception as e:
+        logger.error(f"Error initializing database: {e}")
+        return jsonify({"success": False, "message": str(e)}), 500
 
 # WebSocket events
 @socketio.on('connect')
