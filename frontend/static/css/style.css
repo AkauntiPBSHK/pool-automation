@@ -416,23 +416,6 @@ main {
     }
 }
 
-/* Make chart containers position relative for absolute positioning of buttons */
-.chart-container {
-    position: relative;
-}
-
-/* Add a subtle animation for the auto-scale buttons when active */
-.btn-outline-secondary:active {
-    transform: scale(0.95);
-    transition: transform 0.1s;
-}
-
-/* Add a loading state class for charts during optimization */
-.chart-optimizing {
-    opacity: 0.7;
-    transition: opacity 0.3s;
-}
-
 /* Style for the target zone (optional, if you implement the threshold visualization) */
 .target-zone {
     fill: rgba(40, 167, 69, 0.1);
@@ -624,3 +607,7 @@ main {
     from { transform: translateX(6px); }
     to { transform: translateX(0); }
   }
+
+.chart-container {
+    height: 400px !important; /* Increase from current 300px */
+}
