@@ -27,8 +27,8 @@ logger = logging.getLogger(__name__)
 
 # Initialize Flask application
 app = Flask(__name__, 
-    static_folder='../frontend/static',
-    template_folder='../frontend/templates'
+    static_folder='../../frontend/static',
+    template_folder='../../frontend/templates'
 )
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-key')
 CORS(app)  # Enable CORS for all routes
