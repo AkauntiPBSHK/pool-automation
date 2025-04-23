@@ -49,46 +49,25 @@ config = load_config()
 
 # Simulated data generator
 def get_simulated_data():
-    """Generate simulated sensor data in the format expected by the frontend"""
+    """Generate simulated sensor data in camelCase format for the frontend"""
     return {
         "turbidity": {
             "current": round(random.uniform(0.05, 0.35), 3),
             "average": round(random.uniform(0.10, 0.25), 3),
-            "high_threshold": 0.25,
-            "low_threshold": 0.12,
+            "highThreshold": 0.25,
+            "lowThreshold": 0.12,
             "target": 0.15,
-            "pump_status": "stopped"
+            "pumpStatus": "stopped"
         },
-        "ph": {
-            "value": round(random.uniform(7.0, 7.4), 1),
-            "status": "good",
-            "target_min": 7.0,
-            "target_max": 7.6,
-            "pump_status": "inactive"
-        },
-        "orp": {
-            "value": int(random.uniform(650, 750)),
-            "status": "good",
-            "target_min": 650,
-            "target_max": 750
-        },
-        "free_chlorine": {
-            "value": round(random.uniform(0.8, 1.2), 2),
-            "status": "good",
-            "target_min": 1.0,
-            "target_max": 2.0
-        },
-        "combined_chlorine": {
-            "value": round(random.uniform(0.1, 0.3), 2)
-        },
-        "temperature": {
-            "value": round(random.uniform(26.0, 29.0), 1),
-            "status": "good"
-        },
-        "system_status": {
+        "ph": round(random.uniform(7.0, 7.4), 1),
+        "orp": int(random.uniform(650, 750)),
+        "freeChlorine": round(random.uniform(0.8, 1.2), 2),
+        "combinedChlorine": round(random.uniform(0.1, 0.3), 1),  # Note: using camelCase here
+        "temperature": round(random.uniform(26.0, 29.0), 1),
+        "systemStatus": {
             "running": True,
             "simulation": True,
-            "last_update": time.time()
+            "lastUpdate": time.time()
         }
     }
 
