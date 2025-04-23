@@ -22,3 +22,6 @@
 2025-04-23 11:44:28,949 - werkzeug - INFO - 127.0.0.1 - - [23/Apr/2025 11:44:28] "[33mGET /static/js/dashboard.js HTTP/1.1[0m" 404 -
 2025-04-23 11:54:49,981 - werkzeug - INFO -  * Detected change in 'C:\\Users\\User\\pool-automation\\app.py', reloading
 2025-04-23 11:54:50,033 - werkzeug - INFO -  * Restarting with stat
+2025-04-23 13:46:36,847 - config - INFO - Settings saved to file
+2025-04-23 13:46:36,848 - config - INFO - Default settings created
+2025-04-23 13:52:08,083 - config - INFO - Settings loaded from file

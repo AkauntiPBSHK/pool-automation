@@ -43,6 +43,7 @@ class SystemEvent(db.Model):
     @classmethod
     def add_event(cls, event_type, description, parameter=None, value=None):
         """Add a new system event."""
+        from . import db
         event = cls(
             event_type=event_type,
             description=description,

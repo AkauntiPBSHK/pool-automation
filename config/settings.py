@@ -76,6 +76,10 @@ def load_settings():
             # Merge loaded settings with defaults
             _settings = _merge_dicts(DEFAULT_SETTINGS, loaded_settings)
             logger.info(f"Settings loaded from {_settings_file}")
+        else:
+            # Create default settings file if it doesn't exist
+            save_settings()
+            logger.info(f"Default settings created")
     except Exception as e:
         logger.error(f"Error loading settings: {e}")
         logger.warning("Using default settings")
@@ -84,9 +88,12 @@ def load_settings():
 def save_settings():
     """Save settings to file."""
     try:
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(_settings_file), exist_ok=True)
+        
         with open(_settings_file, 'w') as f:
             json.dump(_settings, f, indent=4)
-        logger.info(f"Settings saved to {_settings_file}")
+        logger.info(f"Settings saved to file")
         return True
     except Exception as e:
         logger.error(f"Error saving settings: {e}")
