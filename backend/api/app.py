@@ -49,7 +49,7 @@ config = load_config()
 
 # Simulated data generator
 def get_simulated_data():
-    """Generate simulated sensor data for development/testing"""
+    """Generate simulated sensor data in the format expected by the frontend"""
     return {
         "turbidity": {
             "current": round(random.uniform(0.05, 0.35), 3),
@@ -59,13 +59,32 @@ def get_simulated_data():
             "target": 0.15,
             "pump_status": "stopped"
         },
-        "ph": round(random.uniform(7.0, 7.4), 1),
-        "orp": int(random.uniform(650, 750)),
-        "free_chlorine": round(random.uniform(0.8, 1.2), 2),
-        "combined_chlorine": round(random.uniform(0.1, 0.3), 2),
-        "temperature": round(random.uniform(26.0, 29.0), 1),
-        "ph_pump_status": "stopped",
-        "cl_pump_status": "stopped",
+        "ph": {
+            "value": round(random.uniform(7.0, 7.4), 1),
+            "status": "good",
+            "target_min": 7.0,
+            "target_max": 7.6,
+            "pump_status": "inactive"
+        },
+        "orp": {
+            "value": int(random.uniform(650, 750)),
+            "status": "good",
+            "target_min": 650,
+            "target_max": 750
+        },
+        "free_chlorine": {
+            "value": round(random.uniform(0.8, 1.2), 2),
+            "status": "good",
+            "target_min": 1.0,
+            "target_max": 2.0
+        },
+        "combined_chlorine": {
+            "value": round(random.uniform(0.1, 0.3), 2)
+        },
+        "temperature": {
+            "value": round(random.uniform(26.0, 29.0), 1),
+            "status": "good"
+        },
         "system_status": {
             "running": True,
             "simulation": True,
