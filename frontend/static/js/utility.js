@@ -98,22 +98,52 @@ function apiCall(url, options = {}, onSuccess, onError, retryOptions = { maxRetr
 
 /**
  * Show loading state for specified elements
- * @param {string} selector - CSS selector for elements to show loading state
+ * @param {string|Element} selector - CSS selector or DOM element
  */
 function showLoading(selector) {
-    const elements = document.querySelectorAll(selector);
-    elements.forEach(element => {
+    if (!selector) return;
+    
+    let elements = [];
+    
+    if (typeof selector === 'string') {
+        // It's a CSS selector string
+        elements = document.querySelectorAll(selector);
+    } else if (selector instanceof Element) {
+        // It's a DOM element
+        elements = [selector];
+    } else if (selector.length) {
+        // It might be a NodeList or array of elements
+        elements = selector;
+    }
+    
+    // Add loading class to all elements
+    Array.from(elements).forEach(element => {
         element.classList.add('loading');
     });
 }
 
 /**
  * Hide loading state for specified elements
- * @param {string} selector - CSS selector for elements to hide loading state
+ * @param {string|Element} selector - CSS selector or DOM element
  */
 function hideLoading(selector) {
-    const elements = document.querySelectorAll(selector);
-    elements.forEach(element => {
+    if (!selector) return;
+    
+    let elements = [];
+    
+    if (typeof selector === 'string') {
+        // It's a CSS selector string
+        elements = document.querySelectorAll(selector);
+    } else if (selector instanceof Element) {
+        // It's a DOM element
+        elements = [selector];
+    } else if (selector.length) {
+        // It might be a NodeList or array of elements
+        elements = selector;
+    }
+    
+    // Remove loading class from all elements
+    Array.from(elements).forEach(element => {
         element.classList.remove('loading');
     });
 }
