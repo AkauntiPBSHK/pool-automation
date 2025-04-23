@@ -2,109 +2,91 @@
 import time
 import random
 import logging
-import threading
-from collections import deque
+from typing import Dict, Any, List
 
 logger = logging.getLogger(__name__)
 
 class MockTurbiditySensor:
-    """Mock implementation of the Chemitec S461LT turbidity sensor."""
+    """Mock implementation of a turbidity sensor for simulation."""
     
-    def __init__(self, config):
-        """Initialize the mock turbidity sensor."""
-        self.config = config
+    def __init__(self, config: Dict[str, Any]):
+        """Initialize the mock turbidity sensor.
+        
+        Args:
+            config: Configuration dictionary
+        """
+        self.moving_avg_samples = config.get('moving_avg_samples', 10)
+        self.readings: List[float] = []
+        self.base_value = 0.15
+        self.min_value = 0.05
+        self.max_value = 0.35
+        self.variation = 0.02
+        self.trend_factor = 0.0  # -1.0 to 1.0
+        self.last_reading_time = time.time()
         self.connected = True
-        self.current_value = 0.15  # Initial NTU value
-        self.history = deque(maxlen=100)  # Store last 100 readings
-        self.running = False
-        self.thread = None
-        self.reading_interval = 1.0  # seconds
+        self.last_error = None
         
-        # Store moving average samples
-        self.moving_avg_samples = int(config.get('moving_avg_samples', 10))
-        self.readings = deque(maxlen=self.moving_avg_samples)
-        self.readings.append(self.current_value)
+        logger.info("Initialized mock turbidity sensor")
+    
+    def get_reading(self, retries: int = 3) -> float:
+        """Get simulated turbidity reading.
         
-        # Start the simulation thread
-        self.start_simulation()
+        Args:
+            retries: Number of retries (ignored in mock)
+            
+        Returns:
+            float: Simulated turbidity reading in NTU
+        """
+        # Update reading time
+        self.last_reading_time = time.time()
         
-        logger.info("Mock turbidity sensor initialized")
-    
-    def start_simulation(self):
-        """Start the simulation thread to generate readings."""
-        if self.running:
-            return
+        # Generate reading with small random variations and trend
+        reading = self.base_value
         
-        self.running = True
-        self.thread = threading.Thread(target=self._simulate_readings, daemon=True)
-        self.thread.start()
-        logger.info("Mock turbidity sensor simulation started")
+        # Add trend component
+        self.trend_factor += (random.random() - 0.5) * 0.05
+        self.trend_factor = max(-1.0, min(1.0, self.trend_factor))
+        reading += self.trend_factor * 0.01
+        
+        # Add random variation
+        reading += (random.random() - 0.5) * self.variation
+        
+        # Clamp to allowed range
+        reading = max(self.min_value, min(self.max_value, reading))
+        
+        # Update base value slightly
+        self.base_value = 0.95 * self.base_value + 0.05 * reading
+        self.base_value = max(self.min_value, min(self.max_value, self.base_value))
+        
+        # Add to readings list for moving average
+        self.readings.append(reading)
+        if len(self.readings) > self.moving_avg_samples:
+            self.readings.pop(0)
+        
+        return reading
     
-    def stop_simulation(self):
-        """Stop the simulation thread."""
-        self.running = False
-        if self.thread:
-            self.thread.join(timeout=1.0)
-            self.thread = None
-        logger.info("Mock turbidity sensor simulation stopped")
-    
-    def _simulate_readings(self):
-        """Simulate turbidity readings."""
-        while self.running:
-            # Generate a realistic turbidity value with small fluctuations
-            # and occasional trends up or down
-            
-            # Small random fluctuation
-            fluctuation = (random.random() - 0.5) * 0.01
-            
-            # Occasional trend changes
-            if random.random() < 0.05:  # 5% chance of trend change
-                trend = (random.random() - 0.5) * 0.05
-            else:
-                trend = 0
-            
-            # Update current value with constraints
-            self.current_value = max(0.05, min(0.5, self.current_value + fluctuation + trend))
-            
-            # Add to readings for moving average
-            self.readings.append(self.current_value)
-            
-            # Add to history with timestamp
-            self.history.append((time.time(), self.current_value))
-            
-            # Log occasionally
-            if random.random() < 0.01:  # 1% chance of logging
-                logger.debug(f"Mock turbidity reading: {self.current_value:.3f} NTU")
-            
-            # Sleep until next reading
-            time.sleep(self.reading_interval)
-    
-    def get_reading(self):
-        """Get the current turbidity reading."""
-        return self.current_value
-    
-    def get_moving_average(self):
-        """Get the moving average of turbidity readings."""
+    def get_moving_average(self) -> float:
+        """Get moving average of turbidity readings.
+        
+        Returns:
+            float: Moving average of turbidity in NTU
+        """
         if not self.readings:
-            return 0
+            return self.get_reading()
+        
         return sum(self.readings) / len(self.readings)
     
-    def get_history(self, count=None):
-        """Get historical readings."""
-        if count is None:
-            return list(self.history)
-        return list(self.history)[-count:]
-    
-    def connect(self):
-        """Connect to the sensor (mock implementation)."""
-        self.connected = True
-        return True
-    
-    def disconnect(self):
-        """Disconnect from the sensor (mock implementation)."""
-        self.connected = False
-        return True
-    
-    def is_connected(self):
-        """Check if the sensor is connected."""
-        return self.connected
+    def get_status(self) -> Dict[str, Any]:
+        """Get sensor status information.
+        
+        Returns:
+            Dict[str, Any]: Status information
+        """
+        return {
+            "connected": self.connected,
+            "last_reading": self.readings[-1] if self.readings else None,
+            "last_reading_time": self.last_reading_time,
+            "moving_average": self.get_moving_average(),
+            "samples_collected": len(self.readings),
+            "last_error": self.last_error
+        }
