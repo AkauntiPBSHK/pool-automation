@@ -1,97 +1,251 @@
-# backend/utils/simulator.py
+"""
+Comprehensive simulation framework for testing the pool automation system without hardware.
+"""
+
 import time
 import random
 import math
 import logging
-from ..models.database import DatabaseHandler
+import threading
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
-class DataSimulator:
-    """Utility to generate simulated data for development and testing."""
+class SystemSimulator:
+    """Simulates an entire pool system including turbidity, pH, ORP, and chlorine parameters."""
     
-    def __init__(self, db_handler):
-        self.db = db_handler
+    def __init__(self, config=None):
+        """Initialize the system simulator.
+        
+        Args:
+            config (dict, optional): Configuration dictionary for simulation parameters.
+        """
+        self.config = config or {}
+        
+        # Initial parameter values
+        self.parameters = {
+            'turbidity': 0.15,      # NTU
+            'ph': 7.4,              # pH units
+            'orp': 720,             # mV
+            'free_chlorine': 1.2,   # mg/L
+            'combined_chlorine': 0.2, # mg/L
+            'temperature': 28.0     # °C
+        }
+        
+        # Pump states
+        self.pumps = {
+            'pac': False,           # PAC dosing pump
+            'acid': False,          # pH (acid) dosing pump  
+            'chlorine': False,      # Chlorine dosing pump
+        }
+        
+        # PAC dosing parameters
+        self.pac_flow_rate = 75     # ml/h
+        
+        # Simulation parameters
+        self.time_scale = self.config.get('time_scale', 1.0)  # 1.0 = real-time, >1 = faster
+        self.noise_level = self.config.get('noise_level', 1.0)  # 1.0 = normal noise
+        
+        # For time-based patterns
+        self.start_time = time.time()
+        
+        # Parameter dependencies (how parameters affect each other)
+        self.dependencies = {
+            'chlorine_to_orp': 25,   # 1 mg/L Cl₂ change affects ORP by ~25mV
+            'ph_to_orp': -30,        # 1 pH unit increase decreases ORP by ~30mV
+        }
+        
+        # Automatic drift and reaction modeling
+        self.drift_rates = {
+            'turbidity': 0.001,      # NTU per hour increase (natural dirt accumulation)
+            'ph': 0.02,              # pH units per hour increase (natural rise)
+            'free_chlorine': -0.05,  # mg/L per hour decrease (consumption)
+            'combined_chlorine': 0.01, # mg/L per hour increase (accumulation)
+            'temperature': 0.0       # °C per hour (stable by default)
+        }
+        
+        # Chemical reactions
+        self.reactions = {
+            'pac_dose': self._react_pac_dose,
+            'acid_dose': self._react_acid_dose,
+            'chlorine_dose': self._react_chlorine_dose
+        }
+        
+        # Start simulation thread
+        self.running = True
+        self.simulation_thread = threading.Thread(target=self._simulation_loop, daemon=True)
+        self.simulation_thread.start()
+        
+        logger.info("System simulator initialized")
     
-    def generate_historical_data(self, days=7):
-        """Generate simulated historical data for the past days."""
-        logger.info(f"Generating {days} days of simulated data")
+    def _simulation_loop(self):
+        """Main simulation loop that updates parameters based on time and actions."""
+        last_update = time.time()
         
-        current_time = time.time()
-        samples_per_hour = 12  # 5-minute intervals
-        hours = days * 24
-        total_samples = hours * samples_per_hour
-        
-        # Generate base values with daily patterns
-        base_ph = 7.4
-        base_orp = 720
-        base_free_cl = 1.2
-        base_comb_cl = 0.2
-        base_turbidity = 0.15
-        
-        # Generate data points
-        moving_avg_turbidity = base_turbidity
-        
-        for i in range(total_samples):
-            # Calculate timestamp for this sample
-            sample_time = current_time - ((total_samples - i) * 3600 / samples_per_hour)
-            
-            # Add daily and random variations
-            hour_of_day = (time.localtime(sample_time).tm_hour + 
-                           time.localtime(sample_time).tm_min / 60)
-            
-            # Daily cycle: values change based on time of day
-            daily_factor = math.sin(hour_of_day * math.pi / 12)
-            
-            # Add some random walk behavior
-            random_walk = sum(random.uniform(-0.05, 0.05) for _ in range(5))
-            
-            # Calculate values with variations
-            ph = base_ph + daily_factor * 0.1 + random_walk * 0.05
-            ph = max(7.0, min(7.8, ph))
-            
-            orp = base_orp + daily_factor * 15 + random_walk * 10
-            orp = max(650, min(780, orp))
-            
-            free_cl = base_free_cl + daily_factor * 0.1 + random_walk * 0.05
-            free_cl = max(0.8, min(1.6, free_cl))
-            
-            comb_cl = base_comb_cl + daily_factor * 0.05 + random_walk * 0.02
-            comb_cl = max(0.1, min(0.4, comb_cl))
-            
-            turbidity = base_turbidity + daily_factor * 0.02 + random_walk * 0.01
-            turbidity = max(0.10, min(0.25, turbidity))
-            
-            # Calculate exponential moving average for turbidity
-            alpha = 0.1  # Smoothing factor
-            moving_avg_turbidity = alpha * turbidity + (1 - alpha) * moving_avg_turbidity
-            
-            # Log to database
-            self.db.log_turbidity(turbidity, moving_avg_turbidity)
-            self.db.log_steiel_readings(ph, orp, free_cl, comb_cl)
-            
-            # Occasionally generate dosing events (when turbidity gets high)
-            if turbidity > 0.20 and random.random() < 0.2:
-                duration = random.choice([30, 60, 120])
-                flow_rate = random.uniform(60, 150)
-                self.db.log_dosing_event("PAC", duration, flow_rate, turbidity)
+        while self.running:
+            try:
+                # Calculate elapsed time since last update
+                current_time = time.time()
+                elapsed_hours = (current_time - last_update) * self.time_scale / 3600
+                last_update = current_time
                 
-                # After dosing, turbidity should decrease
-                base_turbidity = max(0.12, base_turbidity - 0.02)
-            
-            # Random drift for base values (represents water condition changes)
-            if i % samples_per_hour == 0:  # Once per hour
-                base_ph += random.uniform(-0.02, 0.02)
-                base_orp += random.uniform(-5, 5)
-                base_free_cl += random.uniform(-0.02, 0.02)
-                base_comb_cl += random.uniform(-0.01, 0.01)
-                base_turbidity += random.uniform(-0.005, 0.01)
+                # Apply natural drift to parameters
+                self._apply_drift(elapsed_hours)
                 
-                # Keep within reasonable limits
-                base_ph = max(7.2, min(7.6, base_ph))
-                base_orp = max(680, min(760, base_orp))
-                base_free_cl = max(1.0, min(1.4, base_free_cl))
-                base_comb_cl = max(0.1, min(0.3, base_comb_cl))
-                base_turbidity = max(0.12, min(0.18, base_turbidity))
+                # Apply daily patterns
+                self._apply_daily_patterns()
+                
+                # Apply random noise
+                self._apply_noise()
+                
+                # Process active dosing
+                self._process_dosing(elapsed_hours)
+                
+                # Update interdependent parameters
+                self._update_dependencies()
+                
+                # Apply physical constraints
+                self._apply_constraints()
+                
+                # Sleep to control simulation speed
+                time.sleep(1 / self.time_scale)
+                
+            except Exception as e:
+                logger.error(f"Error in simulation loop: {e}")
+                time.sleep(1)
+    
+    def _apply_drift(self, elapsed_hours):
+        """Apply natural drift to parameters over time."""
+        for param, rate in self.drift_rates.items():
+            self.parameters[param] += rate * elapsed_hours
+    
+    def _apply_daily_patterns(self):
+        """Apply time-of-day patterns to simulate daily cycles."""
+        # Calculate time of day influence (0.0 to 1.0)
+        seconds_in_day = 24 * 3600
+        time_of_day = (time.time() % seconds_in_day) / seconds_in_day
         
-        logger.info(f"Generated {total_samples} data points")
+        # Temperature varies with time of day (warmer in afternoon)
+        day_factor = math.sin((time_of_day - 0.25) * 2 * math.pi)
+        self.parameters['temperature'] += day_factor * 0.01
+        
+        # Turbidity increases slightly during typical swimming hours
+        if 0.4 < time_of_day < 0.7:  # ~10am to 5pm
+            self.parameters['turbidity'] += 0.0001
+        
+        # pH rises slightly during daylight (photosynthesis in outdoor pools)
+        if 0.25 < time_of_day < 0.75:  # 6am to 6pm
+            self.parameters['ph'] += 0.0001
+    
+    def _apply_noise(self):
+        """Apply random noise to parameters to simulate measurement variations."""
+        noise_factors = {
+            'turbidity': 0.002,
+            'ph': 0.01,
+            'orp': 2.0,
+            'free_chlorine': 0.01,
+            'combined_chlorine': 0.005,
+            'temperature': 0.05
+        }
+        
+        for param, factor in noise_factors.items():
+            self.parameters[param] += random.uniform(-factor, factor) * self.noise_level
+    
+    def _process_dosing(self, elapsed_hours):
+        """Process the effects of any active dosing pumps."""
+        # PAC dosing reduces turbidity
+        if self.pumps['pac']:
+            # Calculate effect based on flow rate and elapsed time
+            effect = (self.pac_flow_rate / 100) * elapsed_hours * 0.05
+            self.parameters['turbidity'] -= effect
+            logger.debug(f"PAC dosing: -{effect:.4f} NTU")
+        
+        # Acid dosing reduces pH
+        if self.pumps['acid']:
+            self.parameters['ph'] -= 0.05 * elapsed_hours
+            logger.debug(f"Acid dosing: -0.05 pH")
+        
+        # Chlorine dosing increases free chlorine and ORP
+        if self.pumps['chlorine']:
+            self.parameters['free_chlorine'] += 0.1 * elapsed_hours
+            logger.debug(f"Chlorine dosing: +0.1 mg/L")
+    
+    def _update_dependencies(self):
+        """Update interdependent parameters."""
+        # ORP depends on free chlorine and pH
+        baseline_orp = 650
+        chlorine_effect = self.parameters['free_chlorine'] * self.dependencies['chlorine_to_orp']
+        ph_effect = (self.parameters['ph'] - 7.0) * self.dependencies['ph_to_orp']
+        
+        self.parameters['orp'] = baseline_orp + chlorine_effect + ph_effect
+    
+    def _apply_constraints(self):
+        """Apply physical constraints to parameters."""
+        constraints = {
+            'turbidity': (0.05, 0.5),
+            'ph': (6.5, 8.0),
+            'orp': (500, 900),
+            'free_chlorine': (0.1, 3.0),
+            'combined_chlorine': (0.0, 0.5),
+            'temperature': (20.0, 32.0)
+        }
+        
+        for param, (min_val, max_val) in constraints.items():
+            self.parameters[param] = max(min_val, min(max_val, self.parameters[param]))
+    
+    # Reaction functions for chemical dosing
+    def _react_pac_dose(self, dose_amount):
+        """Simulate the effect of PAC dosing."""
+        # More PAC means lower turbidity, with diminishing returns
+        effect = math.sqrt(dose_amount) * 0.01
+        self.parameters['turbidity'] -= effect
+        logger.debug(f"PAC dose reaction: -{effect:.4f} NTU")
+    
+    def _react_acid_dose(self, dose_amount):
+        """Simulate the effect of acid dosing."""
+        self.parameters['ph'] -= dose_amount * 0.01
+        logger.debug(f"Acid dose reaction: -{dose_amount * 0.01:.2f} pH")
+    
+    def _react_chlorine_dose(self, dose_amount):
+        """Simulate the effect of chlorine dosing."""
+        self.parameters['free_chlorine'] += dose_amount * 0.01
+        # Some becomes combined chlorine
+        self.parameters['combined_chlorine'] += dose_amount * 0.002
+        logger.debug(f"Chlorine dose reaction: +{dose_amount * 0.01:.2f} mg/L free, "
+                    f"+{dose_amount * 0.002:.3f} mg/L combined")
+    
+    # Public API for controlling the simulation
+    def get_parameter(self, name):
+        """Get the current value of a parameter."""
+        return self.parameters.get(name)
+    
+    def get_all_parameters(self):
+        """Get all current parameter values."""
+        return self.parameters.copy()
+    
+    def set_pump_state(self, pump_name, state, flow_rate=None):
+        """Set the state of a pump."""
+        if pump_name not in self.pumps:
+            logger.warning(f"Unknown pump: {pump_name}")
+            return False
+        
+        self.pumps[pump_name] = bool(state)
+        
+        if pump_name == 'pac' and flow_rate is not None:
+            self.pac_flow_rate = float(flow_rate)
+        
+        logger.debug(f"Pump {pump_name} {'started' if state else 'stopped'}"
+                    f"{f' at {flow_rate} ml/h' if flow_rate and pump_name == 'pac' else ''}")
+        
+        return True
+    
+    def get_pump_states(self):
+        """Get the current states of all pumps."""
+        return self.pumps.copy()
+    
+    def stop(self):
+        """Stop the simulation."""
+        self.running = False
+        if self.simulation_thread.is_alive():
+            self.simulation_thread.join(timeout=1.0)
+        logger.info("System simulator stopped")

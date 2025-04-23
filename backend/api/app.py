@@ -10,12 +10,16 @@ import json
 import logging
 import random
 import time
+import math
+import threading
 from flask import Flask, jsonify, render_template, request
 from flask_socketio import SocketIO
 from flask_cors import CORS
 from dotenv import load_dotenv
 from backend.models.database import DatabaseHandler
-from backend.utils.simulator import DataSimulator
+from backend.utils.simulator import SystemSimulator
+from backend.hardware.sensors.mock import MockTurbiditySensor
+from backend.hardware.actuators.mock import MockPump
 
 # Load environment variables
 load_dotenv()
@@ -48,6 +52,12 @@ def load_config():
         return {"system": {"simulation_mode": True}}
 
 config = load_config()
+# Create a global instance of the system simulator
+simulator = SystemSimulator(config.get('simulation', {}))
+
+# Create mock hardware using the simulator
+mock_turbidity_sensor = MockTurbiditySensor(config.get('hardware', {}).get('turbidity_sensor', {}), simulator)
+mock_pac_pump = MockPump({'type': 'pac', **config.get('hardware', {}).get('pac_pump', {})}, simulator)
 
 # Simulated data generator
 def get_simulated_data():
@@ -89,25 +99,126 @@ def status():
         "version": "0.1.0"
     })
 
+# Add these API endpoints
 @app.route('/api/dashboard')
 def dashboard_data():
-    """Get all dashboard data."""
-    # Create a simulated data response that matches the frontend expectations
-    turbidity_value = round(random.uniform(0.12, 0.18), 3)
+    """Get all dashboard data for the frontend."""
+    if simulator:
+        # Get data from the simulator
+        params = simulator.get_all_parameters()
+        pump_states = simulator.get_pump_states()
+        
+        return jsonify({
+            "ph": round(params['ph'], 1),
+            "orp": round(params['orp']),
+            "freeChlorine": round(params['free_chlorine'], 2),
+            "combinedChlorine": round(params['combined_chlorine'], 1),
+            "turbidity": round(params['turbidity'], 3),
+            "temperature": round(params['temperature'], 1),
+            "uvIntensity": 94,  # Fixed value for now
+            "phPumpRunning": pump_states.get('acid', False),
+            "clPumpRunning": pump_states.get('chlorine', False),
+            "pacPumpRunning": pump_states.get('pac', False),
+            "pacDosingRate": mock_pac_pump.get_flow_rate()
+        })
+    else:
+        # Fallback to random data
+        return jsonify({
+            "ph": round(random.uniform(7.2, 7.6), 1),
+            "orp": random.randint(680, 760),
+            "freeChlorine": round(random.uniform(1.0, 1.4), 2),
+            "combinedChlorine": round(random.uniform(0.1, 0.3), 1),
+            "turbidity": round(random.uniform(0.12, 0.18), 3),
+            "temperature": round(random.uniform(27.0, 29.0), 1),
+            "uvIntensity": random.randint(90, 96),
+            "phPumpRunning": False,
+            "clPumpRunning": False,
+            "pacPumpRunning": False,
+            "pacDosingRate": 75
+        })
     
-    return jsonify({
-        "ph": round(random.uniform(7.2, 7.6), 1),
-        "orp": random.randint(680, 760),
-        "freeChlorine": round(random.uniform(1.0, 1.4), 2),
-        "combinedChlorine": round(random.uniform(0.1, 0.3), 1),
-        "turbidity": turbidity_value,
-        "temperature": round(random.uniform(27.0, 29.0), 1),
-        "uvIntensity": random.randint(90, 96),
-        "phPumpRunning": False,
-        "clPumpRunning": False,
-        "pacPumpRunning": False,
-        "pacDosingRate": 75  # Default value in ml/h
-    })
+@app.route('/api/pumps/pac', methods=['POST'])
+def control_pac_pump():
+    """Control the PAC dosing pump."""
+    if not request.is_json:
+        return jsonify({"error": "Invalid request format"}), 400
+    
+    data = request.json
+    command = data.get('command')
+    
+    if command == 'start':
+        duration = data.get('duration', 30)
+        flow_rate = data.get('flow_rate')
+        
+        if flow_rate:
+            mock_pac_pump.set_flow_rate(flow_rate)
+        
+        success = mock_pac_pump.start(duration=duration)
+        return jsonify({
+            "success": success,
+            "message": f"PAC pump started for {duration} seconds at {mock_pac_pump.get_flow_rate()} ml/h"
+        })
+    
+    elif command == 'stop':
+        success = mock_pac_pump.stop()
+        return jsonify({
+            "success": success,
+            "message": "PAC pump stopped"
+        })
+    
+    elif command == 'set_rate':
+        flow_rate = data.get('flow_rate')
+        if not flow_rate:
+            return jsonify({"error": "Missing flow_rate parameter"}), 400
+        
+        success = mock_pac_pump.set_flow_rate(flow_rate)
+        return jsonify({
+            "success": success,
+            "message": f"PAC pump flow rate set to {flow_rate} ml/h"
+        })
+    
+    else:
+        return jsonify({"error": "Invalid command"}), 400
+    
+@app.route('/api/simulator/control', methods=['POST'])
+def control_simulator():
+    """Control the system simulator."""
+    if not request.is_json:
+        return jsonify({"error": "Invalid request format"}), 400
+    
+    data = request.json
+    command = data.get('command')
+    
+    if command == 'set_parameter':
+        param = data.get('parameter')
+        value = data.get('value')
+        
+        if not param or value is None:
+            return jsonify({"error": "Missing parameter or value"}), 400
+        
+        # Update the parameter in the simulator
+        simulator.parameters[param] = float(value)
+        
+        return jsonify({
+            "success": True,
+            "message": f"Parameter {param} set to {value}"
+        })
+    
+    elif command == 'set_time_scale':
+        time_scale = data.get('time_scale')
+        
+        if not time_scale:
+            return jsonify({"error": "Missing time_scale parameter"}), 400
+        
+        simulator.time_scale = float(time_scale)
+        
+        return jsonify({
+            "success": True,
+            "message": f"Time scale set to {time_scale}x"
+        })
+    
+    else:
+        return jsonify({"error": "Invalid command"}), 400
 
 @app.route('/api/history/turbidity')
 def turbidity_history():
@@ -183,9 +294,72 @@ def initialize_database():
     """Initialize the database with sample data (for development)."""
     try:
         db = DatabaseHandler()
-        simulator = DataSimulator(db)
-        simulator.generate_historical_data(days=7)
-        return jsonify({"success": True, "message": "Database initialized with sample data"})
+        
+        # Generate historical data using the system simulator
+        days = 7  # Generate a week of data
+        hours_per_day = 24
+        samples_per_hour = 12  # Every 5 minutes
+        
+        logger.info(f"Generating {days} days of simulated data")
+        
+        # Save current simulator state to restore later
+        original_params = simulator.parameters.copy()
+        original_time_scale = simulator.time_scale
+        
+        # Use accelerated time for data generation
+        simulator.time_scale = 1.0
+        
+        current_time = time.time() - (days * 24 * 3600)  # Start from days ago
+        sample_interval = 3600 / samples_per_hour  # Seconds between samples
+        
+        # Generate data points
+        for day in range(days):
+            for hour in range(hours_per_day):
+                for sample in range(samples_per_hour):
+                    # Calculate timestamp for this sample
+                    sample_time = current_time + ((day * 24 + hour) * 3600 + sample * sample_interval)
+                    
+                    # Simulate parameter values based on time of day patterns
+                    time_of_day = hour / 24.0
+                    day_factor = math.sin((time_of_day - 0.25) * 2 * math.pi)
+                    
+                    # Set parameters with realistic daily patterns
+                    simulator.parameters['turbidity'] = 0.15 + day_factor * 0.02 + random.uniform(-0.02, 0.02)
+                    simulator.parameters['ph'] = 7.4 + day_factor * 0.1 + random.uniform(-0.1, 0.1)
+                    simulator.parameters['orp'] = 720 + day_factor * 10 + random.uniform(-10, 10)
+                    simulator.parameters['free_chlorine'] = 1.2 + day_factor * 0.1 + random.uniform(-0.1, 0.1)
+                    simulator.parameters['combined_chlorine'] = 0.2 + day_factor * 0.05 + random.uniform(-0.05, 0.05)
+                    simulator.parameters['temperature'] = 28.0 + day_factor * 0.5 + random.uniform(-0.2, 0.2)
+                    
+                    # Keep values within realistic bounds
+                    simulator._apply_constraints()
+                    
+                    # Calculate moving average for turbidity
+                    moving_avg = simulator.parameters['turbidity'] - random.uniform(-0.01, 0.01)
+                    
+                    # Log to database with the simulated timestamp
+                    db.log_turbidity(simulator.parameters['turbidity'], moving_avg)
+                    db.log_steiel_readings(
+                        simulator.parameters['ph'],
+                        simulator.parameters['orp'],
+                        simulator.parameters['free_chlorine'],
+                        simulator.parameters['combined_chlorine']
+                    )
+                    
+                    # Occasionally generate dosing events (when turbidity gets high)
+                    if simulator.parameters['turbidity'] > 0.20 and random.random() < 0.2:
+                        duration = random.choice([30, 60, 120])
+                        flow_rate = random.uniform(60, 150)
+                        db.log_dosing_event("PAC", duration, flow_rate, simulator.parameters['turbidity'])
+                        
+                        # After dosing, turbidity should decrease
+                        simulator.parameters['turbidity'] = max(0.12, simulator.parameters['turbidity'] - 0.02)
+        
+        # Restore original simulator state
+        simulator.parameters = original_params
+        simulator.time_scale = original_time_scale
+        
+        return jsonify({"success": True, "message": f"Database initialized with {days} days of sample data"})
     except Exception as e:
         logger.error(f"Error initializing database: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
