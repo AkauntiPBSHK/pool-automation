@@ -46,13 +46,25 @@ CORS(app, resources={r"/api/*": {"origins": "*", "methods": ["GET", "POST"]}})
 # Load configuration
 def load_config():
     env = os.getenv('FLASK_ENV', 'development')
-    config_path = os.path.join(os.path.dirname(__file__), f'../config/{env}/config.json')
+
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+    config_path = os.path.join(project_root, 'config', env, 'config.json')
+
     try:
         with open(config_path, 'r') as f:
+            logger.info(f"Loading configuration from {config_path}")
             return json.load(f)
     except Exception as e:
         logger.error(f"Error loading configuration: {e}")
-        return {"system": {"simulation_mode": True}}
+        # Return default configuration
+        return {
+            "system": {"simulation_mode": True},
+            "dosing": {
+                "high_threshold_ntu": 0.25,
+                "low_threshold_ntu": 0.12,
+                "target_ntu": 0.15
+            }
+        }
 
 config = load_config()
 # Create a global instance of the system simulator
