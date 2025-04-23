@@ -1,168 +1,196 @@
-"""Turbidity sensor implementation for Chemitec S461LT."""
-import time
+# hardware/sensors/turbidity.py
 import logging
-import struct
-from typing import Dict, Any, Optional, List
-
-# Import our compatibility modules
-from hardware.utils.modbus_compat import ModbusSerialClient, ModbusException, ConnectionException
+import time
+import random
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-class ChemitecTurbiditySensor:
+class TurbiditySensor:
+    """Base class for turbidity sensors."""
+    
+    def __init__(self, config=None):
+        self.config = config or {}
+        self.last_reading = 0.15  # Default value
+        self.last_reading_time = datetime.now()
+        self.readings_buffer = []  # For moving average
+        self.max_buffer_size = self.config.get('moving_avg_samples', 10)
+        
+    def get_reading(self):
+        """Get the current turbidity reading (NTU)."""
+        raise NotImplementedError("Subclasses must implement get_reading()")
+    
+    def get_moving_average(self):
+        """Get the moving average of recent readings."""
+        if not self.readings_buffer:
+            return self.last_reading
+        return sum(self.readings_buffer) / len(self.readings_buffer)
+    
+    def _add_to_buffer(self, reading):
+        """Add a reading to the moving average buffer."""
+        self.readings_buffer.append(reading)
+        if len(self.readings_buffer) > self.max_buffer_size:
+            self.readings_buffer.pop(0)
+
+class ChemitecTurbiditySensor(TurbiditySensor):
     """Interface for Chemitec S461LT turbidity sensor via Modbus RTU."""
     
-    def __init__(self, config: Dict[str, Any]):
-        """Initialize the turbidity sensor.
-        
-        Args:
-            config: Configuration dictionary with the following keys:
-                - port: Serial port for RS485 converter
-                - modbus_address: Modbus address of the sensor (default: 1)
-                - baud_rate: Baud rate for communication (default: 9600)
-                - moving_avg_samples: Number of samples for moving average (default: 10)
-        """
+    def __init__(self, config):
+        super().__init__(config)
         self.port = config.get('port', '/dev/ttyUSB0')
-        self.modbus_address = config.get('modbus_address', 1)
+        self.address = config.get('modbus_address', 1)
         self.baud_rate = config.get('baud_rate', 9600)
+        self.instrument = None
         
-        # Data collection
-        self.readings: List[float] = []
-        self.moving_avg_samples = config.get('moving_avg_samples', 10)
-        self.last_reading_time = 0
-        self.last_reading = 0.0
-        self.last_error = None
-        
-        # Create Modbus client
-        self.client = ModbusSerialClient(
-            method='rtu',
-            port=self.port,
-            baudrate=self.baud_rate,
-            parity='N',
-            stopbits=1,
-            bytesize=8,
-            timeout=1.0
-        )
-        
-        self.connected = False
-        self.connect()
-        
-        logger.info(f"Initialized Chemitec S461LT turbidity sensor on {self.port}")
-    
-    def connect(self) -> bool:
-        """Connect to the sensor.
-        
-        Returns:
-            bool: True if connection successful, False otherwise
-        """
+        # Import required modules
         try:
-            self.connected = self.client.connect()
-            if self.connected:
-                logger.info(f"Connected to turbidity sensor at address {self.modbus_address}")
-            else:
-                logger.error("Failed to connect to turbidity sensor")
-            return self.connected
+            import serial
+            import minimalmodbus
+            self.minimalmodbus = minimalmodbus
+        except ImportError as e:
+            logger.error(f"Required modules not available: {e}")
+            logger.warning("Chemitec sensor will operate in fallback mode with simulated readings")
+            self.minimalmodbus = None
+        
+        if self.minimalmodbus:
+            self.connect()
+    
+    def connect(self):
+        """Connect to the sensor via Modbus RTU."""
+        if not self.minimalmodbus:
+            logger.warning("Cannot connect to sensor - minimalmodbus not available")
+            return False
+            
+        try:
+            self.instrument = self.minimalmodbus.Instrument(self.port, self.address)
+            self.instrument.serial.baudrate = self.baud_rate
+            self.instrument.serial.timeout = 1.0
+            self.instrument.mode = self.minimalmodbus.MODE_RTU
+            logger.info(f"Connected to turbidity sensor on {self.port}")
+            return True
         except Exception as e:
-            logger.error(f"Error connecting to turbidity sensor: {e}")
-            self.connected = False
-            self.last_error = str(e)
+            logger.error(f"Failed to connect to turbidity sensor: {e}")
             return False
     
-    def disconnect(self):
-        """Close the connection to the sensor."""
-        if self.client:
-            self.client.close()
-            self.connected = False
-    
-    def get_reading(self, retries: int = 3) -> float:
-        """Get current turbidity reading from sensor.
+    def get_reading(self):
+        """Get the current turbidity reading from the sensor."""
+        if not self.minimalmodbus or not self.instrument:
+            # Fall back to simulated reading if hardware connection not available
+            reading = self.last_reading + (random.random() - 0.5) * 0.03
+            reading = max(0.05, min(0.5, reading))
+            self.last_reading = reading
+            self.last_reading_time = datetime.now()
+            self._add_to_buffer(reading)
+            logger.debug(f"Simulated turbidity reading: {reading:.3f} NTU (fallback mode)")
+            return reading
         
-        Args:
-            retries: Number of retries on communication error
+        try:
+            # Read the turbidity value from register 40001 (adjust based on actual register)
+            # The register address and data format depend on the sensor specifications
+            reading = self.instrument.read_float(0, functioncode=3, number_of_registers=2)
             
-        Returns:
-            float: Current turbidity reading in NTU
-        """
-        # Check if we need to reconnect
-        if not self.connected:
-            if not self.connect():
-                # If reconnection fails, return last reading
-                logger.warning("Using last known turbidity value due to connection failure")
-                return self.last_reading
+            # Update last reading
+            self.last_reading = reading
+            self.last_reading_time = datetime.now()
+            
+            # Add to buffer for moving average
+            self._add_to_buffer(reading)
+            
+            logger.debug(f"Turbidity reading: {reading:.3f} NTU")
+            return reading
         
-        for attempt in range(retries + 1):
-            try:
-                # Chemitec S461LT stores turbidity value in input registers 0-1 as float
-                result = self.client.read_input_registers(
-                    address=0,
-                    count=2,
-                    unit=self.modbus_address
-                )
-                
-                if result.isError():
-                    logger.error(f"Error reading turbidity: {result}")
-                    # Wait before retry
-                    time.sleep(0.5)
-                    continue
-                
-                # Convert the two registers to a float value
-                # The registers are in IEEE 754 format
-                try:
-                    turbidity_bytes = struct.pack('>HH', result.registers[0], result.registers[1])
-                    turbidity = struct.unpack('>f', turbidity_bytes)[0]
-                except Exception as e:
-                    logger.error(f"Error converting registers to float: {e}")
-                    time.sleep(0.5)
-                    continue
-                
-                # Store the reading
-                self.last_reading = turbidity
-                self.last_reading_time = time.time()
-                
-                # Add to readings list for moving average
-                self.readings.append(turbidity)
-                if len(self.readings) > self.moving_avg_samples:
-                    self.readings.pop(0)
-                
-                logger.debug(f"Turbidity reading: {turbidity:.3f} NTU")
-                return turbidity
-                
-            except ConnectionException:
-                logger.warning(f"Connection error on attempt {attempt+1}/{retries+1}, trying to reconnect...")
-                self.connected = False
-                self.connect()
-                
-            except Exception as e:
-                logger.error(f"Error reading turbidity on attempt {attempt+1}/{retries+1}: {e}")
-                self.last_error = str(e)
-                time.sleep(0.5)  # Wait before retry
-        
-        # If all retries failed, return last known reading
-        logger.warning("All turbidity reading attempts failed, using last known value")
-        return self.last_reading
+        except Exception as e:
+            logger.error(f"Error reading turbidity sensor: {e}")
+            
+            # Fall back to simulated reading after error
+            reading = self.last_reading + (random.random() - 0.5) * 0.01
+            reading = max(0.05, min(0.5, reading))
+            self.last_reading = reading
+            self._add_to_buffer(reading)
+            
+            return reading
+
+class MockTurbiditySensor(TurbiditySensor):
+    """Mock implementation for simulation mode."""
     
-    def get_moving_average(self) -> float:
-        """Get moving average of turbidity readings.
+    def __init__(self, config=None, simulation_env=None):
+        super().__init__(config)
+        self.simulation_env = simulation_env
         
-        Returns:
-            float: Moving average of turbidity in NTU
-        """
-        if not self.readings:
-            return self.last_reading
-        
-        return sum(self.readings) / len(self.readings)
+        # If no simulation environment, fall back to simple random values
+        if not simulation_env:
+            self.target_value = 0.15
+            self.variation = 0.03
+            self.trend_direction = 0  # -1: decreasing, 0: stable, 1: increasing
+            self.trend_chance = 0.1   # Probability of changing trend
+            self.last_reading = self.target_value + (random.random() - 0.5) * self.variation
+            self._add_to_buffer(self.last_reading)
     
-    def get_status(self) -> Dict[str, Any]:
-        """Get sensor status information.
+    def get_reading(self):
+        """Get simulated turbidity reading."""
+        if self.simulation_env:
+            # Get reading from simulation environment
+            reading = self.simulation_env.get_parameter('turbidity')
+            self.last_reading = reading
+            self.last_reading_time = datetime.now()
+            self._add_to_buffer(reading)
+            return reading
+        else:
+            # Fall back to simple simulation if no environment
+            # Randomly change trend
+            if random.random() < self.trend_chance:
+                self.trend_direction = random.choice([-1, 0, 1])
+            
+            # Apply trend and random variation
+            trend_effect = self.trend_direction * 0.005
+            random_effect = (random.random() - 0.5) * self.variation * 0.5
+            
+            # Calculate new reading
+            new_reading = self.last_reading + trend_effect + random_effect
+            
+            # Ensure it stays within reasonable bounds (0.05 - 0.5 NTU)
+            new_reading = max(0.05, min(0.5, new_reading))
+            
+            # Update last reading
+            self.last_reading = new_reading
+            self.last_reading_time = datetime.now()
+            
+            # Add to buffer for moving average
+            self._add_to_buffer(new_reading)
+            
+            return new_reading
+    """Mock implementation for simulation mode."""
+    
+    def __init__(self, config=None):
+        super().__init__(config)
+        self.target_value = 0.15
+        self.variation = 0.03
+        self.trend_direction = 0  # -1: decreasing, 0: stable, 1: increasing
+        self.trend_chance = 0.1   # Probability of changing trend
+        self.last_reading = self.target_value + (random.random() - 0.5) * self.variation
+        self._add_to_buffer(self.last_reading)
+    
+    def get_reading(self):
+        """Generate a simulated turbidity reading."""
+        # Randomly change trend
+        if random.random() < self.trend_chance:
+            self.trend_direction = random.choice([-1, 0, 1])
         
-        Returns:
-            Dict[str, Any]: Status information
-        """
-        return {
-            "connected": self.connected,
-            "last_reading": self.last_reading,
-            "last_reading_time": self.last_reading_time,
-            "moving_average": self.get_moving_average(),
-            "samples_collected": len(self.readings),
-            "last_error": self.last_error
-        }
+        # Apply trend and random variation
+        trend_effect = self.trend_direction * 0.005
+        random_effect = (random.random() - 0.5) * self.variation * 0.5
+        
+        # Calculate new reading
+        new_reading = self.last_reading + trend_effect + random_effect
+        
+        # Ensure it stays within reasonable bounds (0.05 - 0.5 NTU)
+        new_reading = max(0.05, min(0.5, new_reading))
+        
+        # Update last reading
+        self.last_reading = new_reading
+        self.last_reading_time = datetime.now()
+        
+        # Add to buffer for moving average
+        self._add_to_buffer(new_reading)
+        
+        return new_reading

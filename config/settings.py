@@ -1,8 +1,7 @@
-"""Configuration and settings module for pool automation system."""
+# config/settings.py
 import os
 import json
 import logging
-from typing import Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -21,14 +20,13 @@ DEFAULT_SETTINGS = {
         },
         "pac_pump": {
             "type": "ChonryWP110",
-            "port": "COM4",  # Change to /dev/ttyUSB1 on Raspberry Pi
-            "modbus_address": 1,
-            "baud_rate": 9600,
+            "control_pin": 17,
             "min_flow_ml_h": 60,
             "max_flow_ml_h": 150
         },
         "steiel_controller": {
-            "port": "COM5",  # Change to /dev/ttyUSB2 on Raspberry Pi
+            "enabled": False,
+            "port": "/dev/ttyUSB1",
             "modbus_address": 1,
             "baud_rate": 9600
         }
@@ -37,122 +35,127 @@ DEFAULT_SETTINGS = {
         "high_threshold_ntu": 0.25,
         "low_threshold_ntu": 0.12,
         "target_ntu": 0.15,
+        "min_dose_interval_sec": 300,
+        "max_dose_duration_sec": 30,
         "moving_avg_samples": 10
+    },
+    "network": {
+        "enable_api": True,
+        "api_port": 5000
+    },
+    "notifications": {
+        "enabled": False,
+        "email": {
+            "enabled": False,
+            "smtp_server": "smtp.gmail.com",
+            "smtp_port": 587,
+            "use_tls": True,
+            "username": "",
+            "password": "",
+            "from_address": "",
+            "to_address": ""
+        }
     }
 }
 
-# In-memory settings
+# Current settings
 _settings = DEFAULT_SETTINGS.copy()
 
-def load_settings(filename: str = 'settings.json') -> Dict[str, Any]:
-    """Load settings from file.
-    
-    Args:
-        filename: Settings filename
-        
-    Returns:
-        Dict[str, Any]: Loaded settings
-    """
+# Settings file path
+_settings_file = os.path.join(os.path.dirname(__file__), 'settings.json')
+
+def load_settings():
+    """Load settings from file."""
     global _settings
     
-    if os.path.exists(filename):
-        try:
-            with open(filename, 'r') as f:
-                loaded_settings = json.load(f)
-                
-            # Merge with default settings
-            _settings = merge_dicts(DEFAULT_SETTINGS, loaded_settings)
-            logger.info(f"Settings loaded from {filename}")
-        except Exception as e:
-            logger.error(f"Error loading settings: {e}")
-            _settings = DEFAULT_SETTINGS.copy()
-    else:
-        logger.warning(f"Settings file {filename} not found, using defaults")
-        _settings = DEFAULT_SETTINGS.copy()
-        
-    return _settings
-
-def save_settings(filename: str = 'settings.json') -> bool:
-    """Save current settings to file.
-    
-    Args:
-        filename: Settings filename
-        
-    Returns:
-        bool: True if successful, False otherwise
-    """
     try:
-        with open(filename, 'w') as f:
-            json.dump(_settings, f, indent=2)
+        if os.path.exists(_settings_file):
+            with open(_settings_file, 'r') as f:
+                loaded_settings = json.load(f)
             
-        logger.info(f"Settings saved to {filename}")
+            # Merge loaded settings with defaults
+            _settings = _merge_dicts(DEFAULT_SETTINGS, loaded_settings)
+            logger.info(f"Settings loaded from {_settings_file}")
+    except Exception as e:
+        logger.error(f"Error loading settings: {e}")
+        logger.warning("Using default settings")
+        _settings = DEFAULT_SETTINGS.copy()
+
+def save_settings():
+    """Save settings to file."""
+    try:
+        with open(_settings_file, 'w') as f:
+            json.dump(_settings, f, indent=4)
+        logger.info(f"Settings saved to {_settings_file}")
         return True
     except Exception as e:
         logger.error(f"Error saving settings: {e}")
         return False
 
-def get(path: str, default: Any = None) -> Any:
+def get(path, default=None):
     """Get a setting value by path.
     
     Args:
-        path: Setting path (e.g., 'system.name')
-        default: Default value if path not found
+        path: Dot-separated path to the setting (e.g., 'hardware.turbidity_sensor.port')
+        default: Default value if path doesn't exist
         
     Returns:
-        Any: Setting value
+        The setting value or the default
     """
-    parts = path.split('.')
-    value = _settings
-    
-    for part in parts:
-        if isinstance(value, dict) and part in value:
-            value = value[part]
-        else:
-            return default
-            
-    return value
+    current = _settings
+    try:
+        for part in path.split('.'):
+            current = current[part]
+        return current
+    except (KeyError, TypeError):
+        return default
 
-def set(path: str, value: Any) -> bool:
+def set(path, value):
     """Set a setting value by path.
     
     Args:
-        path: Setting path (e.g., 'system.name')
-        value: Value to set
+        path: Dot-separated path to the setting
+        value: New value
         
     Returns:
-        bool: True if successful, False otherwise
+        bool: Success status
     """
     global _settings
     
     parts = path.split('.')
     current = _settings
     
-    # Navigate to the parent of the target key
-    for i, part in enumerate(parts[:-1]):
-        if part not in current:
-            current[part] = {}
-        current = current[part]
+    try:
+        # Navigate to the parent of the target setting
+        for part in parts[:-1]:
+            if part not in current:
+                current[part] = {}
+            current = current[part]
         
-    # Set the value
-    current[parts[-1]] = value
-    return True
+        # Set the value
+        current[parts[-1]] = value
+        return True
+    except Exception as e:
+        logger.error(f"Error setting {path}: {e}")
+        return False
 
-def merge_dicts(d1: Dict[str, Any], d2: Dict[str, Any]) -> Dict[str, Any]:
-    """Recursively merge two dictionaries.
+def reset():
+    """Reset settings to defaults."""
+    global _settings
+    _settings = DEFAULT_SETTINGS.copy()
+    return save_settings()
+
+def _merge_dicts(dict1, dict2):
+    """Deep merge dict2 into dict1."""
+    result = dict1.copy()
     
-    Args:
-        d1: First dictionary
-        d2: Second dictionary
-        
-    Returns:
-        Dict[str, Any]: Merged dictionary
-    """
-    result = d1.copy()
-    
-    for k, v in d2.items():
-        if k in result and isinstance(result[k], dict) and isinstance(v, dict):
-            result[k] = merge_dicts(result[k], v)
+    for key, value in dict2.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = _merge_dicts(result[key], value)
         else:
-            result[k] = v
-            
+            result[key] = value
+    
     return result
+
+# Load settings at module initialization
+load_settings()

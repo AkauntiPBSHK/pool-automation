@@ -1,9 +1,9 @@
 """Mock actuators for simulation mode."""
 import time
 import logging
+import threading
 from enum import Enum
 from typing import Dict, Any, Optional
-import threading
 
 logger = logging.getLogger(__name__)
 
@@ -84,12 +84,13 @@ class MockPump:
         
         logger.info(f"Mock pump started at {self._current_flow_rate:.2f} mL/min")
         
+        # Cancel any existing timer
+        if self._stop_timer:
+            self._stop_timer.cancel()
+            self._stop_timer = None
+            
         # If duration is provided, schedule stop
         if duration:
-            # Cancel any existing timer
-            if self._stop_timer:
-                self._stop_timer.cancel()
-                
             self._stop_timer = threading.Timer(duration, self.stop)
             self._stop_timer.daemon = True
             self._stop_timer.start()

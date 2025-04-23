@@ -1,18 +1,29 @@
-"""Hardware interfaces for the Pool Automation System."""
+# hardware/__init__.py
 import logging
+import platform
 from config import settings
 
 logger = logging.getLogger(__name__)
 
-def initialize_hardware(simulation_mode=None):
+# Global simulation environment instance
+simulation_env = None
+
+def initialize_hardware():
     """Initialize hardware components based on configuration."""
-    # If simulation_mode is not explicitly provided, use the setting
-    if simulation_mode is None:
-        simulation_mode = settings.get('system.simulation_mode', True)
+    global simulation_env
+    
+    simulation_mode = settings.get('system.simulation_mode', False)
+    
+    # In development without hardware, always use simulation mode
+    if not simulation_mode:
+        # Check if we're on a Raspberry Pi
+        if not platform.machine().startswith('arm'):
+            logger.info("Not running on Raspberry Pi hardware - forcing simulation mode")
+            simulation_mode = True
+            settings.set('system.simulation_mode', True)
     
     logger.info(f"Initializing hardware in {'SIMULATION' if simulation_mode else 'PRODUCTION'} mode")
     
-    # Dictionary to hold hardware instances
     hardware = {
         'simulation_mode': simulation_mode,
         'sensors': {},
@@ -20,72 +31,83 @@ def initialize_hardware(simulation_mode=None):
         'controllers': {}
     }
     
-    # Initialize turbidity sensor
-    turbidity_sensor_type = settings.get('hardware.turbidity_sensor.type')
+    # Initialize simulation environment if in simulation mode
     if simulation_mode:
-        # Import mock sensor for simulation mode
-        from hardware.sensors.mock import MockTurbiditySensor
+        from hardware.simulation import SimulationEnvironment
+        simulation_env = SimulationEnvironment()
+        simulation_env.start()
+        hardware['simulation_env'] = simulation_env
+    
+    # Initialize turbidity sensor
+    if simulation_mode:
+        from hardware.sensors.turbidity import MockTurbiditySensor
         hardware['sensors']['turbidity'] = MockTurbiditySensor(
-            settings.get('hardware.turbidity_sensor', {})
+            settings.get('hardware.turbidity_sensor', {}),
+            simulation_env
         )
-        logger.info("Initialized mock turbidity sensor")
     else:
-        # Import real sensor for production mode
         try:
-            if turbidity_sensor_type == 'ChemitecS461LT':
-                from hardware.sensors.chemitec import ChemitecS461LT
-                hardware['sensors']['turbidity'] = ChemitecS461LT(
-                    settings.get('hardware.turbidity_sensor', {})
-                )
-                logger.info(f"Initialized {turbidity_sensor_type} sensor")
-            else:
-                logger.error(f"Unknown turbidity sensor type: {turbidity_sensor_type}")
-                # Fall back to mock sensor
-                from hardware.sensors.mock import MockTurbiditySensor
-                hardware['sensors']['turbidity'] = MockTurbiditySensor(
-                    settings.get('hardware.turbidity_sensor', {})
-                )
-        except Exception as e:
-            logger.error(f"Error initializing turbidity sensor: {e}")
-            # Fall back to mock sensor
-            from hardware.sensors.mock import MockTurbiditySensor
-            hardware['sensors']['turbidity'] = MockTurbiditySensor(
+            from hardware.sensors.turbidity import ChemitecTurbiditySensor
+            hardware['sensors']['turbidity'] = ChemitecTurbiditySensor(
                 settings.get('hardware.turbidity_sensor', {})
+            )
+        except ImportError as e:
+            logger.error(f"Failed to import ChemitecTurbiditySensor: {e}")
+            logger.warning("Falling back to mock turbidity sensor")
+            from hardware.sensors.turbidity import MockTurbiditySensor
+            hardware['sensors']['turbidity'] = MockTurbiditySensor(
+                settings.get('hardware.turbidity_sensor', {}),
+                simulation_env
             )
     
     # Initialize PAC pump
-    pac_pump_type = settings.get('hardware.pac_pump.type')
     if simulation_mode:
-        # Import mock pump for simulation mode
-        from hardware.actuators.mock import MockPump
+        from hardware.actuators.pumps import MockPump
         hardware['actuators']['pac_pump'] = MockPump(
-            settings.get('hardware.pac_pump', {})
+            settings.get('hardware.pac_pump', {}),
+            'pac',
+            simulation_env
         )
-        logger.info("Initialized mock PAC pump")
     else:
-        # Import real pump for production mode
         try:
-            if pac_pump_type == 'ChonryWP110':
-                from hardware.actuators.chonry import ChonryWP110
-                hardware['actuators']['pac_pump'] = ChonryWP110(
-                    settings.get('hardware.pac_pump', {})
-                )
-                logger.info(f"Initialized {pac_pump_type} pump")
-            else:
-                logger.error(f"Unknown PAC pump type: {pac_pump_type}")
-                # Fall back to mock pump
-                from hardware.actuators.mock import MockPump
-                hardware['actuators']['pac_pump'] = MockPump(
-                    settings.get('hardware.pac_pump', {})
-                )
-        except Exception as e:
-            logger.error(f"Error initializing PAC pump: {e}")
-            # Fall back to mock pump
-            from hardware.actuators.mock import MockPump
-            hardware['actuators']['pac_pump'] = MockPump(
+            from hardware.actuators.pumps import ChonryPump
+            hardware['actuators']['pac_pump'] = ChonryPump(
                 settings.get('hardware.pac_pump', {})
             )
+        except ImportError as e:
+            logger.error(f"Failed to import ChonryPump: {e}")
+            logger.warning("Falling back to mock pump")
+            from hardware.actuators.pumps import MockPump
+            hardware['actuators']['pac_pump'] = MockPump(
+                settings.get('hardware.pac_pump', {}),
+                'pac',
+                simulation_env
+            )
     
-    # Additional hardware initialization (Steiel controller, etc.) would go here
+    # Initialize Steiel controller if needed
+    if settings.get('hardware.steiel_controller.enabled', False):
+        if simulation_mode:
+            from hardware.controllers.steiel import MockSteielController
+            hardware['controllers']['steiel'] = MockSteielController(
+                settings.get('hardware.steiel_controller.port', '/dev/ttyUSB1'),
+                settings.get('hardware.steiel_controller.modbus_address', 1),
+                simulation_env
+            )
+        else:
+            try:
+                from hardware.controllers.steiel import SteielController
+                hardware['controllers']['steiel'] = SteielController(
+                    settings.get('hardware.steiel_controller.port', '/dev/ttyUSB1'),
+                    settings.get('hardware.steiel_controller.modbus_address', 1)
+                )
+            except ImportError as e:
+                logger.error(f"Failed to import SteielController: {e}")
+                logger.warning("Falling back to mock Steiel controller")
+                from hardware.controllers.steiel import MockSteielController
+                hardware['controllers']['steiel'] = MockSteielController(
+                    settings.get('hardware.steiel_controller.port', '/dev/ttyUSB1'),
+                    settings.get('hardware.steiel_controller.modbus_address', 1),
+                    simulation_env
+                )
     
     return hardware

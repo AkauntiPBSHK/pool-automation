@@ -1,497 +1,224 @@
-"""Pump controller implementation for Chonry WP110 and other pumps."""
-import time
-import struct
+# hardware/actuators/pumps.py
 import logging
+import time
+import random
 import threading
-from enum import Enum
-from typing import Dict, Any, Optional
-
-# Import our compatibility modules
-from hardware.utils.modbus_compat import ModbusSerialClient, ModbusException, ConnectionException
-from hardware.utils.gpio_compat import GPIO, USING_REAL_GPIO
 
 logger = logging.getLogger(__name__)
 
-class PumpStatus(Enum):
-    """Pump status enumeration."""
-    STOPPED = 0
-    RUNNING = 1
-    ERROR = 2
-
-class ChonryPump:
-    """Controller for Chonry WP110/BW100 pump via Modbus RTU or relay."""
+class Pump:
+    """Base class for dosing pumps."""
     
-    def __init__(self, config: Dict[str, Any]):
-        """Initialize the pump controller.
-        
-        Args:
-            config: Configuration dictionary with the following keys:
-                - port: Serial port for RS485 converter
-                - modbus_address: Modbus address of the pump (default: 1)
-                - baud_rate: Baud rate for communication (default: 9600)
-                - min_flow_ml_h: Minimum flow rate in ml/h (default: 60)
-                - max_flow_ml_h: Maximum flow rate in ml/h (default: 150)
-                - tube_type: Tube type code (default: 12 for 1x1mm tube)
-                - control_pin: GPIO pin for relay control (if relay mode is used)
-        """
-        self.port = config.get('port', '/dev/ttyUSB1')
-        self.modbus_address = config.get('modbus_address', 1)
-        self.baud_rate = config.get('baud_rate', 9600)
-        
-        # Flow rate limits (ml/h)
-        self.min_flow_ml_h = float(config.get('min_flow_ml_h', 60))
-        self.max_flow_ml_h = float(config.get('max_flow_ml_h', 150))
-        
-        # Tube configuration
-        self.tube_type = int(config.get('tube_type', 12))  # Default: 1x1mm tube
-        
-        # Relay control (alternative control method)
-        self.control_pin = config.get('control_pin')
-        self.use_relay = self.control_pin is not None
-        
-        # State tracking
-        self._current_flow_rate = 0.0  # ml/min
-        self._status = PumpStatus.STOPPED
-        self._last_error = None
-        self._last_command_time = 0
-        self._stop_timer = None
-        
-        # Initialize relay if used
-        if self.use_relay:
-            if not USING_REAL_GPIO:
-                logger.warning("Using mock GPIO implementation - relay control will be simulated")
-            
-            GPIO.setmode(GPIO.BCM)
-            GPIO.setup(self.control_pin, GPIO.OUT)
-            GPIO.output(self.control_pin, GPIO.LOW)
-            logger.info(f"Initialized relay control on GPIO {self.control_pin}")
-        
-        # Create Modbus client if not using relay
-        if not self.use_relay:
-            self.client = ModbusSerialClient(
-                method='rtu',
-                port=self.port,
-                baudrate=self.baud_rate,
-                parity='N',
-                stopbits=1,
-                bytesize=8,
-                timeout=1.0
-            )
-            self.connected = False
-            self.connect()
-        else:
-            self.client = None
-            self.connected = True
-        
-        logger.info(f"Initialized Chonry WP110 pump controller on {self.port if not self.use_relay else f'GPIO {self.control_pin}'}")
+    def __init__(self, config=None):
+        self.config = config or {}
+        self.running = False
+        self.start_time = None
+        self.duration = 0
+        self.flow_rate = 0  # ml/min
+        self.min_flow_ml_h = self.config.get('min_flow_ml_h', 60)  # Default min flow rate ml/h
+        self.max_flow_ml_h = self.config.get('max_flow_ml_h', 150)  # Default max flow rate ml/h
     
-    def connect(self) -> bool:
-        """Connect to the pump via Modbus.
-        
-        Returns:
-            bool: True if connection successful, False otherwise
-        """
-        if self.use_relay:
-            return True
-            
-        try:
-            self.connected = self.client.connect()
-            if self.connected:
-                logger.info(f"Connected to pump at address {self.modbus_address}")
-                # Enable RS485 control
-                self.enable_rs485_control()
-                # Set tube type
-                self.set_tube_type(self.tube_type)
-            else:
-                logger.error("Failed to connect to pump")
-            return self.connected
-        except Exception as e:
-            logger.error(f"Error connecting to pump: {e}")
-            self.connected = False
-            self._last_error = str(e)
-            return False
+    def start(self, duration=30):
+        """Start the pump for a specified duration in seconds."""
+        raise NotImplementedError("Subclasses must implement start()")
     
-    def disconnect(self):
-        """Close the connection to the pump."""
-        if self.client and not self.use_relay:
-            self.client.close()
-            self.connected = False
+    def stop(self):
+        """Stop the pump."""
+        raise NotImplementedError("Subclasses must implement stop()")
     
-    def enable_rs485_control(self) -> bool:
-        """Enable RS485 control mode - required before other commands.
-        
-        Returns:
-            bool: True if successful, False otherwise
-        """
-        if self.use_relay:
-            return True
-            
-        if not self.connected:
-            logger.error("Not connected to pump")
-            return False
-        
-        try:
-            result = self.client.write_register(
-                address=0,  # Register 0 - RS485 control enable
-                value=1,    # Enable (1)
-                unit=self.modbus_address
-            )
-            success = not result.isError() if result else False
-            if success:
-                logger.info("RS485 control mode enabled")
-            else:
-                logger.error("Failed to enable RS485 control mode")
-            return success
-        except Exception as e:
-            logger.error(f"Error enabling RS485 control: {e}")
-            self._last_error = str(e)
-            return False
+    def is_running(self):
+        """Check if the pump is running."""
+        return self.running
     
-    def set_tube_type(self, tube_type: int = 12) -> bool:
-        """Set the pump tube type.
-        
-        Args:
-            tube_type: Tube type code (12=1*1mm, 13=2*1mm)
-            
-        Returns:
-            bool: True if successful, False otherwise
-        """
-        if self.use_relay:
-            # Not applicable in relay mode
-            return True
-            
-        if not self.connected:
-            logger.error("Not connected to pump")
-            return False
-        
-        try:
-            result = self.client.write_register(
-                address=3,  # Register 3 - Pump tube
-                value=tube_type,
-                unit=self.modbus_address
-            )
-            success = not result.isError() if result else False
-            if success:
-                logger.info(f"Tube type set to {tube_type}")
-            else:
-                logger.error(f"Failed to set tube type to {tube_type}")
-            
-            # Check for error code
-            error_code = self._check_error()
-            if error_code:
-                logger.error(f"Tube type error: {error_code}")
-                return False
-                
-            return success
-        except Exception as e:
-            logger.error(f"Error setting tube type: {e}")
-            self._last_error = str(e)
-            return False
+    def get_flow_rate(self):
+        """Get the current flow rate in ml/min."""
+        return self.flow_rate
     
-    def set_flow_rate(self, flow_rate_ml_min: float) -> bool:
-        """Set the pump flow rate in mL/min.
-        
-        Args:
-            flow_rate_ml_min: Flow rate in milliliters per minute
-        
-        Returns:
-            bool: True if successful, False otherwise
-        """
+    def set_flow_rate(self, flow_rate_ml_h):
+        """Set the flow rate in ml/h."""
         # Convert ml/h to ml/min
-        flow_rate_ml_h = flow_rate_ml_min * 60
+        flow_rate_ml_min = flow_rate_ml_h / 60.0
         
-        # Clamp flow rate to allowed range
-        flow_rate_ml_h = max(self.min_flow_ml_h, min(self.max_flow_ml_h, flow_rate_ml_h))
-        flow_rate_ml_min = flow_rate_ml_h / 60
+        # Ensure flow rate is within limits
+        if flow_rate_ml_h < self.min_flow_ml_h:
+            flow_rate_ml_h = self.min_flow_ml_h
+            flow_rate_ml_min = flow_rate_ml_h / 60.0
+        elif flow_rate_ml_h > self.max_flow_ml_h:
+            flow_rate_ml_h = self.max_flow_ml_h
+            flow_rate_ml_min = flow_rate_ml_h / 60.0
         
-        # Store the current flow rate
-        self._current_flow_rate = flow_rate_ml_min
-        
-        # If using relay, we just store the value (actual control via start/stop)
-        if self.use_relay:
-            return True
-            
-        if not self.connected:
-            logger.error("Not connected to pump")
-            return False
-        
-        try:
-            # Convert float to IEEE 754 format as two 16-bit registers
-            flow_bytes = struct.pack('>f', flow_rate_ml_min)
-            flow_registers = [
-                struct.unpack('>H', flow_bytes[0:2])[0],
-                struct.unpack('>H', flow_bytes[2:4])[0]
-            ]
-            
-            # Write to registers 5-6 (flow rate)
-            result = self.client.write_registers(
-                address=5,
-                values=flow_registers,
-                unit=self.modbus_address
-            )
-            
-            success = not result.isError() if result else False
-            if success:
-                logger.info(f"Flow rate set to {flow_rate_ml_min:.2f} mL/min ({flow_rate_ml_h:.1f} mL/h)")
-            else:
-                logger.error(f"Failed to set flow rate to {flow_rate_ml_min:.2f} mL/min")
-            
-            # Check for error code
-            error_code = self._check_error()
-            if error_code:
-                logger.error(f"Flow rate error: {error_code}")
-                return False
-                
-            return success
-        except Exception as e:
-            logger.error(f"Error setting flow rate: {e}")
-            self._last_error = str(e)
-            return False
+        self.flow_rate = flow_rate_ml_min
+        return True
+
+class ChonryPump(Pump):
+    """Interface for Chonry WP110 peristaltic pump via GPIO."""
     
-    def start(self, duration: Optional[int] = None) -> bool:
-        """Start the pump.
+    def __init__(self, config):
+        super().__init__(config)
+        self.control_pin = config.get('control_pin', 17)  # GPIO pin for pump control
+        self.timer = None
         
-        Args:
-            duration: Optional duration in seconds, after which the pump will automatically stop
+        # Try to import GPIO library
+        try:
+            import RPi.GPIO as GPIO
+            self.GPIO = GPIO
             
-        Returns:
-            bool: True if successful, False otherwise
-        """
-        self._last_command_time = time.time()
-        
-        # Cancel any previous stop timer
-        if self._stop_timer:
-            self._stop_timer.cancel()
-            self._stop_timer = None
-        
-        if self.use_relay:
-            try:
-                GPIO.output(self.control_pin, GPIO.HIGH)
-                logger.info(f"Started pump via relay on GPIO {self.control_pin}")
-                self._status = PumpStatus.RUNNING
-                
-                # If duration provided, schedule stop
-                if duration:
-                    self._stop_timer = threading.Timer(duration, self.stop)
-                    self._stop_timer.daemon = True
-                    self._stop_timer.start()
-                    
-                return True
-            except Exception as e:
-                logger.error(f"Error starting pump via relay: {e}")
-                self._last_error = str(e)
-                return False
-            
-        if not self.connected:
-            if not self.connect():
-                logger.error("Failed to connect to pump")
-                return False
+            # Set up GPIO
+            self.GPIO.setmode(self.GPIO.BCM)
+            self.GPIO.setup(self.control_pin, self.GPIO.OUT)
+            self.GPIO.output(self.control_pin, self.GPIO.LOW)  # Ensure pump is off
+            logger.info(f"Initialized Chonry pump on GPIO pin {self.control_pin}")
+        except ImportError:
+            logger.warning("RPi.GPIO library not available - pump will operate in simulation mode")
+            self.GPIO = None
+    
+    def start(self, duration=30):
+        """Start the pump for a specified duration in seconds."""
+        if self.running:
+            logger.warning("Pump already running. Stopping current operation before starting new one.")
+            self.stop()
         
         try:
-            # Write to coil 1 (start/stop)
-            result = self.client.write_coil(
-                address=1,
-                value=True,  # True = Start
-                unit=self.modbus_address
-            )
+            # Start the pump
+            if self.GPIO:
+                self.GPIO.output(self.control_pin, self.GPIO.HIGH)
             
-            success = not result.isError() if result else False
-            if success:
-                logger.info(f"Pump started at {self._current_flow_rate:.2f} mL/min")
-                self._status = PumpStatus.RUNNING
-            else:
-                logger.error("Failed to start pump")
-                
-            # Check for error code
-            error_code = self._check_error()
-            if error_code:
-                logger.error(f"Start error: {error_code}")
-                return False
-                
-            # If duration provided, schedule stop
-            if duration and success:
-                self._stop_timer = threading.Timer(duration, self.stop)
-                self._stop_timer.daemon = True
-                self._stop_timer.start()
-                
-            return success
+            self.running = True
+            self.start_time = time.time()
+            self.duration = duration
+            
+            # Set a timer to stop the pump after the duration
+            if self.timer:
+                self.timer.cancel()
+            
+            self.timer = threading.Timer(duration, self.stop)
+            self.timer.daemon = True
+            self.timer.start()
+            
+            logger.info(f"Started pump for {duration} seconds at {self.flow_rate:.2f} ml/min")
+            return True
+        
         except Exception as e:
             logger.error(f"Error starting pump: {e}")
-            self._last_error = str(e)
             return False
     
-    def stop(self) -> bool:
-        """Stop the pump.
-        
-        Returns:
-            bool: True if successful, False otherwise
-        """
-        self._last_command_time = time.time()
-        
-        # Cancel any stop timer
-        if self._stop_timer:
-            self._stop_timer.cancel()
-            self._stop_timer = None
-        
-        if self.use_relay:
-            try:
-                GPIO.output(self.control_pin, GPIO.LOW)
-                logger.info(f"Stopped pump via relay on GPIO {self.control_pin}")
-                self._status = PumpStatus.STOPPED
-                return True
-            except Exception as e:
-                logger.error(f"Error stopping pump via relay: {e}")
-                self._last_error = str(e)
-                return False
-            
-        if not self.connected:
-            logger.error("Not connected to pump")
-            return False
+    def stop(self):
+        """Stop the pump."""
+        if not self.running:
+            return True
         
         try:
-            # Write to coil 1 (start/stop)
-            result = self.client.write_coil(
-                address=1,
-                value=False,  # False = Stop
-                unit=self.modbus_address
-            )
+            # Stop the pump
+            if self.GPIO:
+                self.GPIO.output(self.control_pin, self.GPIO.LOW)
             
-            success = not result.isError() if result else False
-            if success:
-                logger.info("Pump stopped")
-                self._status = PumpStatus.STOPPED
-            else:
-                logger.error("Failed to stop pump")
-                
-            # Check for error code
-            error_code = self._check_error()
-            if error_code:
-                logger.error(f"Stop error: {error_code}")
-                return False
-                
-            return success
+            self.running = False
+            
+            # Cancel the timer if it exists
+            if self.timer:
+                self.timer.cancel()
+                self.timer = None
+            
+            logger.info("Stopped pump")
+            return True
+        
         except Exception as e:
             logger.error(f"Error stopping pump: {e}")
-            self._last_error = str(e)
             return False
     
-    def is_running(self) -> bool:
-        """Check if the pump is currently running.
-        
-        Returns:
-            bool: True if pump is running, False otherwise
-        """
-        if self.use_relay:
-            return self._status == PumpStatus.RUNNING
-            
-        if not self.connected:
-            logger.debug("Not connected to pump, assuming stopped")
-            return False
-            
-        try:
-            # Read coil 1 to check if running
-            result = self.client.read_coils(
-                address=1,
-                count=1,
-                unit=self.modbus_address
-            )
-            
-            if result.isError():
-                logger.error(f"Error checking pump status: {result}")
-                return self._status == PumpStatus.RUNNING
-                
-            is_running = result.bits[0]
-            self._status = PumpStatus.RUNNING if is_running else PumpStatus.STOPPED
-            return is_running
-            
-        except Exception as e:
-            logger.error(f"Error checking if pump is running: {e}")
-            # Return the last known status
-            return self._status == PumpStatus.RUNNING
+    def cleanup(self):
+        """Clean up GPIO resources."""
+        if self.GPIO:
+            self.GPIO.cleanup(self.control_pin)
+            logger.info("Cleaned up GPIO resources for pump")
+
+class MockPump(Pump):class MockPump(Pump):
+    """Mock implementation for simulation mode."""
     
-    def get_flow_rate(self) -> float:
-        """Get the current flow rate in mL/min.
-        
-        Returns:
-            float: Current flow rate in mL/min
-        """
-        if self.use_relay:
-            # In relay mode, we can only return the stored value
-            return self._current_flow_rate if self.is_running() else 0.0
-            
-        if not self.connected:
-            logger.debug("Not connected to pump, returning stored flow rate")
-            return self._current_flow_rate if self.is_running() else 0.0
-            
-        try:
-            # Read input registers 4-5 (current flow rate)
-            result = self.client.read_input_registers(
-                address=4,
-                count=2,
-                unit=self.modbus_address
-            )
-            
-            if result.isError():
-                logger.error(f"Error reading flow rate: {result}")
-                return self._current_flow_rate if self.is_running() else 0.0
-                
-            # Convert the two registers to a float value
-            try:
-                flow_bytes = struct.pack('>HH', result.registers[0], result.registers[1])
-                flow_rate = struct.unpack('>f', flow_bytes)[0]
-            except Exception as e:
-                logger.error(f"Error converting registers to flow rate: {e}")
-                return self._current_flow_rate if self.is_running() else 0.0
-            
-            self._current_flow_rate = flow_rate
-            return flow_rate
-            
-        except Exception as e:
-            logger.error(f"Error getting flow rate: {e}")
-            # Return the last known flow rate
-            return self._current_flow_rate if self.is_running() else 0.0
+    def __init__(self, config=None, pump_type='pac', simulation_env=None):
+        super().__init__(config)
+        self.timer = None
+        self.pump_type = pump_type
+        self.simulation_env = simulation_env
     
-    def get_status(self) -> Dict[str, Any]:
-        """Get current pump status information.
+    def start(self, duration=30):
+        """Simulate starting the pump."""
+        if self.running:
+            logger.warning("Mock pump already running. Stopping current operation before starting new one.")
+            self.stop()
         
-        Returns:
-            Dict[str, Any]: Status information
-        """
-        is_running = self.is_running()
-        flow_rate = self.get_flow_rate()
+        self.running = True
+        self.start_time = time.time()
+        self.duration = duration
         
-        return {
-            "connected": self.connected,
-            "running": is_running,
-            "flow_rate_ml_min": flow_rate,
-            "flow_rate_ml_h": flow_rate * 60,
-            "last_command_time": self._last_command_time,
-            "last_error": self._last_error,
-            "mode": "relay" if self.use_relay else "modbus",
-            "min_flow_ml_h": self.min_flow_ml_h,
-            "max_flow_ml_h": self.max_flow_ml_h
-        }
+        # Interact with simulation environment if available
+        if self.simulation_env:
+            flow_rate = self.flow_rate * 60  # Convert to ml/h
+            self.simulation_env.simulate_dosing(self.pump_type, duration, flow_rate)
+        
+        # Set a timer to stop the pump after the duration
+        if self.timer:
+            self.timer.cancel()
+        
+        self.timer = threading.Timer(duration, self.stop)
+        self.timer.daemon = True
+        self.timer.start()
+        
+        logger.info(f"Started mock pump for {duration} seconds at {self.flow_rate:.2f} ml/min")
+        return True
     
-    def _check_error(self) -> int:
-        """Check if there was an error in the last command.
+    def stop(self):
+        """Simulate stopping the pump."""
+        if not self.running:
+            return True
         
-        Returns:
-            int: Error code (0 if no error)
-        """
-        if self.use_relay:
-            return 0
-            
-        try:
-            # Read input register 50 (error code)
-            result = self.client.read_input_registers(
-                address=50,
-                count=1,
-                unit=self.modbus_address
-            )
-            
-            if result.isError():
-                return 0
-                
-            return result.registers[0]
-        except Exception:
-            return 0
+        self.running = False
+        
+        # Cancel the timer if it exists
+        if self.timer:
+            self.timer.cancel()
+            self.timer = None
+        
+        logger.info("Stopped mock pump")
+        return True
+    """Mock implementation for simulation mode."""
+    
+    def __init__(self, config=None):
+        super().__init__(config)
+        self.timer = None
+    
+    def start(self, duration=30):
+        """Simulate starting the pump."""
+        if self.running:
+            logger.warning("Mock pump already running. Stopping current operation before starting new one.")
+            self.stop()
+        
+        self.running = True
+        self.start_time = time.time()
+        self.duration = duration
+        
+        # Set a timer to stop the pump after the duration
+        if self.timer:
+            self.timer.cancel()
+        
+        self.timer = threading.Timer(duration, self.stop)
+        self.timer.daemon = True
+        self.timer.start()
+        
+        logger.info(f"Started mock pump for {duration} seconds at {self.flow_rate:.2f} ml/min")
+        return True
+    
+    def stop(self):
+        """Simulate stopping the pump."""
+        if not self.running:
+            return True
+        
+        self.running = False
+        
+        # Cancel the timer if it exists
+        if self.timer:
+            self.timer.cancel()
+            self.timer = None
+        
+        logger.info("Stopped mock pump")
+        return True
