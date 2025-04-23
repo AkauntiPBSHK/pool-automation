@@ -41,6 +41,8 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-key')
 CORS(app)  # Enable CORS for all routes
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+CORS(app, resources={r"/api/*": {"origins": "*", "methods": ["GET", "POST"]}})
+
 # Load configuration
 def load_config():
     env = os.getenv('FLASK_ENV', 'development')
