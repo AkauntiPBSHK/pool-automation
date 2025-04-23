@@ -1,5 +1,5 @@
 /**
- * Utility function for making API calls with consistent error handling and retry capability
+ * Utility function for making API calls with consistent error handling and loading indicators
  * @param {string} url - API endpoint URL
  * @param {Object} options - Fetch options (method, headers, etc.)
  * @param {Function} onSuccess - Success callback function
@@ -15,12 +15,11 @@ function apiCall(url, options = {}, onSuccess, onError, retryOptions = { maxRetr
         };
     }
     
-    // Show status bar loading message
+    // Update status bar with loading message
     updateStatusBar('Loading data...', 'info');
     
-    // Apply loading state to relevant containers
-    const containers = document.querySelectorAll('.card, .chart-container');
-    containers.forEach(container => container.classList.add(container.classList.contains('chart-container') ? 'chart-loading' : 'card-loading'));
+    // Show loading state on relevant containers
+    showLoading('.card, .chart-container');
     
     // Create a function for retry logic
     const fetchWithRetry = (retriesLeft) => {
@@ -33,8 +32,8 @@ function apiCall(url, options = {}, onSuccess, onError, retryOptions = { maxRetr
                 return response.json();
             })
             .then(data => {
-                // Remove loading states
-                containers.forEach(container => container.classList.remove(container.classList.contains('chart-container') ? 'chart-loading' : 'card-loading'));
+                // Hide loading states
+                hideLoading('.card, .chart-container');
                 updateStatusBar('Data loaded successfully', 'success');
                 
                 // Call success callback if provided
@@ -58,8 +57,8 @@ function apiCall(url, options = {}, onSuccess, onError, retryOptions = { maxRetr
                         }, retryOptions.delay);
                     });
                 } else {
-                    // Remove loading states
-                    containers.forEach(container => container.classList.remove(container.classList.contains('chart-container') ? 'chart-loading' : 'card-loading'));
+                    // Hide loading states
+                    hideLoading('.card, .chart-container');
                     updateStatusBar('Error connecting to server. Using simulation mode.', 'danger');
                     
                     // Call error callback if provided
@@ -85,24 +84,7 @@ function apiCall(url, options = {}, onSuccess, onError, retryOptions = { maxRetr
 function showLoading(selector) {
     const elements = document.querySelectorAll(selector);
     elements.forEach(element => {
-        // Determine loading class based on element type
-        let loadingClass = 'loading';
-        if (element.classList.contains('card')) {
-            loadingClass = 'card-loading';
-        } else if (element.classList.contains('chart-container')) {
-            loadingClass = 'chart-loading';
-        }
-        
-        // Add loading class
-        element.classList.add(loadingClass);
-        
-        // For chart containers, add spinner if needed
-        if (element.classList.contains('chart-container') && !element.querySelector('.spinner-container')) {
-            const spinner = document.createElement('div');
-            spinner.className = 'spinner-container';
-            spinner.innerHTML = '<div class="spinner"></div>';
-            element.appendChild(spinner);
-        }
+        element.classList.add('loading');
     });
 }
 
@@ -113,14 +95,7 @@ function showLoading(selector) {
 function hideLoading(selector) {
     const elements = document.querySelectorAll(selector);
     elements.forEach(element => {
-        // Remove all possible loading classes
-        element.classList.remove('loading', 'card-loading', 'chart-loading');
-        
-        // Remove spinner if present
-        const spinner = element.querySelector('.spinner-container');
-        if (spinner) {
-            spinner.remove();
-        }
+        element.classList.remove('loading');
     });
 }
 

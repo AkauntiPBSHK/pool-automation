@@ -2682,9 +2682,9 @@ function updateActivePageNumberStyle(paginationContainer) {
         }
     });
 }
-
 /**
  * Update all axis visibility based on dataset visibility
+ * This function ensures that only axes corresponding to visible datasets are shown
  */
 function updateAllAxisVisibility() {
     if (!historyChart) return;
@@ -2696,7 +2696,7 @@ function updateAllAxisVisibility() {
     historyChart.options.scales['y-turbidity'].display = false;
     historyChart.options.scales['y-temp'].display = false;
     
-    // Now check each dataset and show the axis if the dataset is visible
+    // Map datasets to their corresponding axes
     const datasetToAxisMap = {
         0: 'y-ph',          // pH
         1: 'y-orp',         // ORP
@@ -4097,56 +4097,138 @@ function validateForm(validations) {
     return isValid;
 }
 
-// Initialize Socket.IO connection
+/**
+ * Initialize Socket.IO connection with enhanced error handling and reconnection
+ */
 function initializeSocketConnection() {
-    // Setup socket events
+    console.log('Initializing Socket.IO connection');
+    
+    // Connection events
     socket.on('connect', function() {
         console.log('Connected to server');
         updateStatusBar('Connected to server', 'success');
+        
+        // Fetch initial data after connection
+        fetchDashboardData();
     });
     
     socket.on('disconnect', function() {
         console.log('Disconnected from server');
         updateStatusBar('Disconnected from server. Using simulation mode.', 'danger');
+        
+        // Start simulation mode when disconnected
+        startSimulation();
     });
     
     // Data update events
     socket.on('parameter_update', function(data) {
         console.log('Parameter update received:', data);
-        // Update only the specific parameter that changed
-        if (mockData && data.parameter && data.value !== undefined) {
+        
+        // Update specific parameter
+        if (data.parameter && data.value !== undefined) {
             mockData[data.parameter] = data.value;
-            // Update UI for this parameter
-            updateParameterDisplay(data.parameter, data.value);
+            
+            // Update UI based on parameter type
+            if (['ph', 'orp', 'turbidity', 'temperature', 'freeChlorine', 'combinedChlorine'].includes(data.parameter)) {
+                updateParameter(data.parameter, data.value);
+            } else if (data.parameter.endsWith('PumpRunning')) {
+                const pumpId = data.parameter.replace('PumpRunning', 'Pump');
+                updatePumpStatus(pumpId, data.value);
+                updatePumpStatus(pumpId + 'Detail', data.value);
+            }
         }
     });
     
     socket.on('pump_status', function(data) {
         console.log('Pump status update received:', data);
+        
         if (data.pump && data.status !== undefined) {
-            // Update pump status in mockData
-            mockData[`${data.pump}PumpRunning`] = data.status;
-            // Update UI
-            updatePumpStatus(`${data.pump}Pump`, data.status);
-            updatePumpStatus(`${data.pump}PumpDetail`, data.status);
+            // Update pump status
+            mockData[data.pump + 'PumpRunning'] = data.status;
+            updatePumpStatus(data.pump + 'Pump', data.status);
+            updatePumpStatus(data.pump + 'PumpDetail', data.status);
         }
     });
     
     socket.on('system_alert', function(data) {
         console.log('System alert received:', data);
+        
         if (data.message) {
             showToast(data.message, data.type || 'info');
+            
+            // If critical alert, also update status bar
+            if (data.type === 'danger' || data.type === 'warning') {
+                updateStatusBar(data.message, data.type);
+            }
+        }
+    });
+    
+    // Add custom event for dosing events
+    socket.on('dosing_event', function(data) {
+        console.log('Dosing event received:', data);
+        
+        if (data.type && data.duration) {
+            // Show dosing event notification
+            showToast(`${data.type} dosing started for ${data.duration} seconds`, 'info');
+            
+            // Update pump status
+            if (data.type.toLowerCase() === 'ph') {
+                mockData.phPumpRunning = true;
+                updatePumpStatus('phPump', true);
+                updatePumpStatus('phPumpDetail', true);
+                
+                // Auto-stop after duration
+                setTimeout(() => {
+                    mockData.phPumpRunning = false;
+                    updatePumpStatus('phPump', false);
+                    updatePumpStatus('phPumpDetail', false);
+                }, data.duration * 1000);
+            } else if (data.type.toLowerCase() === 'chlorine' || data.type.toLowerCase() === 'cl') {
+                mockData.clPumpRunning = true;
+                updatePumpStatus('clPump', true);
+                updatePumpStatus('clPumpDetail', true);
+                
+                // Auto-stop after duration
+                setTimeout(() => {
+                    mockData.clPumpRunning = false;
+                    updatePumpStatus('clPump', false);
+                    updatePumpStatus('clPumpDetail', false);
+                }, data.duration * 1000);
+            } else if (data.type.toLowerCase() === 'pac') {
+                mockData.pacPumpRunning = true;
+                updatePumpStatus('pacPump', true);
+                updatePumpStatus('pacPumpDetail', true);
+                
+                // Auto-stop after duration
+                setTimeout(() => {
+                    mockData.pacPumpRunning = false;
+                    updatePumpStatus('pacPump', false);
+                    updatePumpStatus('pacPumpDetail', false);
+                }, data.duration * 1000);
+            }
         }
     });
     
     // Connection management
-    socket.io.on('reconnect_attempt', () => {
-        updateStatusBar('Attempting to reconnect to server...', 'warning');
+    socket.io.on('reconnect_attempt', (attempt) => {
+        console.log(`Reconnection attempt ${attempt}`);
+        updateStatusBar(`Attempting to reconnect to server... (Attempt ${attempt})`, 'warning');
     });
     
     socket.io.on('reconnect', () => {
+        console.log('Reconnected to server');
         updateStatusBar('Connection restored', 'success');
         fetchDashboardData();
+    });
+    
+    socket.io.on('reconnect_error', (error) => {
+        console.error('Reconnection error:', error);
+        updateStatusBar('Failed to reconnect. Using simulation mode.', 'danger');
+    });
+    
+    socket.io.on('reconnect_failed', () => {
+        console.error('Failed to reconnect after all attempts');
+        updateStatusBar('Connection lost. Using simulation mode.', 'danger');
     });
 }
 
@@ -4198,51 +4280,14 @@ function formatParameterValue(value, paramType) {
 }
 
 /**
- * Updates the ARIA label of a chart to reflect which parameters are currently visible
- * Improves accessibility for screen readers by providing context about what the chart is displaying
- * 
- * @param {Object} chart - The Chart.js chart object
- * @param {Object} visibilityState - Object mapping parameter names to visibility status
- */
-function updateChartAriaLabel(chart, visibilityState) {
-    if (!chart || !chart.canvas) return;
-    
-    const container = chart.canvas.closest('.chart-container');
-    if (!container) return;
-    
-    // Get names of visible parameters
-    const visibleParams = [];
-    
-    // Check which parameters are visible
-    if (visibilityState.ph) visibleParams.push('pH');
-    if (visibilityState.orp) visibleParams.push('ORP');
-    if (visibilityState.freeChlorine) visibleParams.push('free chlorine');
-    if (visibilityState.combinedChlorine) visibleParams.push('combined chlorine');
-    if (visibilityState.turbidity) visibleParams.push('turbidity');
-    if (visibilityState.temperature) visibleParams.push('temperature');
-    if (visibilityState.dosingEvents) visibleParams.push('dosing events');
-    
-    // Create descriptive label
-    let label = 'Chart showing ';
-    if (visibleParams.length === 0) {
-        label += 'no parameters';
-    } else if (visibleParams.length === 1) {
-        label += visibleParams[0];
-    } else {
-        label += visibleParams.slice(0, -1).join(', ') + ' and ' + visibleParams[visibleParams.length - 1];
-    }
-    
-    // Apply the label to the container
-    container.setAttribute('aria-label', label);
-}
-
-/**
- * Synchronize parameter checkboxes, buttons, and chart visibility
+ * Synchronize parameter selection between checkboxes, buttons, and chart visibility
  * @param {string} source - Source of the update ('checkbox', 'button', or 'chart')
  * @param {string} id - ID of the element that triggered the update
  * @param {boolean} isVisible - Whether the parameter should be visible
  */
 function syncParameterSelection(source, id, isVisible) {
+    if (!historyChart) return;
+    
     // Maps for relating different UI elements
     const checkboxToDataset = {
         'showPh': 0,
@@ -4282,20 +4327,19 @@ function syncParameterSelection(source, id, isVisible) {
         5: 'Temperature'
     };
     
-    if (!historyChart) return;
-    
     if (source === 'checkbox') {
-        // Update from checkbox
+        // Update from checkbox - find corresponding dataset
         const datasetIndex = checkboxToDataset[id];
         if (datasetIndex === undefined) return;
         
         // Update chart visibility
         historyChart.setDatasetVisibility(datasetIndex, isVisible);
         
-        // Update button state
+        // Update button state if exists
         const buttonText = datasetToButton[datasetIndex];
         if (buttonText) {
-            document.querySelectorAll('.parameters button').forEach(button => {
+            const buttons = document.querySelectorAll('.btn-group .btn');
+            buttons.forEach(button => {
                 if (button.textContent.trim() === buttonText) {
                     button.classList.toggle('active', isVisible);
                     button.classList.toggle('btn-primary', isVisible);
@@ -4304,7 +4348,7 @@ function syncParameterSelection(source, id, isVisible) {
             });
         }
     } else if (source === 'button') {
-        // Update from button
+        // Update from button - find corresponding dataset
         const datasetIndex = buttonToDataset[id];
         if (datasetIndex === undefined) return;
         
@@ -4319,27 +4363,42 @@ function syncParameterSelection(source, id, isVisible) {
                 checkbox.checked = isVisible;
             }
         }
+    } else if (source === 'chart') {
+        // Update from chart legend - sync both buttons and checkboxes
+        const datasetIndex = parseInt(id);
+        if (isNaN(datasetIndex)) return;
+        
+        // Update checkbox state
+        const checkboxId = datasetToCheckbox[datasetIndex];
+        if (checkboxId) {
+            const checkbox = document.getElementById(checkboxId);
+            if (checkbox) {
+                checkbox.checked = isVisible;
+            }
+        }
+        
+        // Update button state
+        const buttonText = datasetToButton[datasetIndex];
+        if (buttonText) {
+            const buttons = document.querySelectorAll('.btn-group .btn');
+            buttons.forEach(button => {
+                if (button.textContent.trim() === buttonText) {
+                    button.classList.toggle('active', isVisible);
+                    button.classList.toggle('btn-primary', isVisible);
+                    button.classList.toggle('btn-outline-secondary', !isVisible);
+                }
+            });
+        }
     }
     
-    // Update axis visibility after any change
+    // Always update axis visibility after any change
     updateAllAxisVisibility();
     
     // Update chart
     historyChart.update();
     
-    // Create visibility state object based on checkbox states
-    const visibilityState = {
-        ph: document.getElementById('showPh')?.checked || false,
-        orp: document.getElementById('showOrp')?.checked || false,
-        freeChlorine: document.getElementById('showFreeChlorine')?.checked || false,
-        combinedChlorine: document.getElementById('showCombinedChlorine')?.checked || false,
-        turbidity: document.getElementById('showTurbidity')?.checked || false,
-        temperature: document.getElementById('showTemp')?.checked || false,
-        dosingEvents: document.getElementById('showDosingEvents')?.checked || false
-    };
-    
-    // Update chart ARIA label with necessary parameters
-    updateChartAriaLabel(historyChart, visibilityState);
+    // Update ARIA label with current visible parameters
+    updateChartAriaLabel();
 }
 
 /**
@@ -4575,39 +4634,80 @@ function configureChartTimeAxis(chart, hours) {
 }
 
 /**
- * Update chart ARIA label with time range information
- * @param {string} chartId - ID of the chart canvas
- * @param {number} hours - Number of hours in the time range
+ * Updates the ARIA label of a chart based on time range or visible parameters
+ * @param {string} [chartId] - Chart canvas ID (for time-range version)
+ * @param {number} [hours] - Number of hours in time range (for time-range version)
+ * @param {object} [chart] - Chart.js chart object (defaults to historyChart if not provided)
  */
-function updateChartAriaLabel(chartId, hours) {
-    const chartContainer = document.querySelector(`#${chartId}`).closest('.chart-container');
-    if (!chartContainer) return;
+function updateChartAriaLabel(chartId, hours, chart) {
+    // Use historyChart as default if no chart object provided
+    chart = chart || historyChart;
     
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setHours(startDate.getHours() - hours);
+    // Exit if no valid chart
+    if (!chart) return;
     
-    // Format dates for accessibility description
-    const formatDate = (date) => {
+    // If chartId and hours are provided, it's the time-range version
+    if (chartId && hours) {
+      const chartContainer = document.querySelector(`#${chartId}`).closest('.chart-container');
+      if (!chartContainer) return;
+      
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setHours(startDate.getHours() - hours);
+      
+      // Format dates for accessibility description
+      const formatDate = (date) => {
         return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-    };
-    
-    // Get visible parameters for a more descriptive label
-    const visibleParams = [];
-    if (historyChart.isDatasetVisible(0)) visibleParams.push('pH');
-    if (historyChart.isDatasetVisible(1)) visibleParams.push('ORP');
-    if (historyChart.isDatasetVisible(2)) visibleParams.push('Free Chlorine');
-    if (historyChart.isDatasetVisible(3)) visibleParams.push('Combined Chlorine');
-    if (historyChart.isDatasetVisible(4)) visibleParams.push('Turbidity');
-    if (historyChart.isDatasetVisible(5)) visibleParams.push('Temperature');
-    
-    const paramText = visibleParams.length > 0 
+      };
+      
+      // Get visible parameters for a more descriptive label
+      const visibleParams = [];
+      if (chart.isDatasetVisible(0)) visibleParams.push('pH');
+      if (chart.isDatasetVisible(1)) visibleParams.push('ORP');
+      if (chart.isDatasetVisible(2)) visibleParams.push('Free Chlorine');
+      if (chart.isDatasetVisible(3)) visibleParams.push('Combined Chlorine');
+      if (chart.isDatasetVisible(4)) visibleParams.push('Turbidity');
+      if (chart.isDatasetVisible(5)) visibleParams.push('Temperature');
+      if (chart.isDatasetVisible(6) && chart.data.datasets[6]) visibleParams.push('Dosing Events');
+      
+      const paramText = visibleParams.length > 0 
         ? `showing ${visibleParams.join(', ')}` 
         : 'showing selected parameters';
-        
-    chartContainer.setAttribute('aria-label', 
+          
+      chartContainer.setAttribute('aria-label', 
         `Chart ${paramText} from ${formatDate(startDate)} to ${formatDate(endDate)}`);
-}
+    } 
+    // No chartId/hours - update based on visible datasets only
+    else {
+      const container = chart.canvas ? chart.canvas.closest('.chart-container') : null;
+      if (!container) return;
+      
+      // Get names of visible parameters
+      const visibleParams = [];
+      
+      // Check each dataset if it exists
+      if (chart.data.datasets[0] && chart.isDatasetVisible(0)) visibleParams.push('pH');
+      if (chart.data.datasets[1] && chart.isDatasetVisible(1)) visibleParams.push('ORP');
+      if (chart.data.datasets[2] && chart.isDatasetVisible(2)) visibleParams.push('free chlorine');
+      if (chart.data.datasets[3] && chart.isDatasetVisible(3)) visibleParams.push('combined chlorine');
+      if (chart.data.datasets[4] && chart.isDatasetVisible(4)) visibleParams.push('turbidity');
+      if (chart.data.datasets[5] && chart.isDatasetVisible(5)) visibleParams.push('temperature');
+      if (chart.data.datasets[6] && chart.isDatasetVisible(6)) visibleParams.push('dosing events');
+      
+      // Create descriptive label
+      let label = 'Chart showing ';
+      
+      if (visibleParams.length === 0) {
+        label += 'no parameters';
+      } else if (visibleParams.length === 1) {
+        label += visibleParams[0];
+      } else {
+        label += visibleParams.slice(0, -1).join(', ') + ' and ' + visibleParams[visibleParams.length - 1];
+      }
+      
+      container.setAttribute('aria-label', label);
+    }
+  }
 
 /**
  * Update history chart with new data for a time period
