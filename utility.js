@@ -1,18 +1,26 @@
 /**
- * Utility function for making API calls with consistent error handling and loading indicators
+ * Improved API call function with better error handling and timeout options
  * @param {string} url - API endpoint URL
  * @param {Object} options - Fetch options (method, headers, etc.)
  * @param {Function} onSuccess - Success callback function
  * @param {Function} onError - Error callback function
- * @param {Object} retryOptions - Retry configuration {maxRetries, delay}
+ * @param {Object} retryOptions - Retry configuration {maxRetries, delay, timeout}
  * @returns {Promise} - The fetch promise
  */
-function apiCall(url, options = {}, onSuccess, onError, retryOptions = { maxRetries: 2, delay: 1000 }) {
+function apiCall(url, options = {}, onSuccess, onError, retryOptions = { maxRetries: 2, delay: 1000, timeout: 10000 }) {
     // Set default headers if not provided
     if (!options.headers) {
         options.headers = {
             'Content-Type': 'application/json'
         };
+    }
+    
+    // Add abort controller for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), retryOptions.timeout);
+    
+    if (!options.signal) {
+        options.signal = controller.signal;
     }
     
     // Update status bar with loading message
@@ -25,9 +33,12 @@ function apiCall(url, options = {}, onSuccess, onError, retryOptions = { maxRetr
     const fetchWithRetry = (retriesLeft) => {
         return fetch(url, options)
             .then(response => {
-                // Check if response is ok (status in the range 200-299)
+                clearTimeout(timeoutId);
+                
+                // Check response status and categorize errors
                 if (!response.ok) {
-                    throw new Error(`Server responded with status: ${response.status}`);
+                    const errorType = categorizeHttpError(response.status);
+                    throw new Error(`${errorType} error: ${response.status} - ${response.statusText}`);
                 }
                 return response.json();
             })
@@ -43,7 +54,15 @@ function apiCall(url, options = {}, onSuccess, onError, retryOptions = { maxRetr
                 return data;
             })
             .catch(error => {
-                console.error(`API Error (${url}):`, error);
+                clearTimeout(timeoutId);
+                
+                // Handle specific abort error (timeout)
+                if (error.name === 'AbortError') {
+                    console.error(`Request timeout after ${retryOptions.timeout}ms`);
+                    updateStatusBar('Request timed out. Retrying...', 'warning');
+                } else {
+                    console.error(`API Error (${url}):`, error);
+                }
                 
                 // Retry logic
                 if (retriesLeft > 0) {
@@ -251,4 +270,19 @@ function enhanceControlsAccessibility() {
             }
         });
     });
+}
+
+/**
+ * Categorize HTTP errors for better error handling
+ * @param {number} status - HTTP status code
+ * @returns {string} - Error category
+ */
+function categorizeHttpError(status) {
+    if (status >= 400 && status < 500) {
+        return "Client";
+    } else if (status >= 500) {
+        return "Server";
+    } else {
+        return "Unknown";
+    }
 }

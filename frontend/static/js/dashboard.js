@@ -2686,15 +2686,19 @@ function updateActivePageNumberStyle(paginationContainer) {
  * Update all axis visibility based on dataset visibility
  * This function ensures that only axes corresponding to visible datasets are shown
  */
+
 function updateAllAxisVisibility() {
     if (!historyChart) return;
     
     // First, set all axes to hidden
-    historyChart.options.scales['y-ph'].display = false;
-    historyChart.options.scales['y-orp'].display = false;
-    historyChart.options.scales['y-chlorine'].display = false; 
-    historyChart.options.scales['y-turbidity'].display = false;
-    historyChart.options.scales['y-temp'].display = false;
+    Object.keys(historyChart.options.scales).forEach(scaleId => {
+        if (scaleId.startsWith('y-')) {
+            historyChart.options.scales[scaleId].display = false;
+            if (historyChart.options.scales[scaleId].title) {
+                historyChart.options.scales[scaleId].title.display = false;
+            }
+        }
+    });
     
     // Map datasets to their corresponding axes
     const datasetToAxisMap = {
@@ -2711,11 +2715,13 @@ function updateAllAxisVisibility() {
     for (let i = 0; i < historyChart.data.datasets.length; i++) {
         if (historyChart.isDatasetVisible(i)) {
             const axisId = datasetToAxisMap[i];
-            if (axisId) {
+            if (axisId && historyChart.options.scales[axisId]) {
                 historyChart.options.scales[axisId].display = true;
                 
                 // Also ensure axis title is visible
-                historyChart.options.scales[axisId].title.display = true;
+                if (historyChart.options.scales[axisId].title) {
+                    historyChart.options.scales[axisId].title.display = true;
+                }
             }
         }
     }
@@ -3957,7 +3963,7 @@ function updateDoseDurationOptions(selectId, maxDuration) {
 }
 
 /**
- * Validate threshold inputs
+ * Validate thresholds for configuration inputs
  * @param {string} minId - Minimum input ID
  * @param {string} maxId - Maximum input ID
  * @param {string} targetId - Target input ID (optional)
@@ -3968,22 +3974,44 @@ function validateThresholds(minId, maxId, targetId, name) {
     const minInput = document.getElementById(minId);
     const maxInput = document.getElementById(maxId);
     
+    if (!minInput || !maxInput) return false;
+    
     const min = parseFloat(minInput.value);
     const max = parseFloat(maxInput.value);
     
-    if (min >= max) {
-        showToast(`${name} minimum must be less than maximum`, 'warning');
+    if (isNaN(min) || isNaN(max)) {
+        showToast(`${name} values must be valid numbers`, 'warning');
         return false;
     }
     
+    if (min >= max) {
+        showToast(`${name} minimum must be less than maximum`, 'warning');
+        minInput.classList.add('is-invalid');
+        maxInput.classList.add('is-invalid');
+        return false;
+    }
+    
+    minInput.classList.remove('is-invalid');
+    maxInput.classList.remove('is-invalid');
+    
     if (targetId) {
         const targetInput = document.getElementById(targetId);
+        if (!targetInput) return true;
+        
         const target = parseFloat(targetInput.value);
+        
+        if (isNaN(target)) {
+            showToast(`${name} target must be a valid number`, 'warning');
+            return false;
+        }
         
         if (target <= min || target >= max) {
             showToast(`${name} target must be between minimum and maximum`, 'warning');
+            targetInput.classList.add('is-invalid');
             return false;
         }
+        
+        targetInput.classList.remove('is-invalid');
     }
     
     return true;
@@ -4103,21 +4131,67 @@ function validateForm(validations) {
 function initializeSocketConnection() {
     console.log('Initializing Socket.IO connection');
     
+    // Track connection state
+    let isReconnecting = false;
+    
     // Connection events
     socket.on('connect', function() {
         console.log('Connected to server');
         updateStatusBar('Connected to server', 'success');
+        isReconnecting = false;
         
         // Fetch initial data after connection
         fetchDashboardData();
     });
     
-    socket.on('disconnect', function() {
-        console.log('Disconnected from server');
+    socket.on('disconnect', function(reason) {
+        console.log('Disconnected from server. Reason:', reason);
+        
+        if (reason === 'io server disconnect') {
+            // Server intentionally closed the connection, need to manually reconnect
+            console.log('Server disconnected the client. Attempting manual reconnect...');
+            socket.connect();
+        }
+        
         updateStatusBar('Disconnected from server. Using simulation mode.', 'danger');
         
-        // Start simulation mode when disconnected
+        // Start simulation mode when disconnected if not already started
         startSimulation();
+    });
+    
+    // Enhanced reconnection handling
+    socket.io.on('reconnect_attempt', (attempt) => {
+        isReconnecting = true;
+        console.log(`Reconnection attempt ${attempt}`);
+        updateStatusBar(`Attempting to reconnect to server... (Attempt ${attempt})`, 'warning');
+    });
+    
+    socket.io.on('reconnect', (attempt) => {
+        console.log(`Reconnected to server after ${attempt} attempts`);
+        isReconnecting = false;
+        updateStatusBar('Connection restored', 'success');
+        fetchDashboardData();
+    });
+    
+    socket.io.on('reconnect_error', (error) => {
+        console.error('Reconnection error:', error);
+        const errorMessage = error.message || 'Unknown error';
+        updateStatusBar(`Failed to reconnect: ${errorMessage}. Using simulation mode.`, 'danger');
+    });
+    
+    socket.io.on('reconnect_failed', () => {
+        console.error('Failed to reconnect after all attempts');
+        isReconnecting = false;
+        updateStatusBar('Connection lost. Using simulation mode.', 'danger');
+        
+        // Show reconnect button in the UI
+        addReconnectButton();
+    });
+    
+    socket.io.on('error', (error) => {
+        console.error('Socket.IO error:', error);
+        const errorMessage = error.message || 'Unknown error';
+        updateStatusBar(`Connection error: ${errorMessage}`, 'danger');
     });
     
     // Data update events
@@ -4129,13 +4203,7 @@ function initializeSocketConnection() {
             mockData[data.parameter] = data.value;
             
             // Update UI based on parameter type
-            if (['ph', 'orp', 'turbidity', 'temperature', 'freeChlorine', 'combinedChlorine'].includes(data.parameter)) {
-                updateParameter(data.parameter, data.value);
-            } else if (data.parameter.endsWith('PumpRunning')) {
-                const pumpId = data.parameter.replace('PumpRunning', 'Pump');
-                updatePumpStatus(pumpId, data.value);
-                updatePumpStatus(pumpId + 'Detail', data.value);
-            }
+            updateUIForParameter(data.parameter, data.value);
         }
     });
     
@@ -4836,4 +4904,70 @@ function updateAllRangeAriaAttributes() {
     
     // Update temperature range
     updateAriaAttributes('temp', mockData.temperature, 20, 32);
+}
+
+/**
+ * Add a reconnect button to the UI when connection fails completely
+ */
+function addReconnectButton() {
+    // Check if button already exists
+    if (document.getElementById('reconnectBtn')) return;
+    
+    // Create button
+    const reconnectBtn = document.createElement('button');
+    reconnectBtn.id = 'reconnectBtn';
+    reconnectBtn.className = 'btn btn-warning';
+    reconnectBtn.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i> Reconnect';
+    reconnectBtn.addEventListener('click', function() {
+        socket.connect();
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Connecting...';
+        setTimeout(() => {
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-arrow-repeat me-1"></i> Reconnect';
+        }, 5000);
+    });
+    
+    // Add to status bar area
+    const statusBar = document.getElementById('statusBar');
+    statusBar.parentNode.insertBefore(reconnectBtn, statusBar.nextSibling);
+}
+
+/**
+ * Update UI for a specific parameter
+ * @param {string} parameter - Parameter name
+ * @param {any} value - Parameter value
+ */
+function updateUIForParameter(parameter, value) {
+    // Update dashboard display for the parameter
+    switch(parameter) {
+        case 'ph':
+        case 'orp':
+        case 'freeChlorine':
+        case 'combinedChlorine':
+        case 'turbidity':
+        case 'temperature':
+        case 'uvIntensity':
+            updateParameter(parameter, value);
+            break;
+        case 'phPumpRunning':
+            updatePumpStatus('phPump', value);
+            updatePumpStatus('phPumpDetail', value);
+            break;
+        case 'clPumpRunning':
+            updatePumpStatus('clPump', value);
+            updatePumpStatus('clPumpDetail', value);
+            break;
+        case 'pacPumpRunning':
+            updatePumpStatus('pacPump', value);
+            updatePumpStatus('pacPumpDetail', value);
+            break;
+        case 'pacDosingRate':
+            // Update PAC dosing rate displays
+            const pacDosingRateEl = document.getElementById('pacDosingRate');
+            if (pacDosingRateEl) {
+                pacDosingRateEl.textContent = value;
+            }
+            break;
+    }
 }
