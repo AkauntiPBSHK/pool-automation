@@ -1,9 +1,11 @@
 """Turbidity sensor implementation for Chemitec S461LT."""
 import time
 import logging
+import struct
 from typing import Dict, Any, Optional, List
-from pymodbus.client.sync import ModbusSerialClient
-from pymodbus.exceptions import ModbusException, ConnectionException
+
+# Import our compatibility modules
+from hardware.utils.modbus_compat import ModbusSerialClient, ModbusException, ConnectionException
 
 logger = logging.getLogger(__name__)
 
@@ -105,9 +107,13 @@ class ChemitecTurbiditySensor:
                 
                 # Convert the two registers to a float value
                 # The registers are in IEEE 754 format
-                import struct
-                turbidity_bytes = struct.pack('>HH', result.registers[0], result.registers[1])
-                turbidity = struct.unpack('>f', turbidity_bytes)[0]
+                try:
+                    turbidity_bytes = struct.pack('>HH', result.registers[0], result.registers[1])
+                    turbidity = struct.unpack('>f', turbidity_bytes)[0]
+                except Exception as e:
+                    logger.error(f"Error converting registers to float: {e}")
+                    time.sleep(0.5)
+                    continue
                 
                 # Store the reading
                 self.last_reading = turbidity

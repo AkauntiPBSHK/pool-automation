@@ -2,12 +2,13 @@
 import time
 import struct
 import logging
+import threading
 from enum import Enum
 from typing import Dict, Any, Optional
-try:
-    from pymodbus.client import ModbusSerialClient
-except ImportError:
-from pymodbus.exceptions import ModbusException, ConnectionException
+
+# Import our compatibility modules
+from hardware.utils.modbus_compat import ModbusSerialClient, ModbusException, ConnectionException
+from hardware.utils.gpio_compat import GPIO, USING_REAL_GPIO
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,7 @@ class PumpStatus(Enum):
     ERROR = 2
 
 class ChonryPump:
-    """Controller for Chonry WP110/BW100 pump via Modbus RTU."""
+    """Controller for Chonry WP110/BW100 pump via Modbus RTU or relay."""
     
     def __init__(self, config: Dict[str, Any]):
         """Initialize the pump controller.
@@ -53,18 +54,17 @@ class ChonryPump:
         self._status = PumpStatus.STOPPED
         self._last_error = None
         self._last_command_time = 0
+        self._stop_timer = None
         
         # Initialize relay if used
         if self.use_relay:
-            try:
-                import RPi.GPIO as GPIO
-                GPIO.setmode(GPIO.BCM)
-                GPIO.setup(self.control_pin, GPIO.OUT)
-                GPIO.output(self.control_pin, GPIO.LOW)
-                logger.info(f"Initialized relay control on GPIO {self.control_pin}")
-            except ImportError:
-                logger.error("RPi.GPIO module not available. Relay control disabled.")
-                self.use_relay = False
+            if not USING_REAL_GPIO:
+                logger.warning("Using mock GPIO implementation - relay control will be simulated")
+            
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setup(self.control_pin, GPIO.OUT)
+            GPIO.output(self.control_pin, GPIO.LOW)
+            logger.info(f"Initialized relay control on GPIO {self.control_pin}")
         
         # Create Modbus client if not using relay
         if not self.use_relay:
@@ -219,8 +219,8 @@ class ChonryPump:
             # Convert float to IEEE 754 format as two 16-bit registers
             flow_bytes = struct.pack('>f', flow_rate_ml_min)
             flow_registers = [
-                (flow_bytes[0] << 8) | flow_bytes[1],
-                (flow_bytes[2] << 8) | flow_bytes[3]
+                struct.unpack('>H', flow_bytes[0:2])[0],
+                struct.unpack('>H', flow_bytes[2:4])[0]
             ]
             
             # Write to registers 5-6 (flow rate)
@@ -259,19 +259,22 @@ class ChonryPump:
         """
         self._last_command_time = time.time()
         
+        # Cancel any previous stop timer
+        if self._stop_timer:
+            self._stop_timer.cancel()
+            self._stop_timer = None
+        
         if self.use_relay:
             try:
-                import RPi.GPIO as GPIO
                 GPIO.output(self.control_pin, GPIO.HIGH)
                 logger.info(f"Started pump via relay on GPIO {self.control_pin}")
                 self._status = PumpStatus.RUNNING
                 
                 # If duration provided, schedule stop
                 if duration:
-                    import threading
-                    stop_thread = threading.Timer(duration, self.stop)
-                    stop_thread.daemon = True
-                    stop_thread.start()
+                    self._stop_timer = threading.Timer(duration, self.stop)
+                    self._stop_timer.daemon = True
+                    self._stop_timer.start()
                     
                 return True
             except Exception as e:
@@ -307,10 +310,9 @@ class ChonryPump:
                 
             # If duration provided, schedule stop
             if duration and success:
-                import threading
-                stop_thread = threading.Timer(duration, self.stop)
-                stop_thread.daemon = True
-                stop_thread.start()
+                self._stop_timer = threading.Timer(duration, self.stop)
+                self._stop_timer.daemon = True
+                self._stop_timer.start()
                 
             return success
         except Exception as e:
@@ -326,9 +328,13 @@ class ChonryPump:
         """
         self._last_command_time = time.time()
         
+        # Cancel any stop timer
+        if self._stop_timer:
+            self._stop_timer.cancel()
+            self._stop_timer = None
+        
         if self.use_relay:
             try:
-                import RPi.GPIO as GPIO
                 GPIO.output(self.control_pin, GPIO.LOW)
                 logger.info(f"Stopped pump via relay on GPIO {self.control_pin}")
                 self._status = PumpStatus.STOPPED
@@ -430,8 +436,12 @@ class ChonryPump:
                 return self._current_flow_rate if self.is_running() else 0.0
                 
             # Convert the two registers to a float value
-            flow_bytes = struct.pack('>HH', result.registers[0], result.registers[1])
-            flow_rate = struct.unpack('>f', flow_bytes)[0]
+            try:
+                flow_bytes = struct.pack('>HH', result.registers[0], result.registers[1])
+                flow_rate = struct.unpack('>f', flow_bytes)[0]
+            except Exception as e:
+                logger.error(f"Error converting registers to flow rate: {e}")
+                return self._current_flow_rate if self.is_running() else 0.0
             
             self._current_flow_rate = flow_rate
             return flow_rate
