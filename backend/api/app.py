@@ -80,6 +80,50 @@ def log_dosing_event(event_type, duration, flow_rate, turbidity):
     db.log_dosing_event(event_type, duration, flow_rate, turbidity)
     logger.info(f"Dosing event logged: {event_type}, {duration}s, {flow_rate}ml/h, {turbidity}NTU")
 
+# Add to your app.py - update this function
+def send_status_update():
+    """Send current system status to all connected clients."""
+    if not simulator:
+        return
+    
+    params = simulator.get_all_parameters()
+    pump_states = simulator.get_pump_states()
+    
+    status_data = {
+        "ph": round(params['ph'], 1),
+        "orp": round(params['orp']),
+        "freeChlorine": round(params['free_chlorine'], 2),
+        "combinedChlorine": round(params['combined_chlorine'], 1),
+        "turbidity": round(params['turbidity'], 3),
+        "temperature": round(params['temperature'], 1),
+        "phPumpRunning": pump_states.get('acid', False),
+        "clPumpRunning": pump_states.get('chlorine', False),
+        "pacPumpRunning": pump_states.get('pac', False),
+        "pacDosingRate": mock_pac_pump.get_flow_rate(),
+        "dosingMode": dosing_controller.mode.name
+    }
+    
+    socketio.emit('parameter_update', status_data)
+
+# Add a background task to send updates periodically
+def start_background_tasks():
+    """Start background tasks for real-time updates."""
+    def send_updates():
+        while True:
+            try:
+                send_status_update()
+                time.sleep(2)  # Update every 2 seconds
+            except Exception as e:
+                logger.error(f"Error in update task: {e}")
+                time.sleep(5)  # Delay on error
+    
+    thread = threading.Thread(target=send_updates, daemon=True)
+    thread.start()
+    logger.info("Background tasks started")
+
+# Call this after initializing the Flask app
+start_background_tasks()
+
 # Initialize the dosing controller with the simulator components
 dosing_controller = DosingController(
     mock_turbidity_sensor, 
@@ -347,6 +391,13 @@ def set_dosing_mode():
         return jsonify({"error": f"Invalid mode: {mode_str}"}), 400
     
     dosing_controller.set_mode(mode)
+    
+    # Add this: emit a WebSocket event when mode changes
+    socketio.emit('dosing_mode_changed', {
+        'mode': mode_str,
+        'status': dosing_controller.get_status()
+    })
+    
     return jsonify({"success": True, "mode": mode_str})
 
 @app.route('/api/dosing/manual', methods=['POST'])

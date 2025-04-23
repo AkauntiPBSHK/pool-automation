@@ -73,6 +73,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Apply any saved settings to the UI
     updateUIFromSettings();
+
+    fetchDosingStatus();
     
     // Setup socket events
     socket.on('connect', function() {
@@ -926,10 +928,39 @@ let turbidityChart = null;
  * Initialize turbidity and PAC controls
  */
 function initializeTurbidityPACControls() {
-    // Initialize auto switch
+    
     document.getElementById('pacAutoSwitch').addEventListener('change', function() {
+        const mode = this.checked ? 'AUTOMATIC' : 'MANUAL';
+        
+        // Call the API to update the mode
+        fetch('/api/dosing/mode', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                mode: mode
+            }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('Mode updated:', data);
+                updateDosingModeUI(mode);
+            } else {
+                console.error('Failed to update mode:', data);
+                // Revert the switch if the API call failed
+                this.checked = !this.checked;
+            }
+        })
+        .catch(error => {
+            console.error('Error updating mode:', error);
+            // Revert the switch on error
+            this.checked = !this.checked;
+        });
+        
         togglePACAutoMode(this.checked);
-    });
+    })
     
     // Initialize threshold input fields
     document.getElementById('pacHighThreshold').addEventListener('change', function() {
@@ -4235,6 +4266,12 @@ function initializeSocketConnection() {
     socket.on('dosing_event', function(data) {
         console.log('Dosing event received:', data);
         
+        // Update UI to reflect the new mode
+        updateDosingModeUI(data.mode);
+    
+        // Show a toast notification
+        showToast(`Dosing mode changed to ${data.mode}`, 'info');
+
         if (data.type && data.duration) {
             // Show dosing event notification
             showToast(`${data.type} dosing started for ${data.duration} seconds`, 'info');
@@ -4298,6 +4335,50 @@ function initializeSocketConnection() {
         console.error('Failed to reconnect after all attempts');
         updateStatusBar('Connection lost. Using simulation mode.', 'danger');
     });
+}
+
+// Add this helper function
+function updateDosingModeUI(mode) {
+    // Update mode toggle if it exists
+    const autoSwitch = document.getElementById('pacAutoSwitch');
+    if (autoSwitch) {
+        autoSwitch.checked = (mode === 'AUTOMATIC');
+    }
+    
+    // Update status badge
+    const statusBadge = document.getElementById('pacDosingStatus');
+    if (statusBadge) {
+        if (mode === 'AUTOMATIC') {
+            statusBadge.textContent = 'Optimized';
+            statusBadge.className = 'badge bg-success';
+        } else if (mode === 'MANUAL') {
+            statusBadge.textContent = 'Manual';
+            statusBadge.className = 'badge bg-warning';
+        } else {
+            statusBadge.textContent = 'Off';
+            statusBadge.className = 'badge bg-secondary';
+        }
+    }
+    
+    // Update manual control buttons
+    const isManualMode = (mode === 'MANUAL');
+    const isManualPageActive = document.getElementById('manualMode').classList.contains('active');
+    
+    document.getElementById('pacDoseBtn').disabled = !(isManualMode && isManualPageActive);
+    document.getElementById('pacStopBtn').disabled = !(isManualMode && isManualPageActive);
+    document.getElementById('pacFlowRate').disabled = !(isManualMode && isManualPageActive);
+}
+
+function fetchDosingStatus() {
+    fetch('/api/dosing/status')
+        .then(response => response.json())
+        .then(data => {
+            console.log('Dosing status:', data);
+            updateDosingModeUI(data.mode);
+        })
+        .catch(error => {
+            console.error('Error fetching dosing status:', error);
+        });
 }
 
 /**
