@@ -20,6 +20,7 @@ from backend.models.database import DatabaseHandler
 from backend.utils.simulator import SystemSimulator
 from backend.hardware.sensors.mock import MockTurbiditySensor
 from backend.hardware.actuators.mock import MockPump
+from backend.controllers.dosing import DosingController, DosingMode
 
 # Load environment variables
 load_dotenv()
@@ -58,6 +59,29 @@ simulator = SystemSimulator(config.get('simulation', {}))
 # Create mock hardware using the simulator
 mock_turbidity_sensor = MockTurbiditySensor(config.get('hardware', {}).get('turbidity_sensor', {}), simulator)
 mock_pac_pump = MockPump({'type': 'pac', **config.get('hardware', {}).get('pac_pump', {})}, simulator)
+
+# Create an event logger function
+def log_dosing_event(event_type, duration, flow_rate, turbidity):
+    db = DatabaseHandler()
+    db.log_dosing_event(event_type, duration, flow_rate, turbidity)
+    logger.info(f"Dosing event logged: {event_type}, {duration}s, {flow_rate}ml/h, {turbidity}NTU")
+
+# Initialize the dosing controller with the simulator components
+dosing_controller = DosingController(
+    mock_turbidity_sensor, 
+    mock_pac_pump,
+    config.get('dosing', {
+        'high_threshold_ntu': 0.25,
+        'low_threshold_ntu': 0.12,
+        'target_ntu': 0.15,
+        'min_dose_interval_sec': 300,
+        'dose_duration_sec': 30
+    }),
+    log_dosing_event
+)
+
+# Start the controller in automatic mode
+dosing_controller.start(DosingMode.AUTOMATIC)
 
 # Simulated data generator
 def get_simulated_data():
@@ -288,6 +312,51 @@ def events_history():
         })
     
     return jsonify(events)
+
+@app.route('/api/dosing/status')
+def dosing_status():
+    """Get the current status of the dosing controller."""
+    return jsonify(dosing_controller.get_status())
+
+@app.route('/api/dosing/mode', methods=['POST'])
+def set_dosing_mode():
+    """Set the dosing controller mode."""
+    if not request.is_json:
+        return jsonify({"error": "Invalid request format"}), 400
+    
+    data = request.json
+    mode_str = data.get('mode', '').upper()
+    
+    try:
+        mode = DosingMode[mode_str]
+    except (KeyError, ValueError):
+        return jsonify({"error": f"Invalid mode: {mode_str}"}), 400
+    
+    dosing_controller.set_mode(mode)
+    return jsonify({"success": True, "mode": mode_str})
+
+@app.route('/api/dosing/manual', methods=['POST'])
+def manual_dosing():
+    """Trigger manual dosing."""
+    if not request.is_json:
+        return jsonify({"error": "Invalid request format"}), 400
+    
+    data = request.json
+    duration = data.get('duration')
+    flow_rate = data.get('flow_rate')
+    
+    success = dosing_controller.manual_dose(duration, flow_rate)
+    
+    if success:
+        return jsonify({
+            "success": True, 
+            "message": f"Manual dosing started for {duration or dosing_controller.dose_duration} seconds"
+        })
+    else:
+        return jsonify({
+            "success": False, 
+            "message": "Manual dosing failed. Controller must be in MANUAL mode."
+        }), 400
 
 @app.route('/api/init')
 def initialize_database():
