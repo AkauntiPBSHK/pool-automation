@@ -20,7 +20,7 @@ from backend.models.database import DatabaseHandler
 from backend.utils.simulator import SystemSimulator
 from backend.hardware.sensors.mock import MockTurbiditySensor
 from backend.hardware.actuators.mock import MockPump
-from backend.controllers.dosing import DosingController, DosingMode
+from backend.hardware.controllers.dosing import DosingController, DosingMode
 
 # Load environment variables
 load_dotenv()
