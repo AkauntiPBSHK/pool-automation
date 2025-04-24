@@ -1,14 +1,14 @@
 // frontend/static/js/websocket.js
 
 // Initialize socket connection with your existing Flask-SocketIO setup
-let socket = null;
+let wsSocket = null;
 let reconnectAttempts = 0;
 let maxReconnectAttempts = 5;
 let reconnectInterval = 3000; // 3 seconds
 
 // Initialize WebSocket connection
 function initializeWebSocket() {
-    if (socket) {
+    if (wsSocket) {
         console.log('WebSocket connection already exists');
         return;
     }
@@ -16,10 +16,10 @@ function initializeWebSocket() {
     console.log('Initializing WebSocket connection...');
     
     // Create a Socket.IO connection to the server
-    socket = io();
+    wsSocket = io();
 
     // Connection established
-    socket.on('connect', function() {
+    wsSocket.on('connect', function() {
         console.log('WebSocket connection established');
         reconnectAttempts = 0;
         
@@ -29,27 +29,27 @@ function initializeWebSocket() {
     });
 
     // Connection confirmation
-    socket.on('connection_confirmed', function(data) {
+    wsSocket.on('connection_confirmed', function(data) {
         console.log('Connection confirmed by server:', data);
     });
 
     // Parameter updates
-    socket.on('parameter_update', function(data) {
+    wsSocket.on('parameter_update', function(data) {
         handleParameterUpdate(data);
     });
 
     // Dosing updates
-    socket.on('dosing_update', function(data) {
+    wsSocket.on('dosing_update', function(data) {
         handleDosingUpdate(data);
     });
 
     // System events
-    socket.on('system_event', function(data) {
+    wsSocket.on('system_event', function(data) {
         handleSystemEvent(data);
     });
 
     // Connection lost
-    socket.on('disconnect', function() {
+    wsSocket.on('disconnect', function() {
         console.log('WebSocket connection lost');
         updateConnectionStatus(false);
         
@@ -68,7 +68,7 @@ function initializeWebSocket() {
     });
 
     // Error handling
-    socket.on('error', function(error) {
+    wsSocket.on('error', function(error) {
         console.error('WebSocket error:', error);
     });
 }
@@ -91,8 +91,8 @@ function updateConnectionStatus(connected) {
 
 // Request current parameters from server
 function requestParameters() {
-    if (socket && socket.connected) {
-        socket.emit('request_params');
+    if (wsSocket && wsSocket.connected) {
+        wsSocket.emit('request_params');
     }
 }
 
@@ -304,32 +304,53 @@ function showToast(message, type = 'info') {
     }, 5000);
 }
 
-// Add event to system event history
+// Updated function to add event to history
 function addEventToHistory(event) {
-    const historyContainer = document.getElementById('event-history');
-    if (!historyContainer) return;
-    
-    // Create event element
-    const eventElement = document.createElement('div');
-    eventElement.className = 'event-item';
+    // Get events table body
+    const eventsTableBody = document.querySelector('#eventsTable tbody');
+    if (!eventsTableBody) return;
     
     // Format timestamp
-    const timestamp = new Date(event.timestamp * 1000).toLocaleTimeString();
+    const timestamp = new Date(event.timestamp * 1000).toLocaleString();
     
-    // Create event content
-    eventElement.innerHTML = `
-        <span class="event-time">${timestamp}</span>
-        <span class="event-type">${event.event}</span>
-        <span class="event-description">${event.description}</span>
+    // Create a new table row
+    const row = document.createElement('tr');
+    
+    // Determine badge class based on event type
+    let badgeClass = 'bg-info';
+    let eventTypeDisplay = 'System';
+    
+    if (event.event.includes('dose')) {
+        badgeClass = 'bg-success';
+        eventTypeDisplay = 'Dosing';
+    } else if (event.event.includes('alert') || event.event.includes('warning')) {
+        badgeClass = 'bg-warning';
+        eventTypeDisplay = 'Alert';
+    } else if (event.event.includes('error')) {
+        badgeClass = 'bg-danger';
+        eventTypeDisplay = 'Error';
+    }
+    
+    // Create row content
+    row.innerHTML = `
+        <td>${timestamp}</td>
+        <td><span class="badge ${badgeClass}">${eventTypeDisplay}</span></td>
+        <td>${event.description}</td>
+        <td>${event.parameter || '-'}</td>
+        <td>${event.value || '-'}</td>
     `;
     
-    // Add to container (at the beginning)
-    historyContainer.insertBefore(eventElement, historyContainer.firstChild);
+    // Add to the beginning of the table
+    if (eventsTableBody.firstChild) {
+        eventsTableBody.insertBefore(row, eventsTableBody.firstChild);
+    } else {
+        eventsTableBody.appendChild(row);
+    }
     
-    // Limit number of displayed events
-    const maxEvents = 50;
-    while (historyContainer.children.length > maxEvents) {
-        historyContainer.removeChild(historyContainer.lastChild);
+    // Limit number of displayed rows
+    const maxRows = 50;
+    while (eventsTableBody.children.length > maxRows) {
+        eventsTableBody.removeChild(eventsTableBody.lastChild);
     }
 }
 
@@ -384,16 +405,6 @@ function setupPacAutoSwitch() {
         });
     }
 }
-
-// Export functions for use in dashboard.js
-window.WebSocketManager = {
-    initializeWebSocketFeatures,
-    initializeWebSocket,
-    requestParameters,
-    showToast,
-    updateConnectionStatus,
-    setupPacAutoSwitch
-};
 
 // Set up dosing control event listeners
 function setupDosingControls() {
@@ -467,60 +478,12 @@ function setupDosingControls() {
     }
 }
 
-// Export functions for use in other scripts
+// Export functions for use in dashboard.js
 window.WebSocketManager = {
+    initializeWebSocketFeatures,
     initializeWebSocket,
     requestParameters,
     showToast,
-    updateConnectionStatus
+    updateConnectionStatus,
+    setupPacAutoSwitch
 };
-
-// Updated function to add event to history
-function addEventToHistory(event) {
-    // Get events table body
-    const eventsTableBody = document.querySelector('#eventsTable tbody');
-    if (!eventsTableBody) return;
-    
-    // Format timestamp
-    const timestamp = new Date(event.timestamp * 1000).toLocaleString();
-    
-    // Create a new table row
-    const row = document.createElement('tr');
-    
-    // Determine badge class based on event type
-    let badgeClass = 'bg-info';
-    let eventTypeDisplay = 'System';
-    
-    if (event.event.includes('dose')) {
-        badgeClass = 'bg-success';
-        eventTypeDisplay = 'Dosing';
-    } else if (event.event.includes('alert') || event.event.includes('warning')) {
-        badgeClass = 'bg-warning';
-        eventTypeDisplay = 'Alert';
-    } else if (event.event.includes('error')) {
-        badgeClass = 'bg-danger';
-        eventTypeDisplay = 'Error';
-    }
-    
-    // Create row content
-    row.innerHTML = `
-        <td>${timestamp}</td>
-        <td><span class="badge ${badgeClass}">${eventTypeDisplay}</span></td>
-        <td>${event.description}</td>
-        <td>${event.parameter || '-'}</td>
-        <td>${event.value || '-'}</td>
-    `;
-    
-    // Add to the beginning of the table
-    if (eventsTableBody.firstChild) {
-        eventsTableBody.insertBefore(row, eventsTableBody.firstChild);
-    } else {
-        eventsTableBody.appendChild(row);
-    }
-    
-    // Limit number of displayed rows
-    const maxRows = 50;
-    while (eventsTableBody.children.length > maxRows) {
-        eventsTableBody.removeChild(eventsTableBody.lastChild);
-    }
-}
