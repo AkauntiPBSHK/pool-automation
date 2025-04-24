@@ -6,6 +6,7 @@ window.socket = null;
 let reconnectAttempts = 0;
 let maxReconnectAttempts = 5;
 let reconnectInterval = 3000; // 3 seconds
+let lastHeartbeat = Date.now();
 
 // Initialize WebSocket connection
 function initializeWebSocket() {
@@ -16,15 +17,21 @@ function initializeWebSocket() {
 
     console.log('Initializing WebSocket connection...');
     
-    // Create a Socket.IO connection to the server
-    wsSocket = io();
+    // Create a Socket.IO connection with better transport options
+    wsSocket = io({
+        transports: ['websocket', 'polling'], // Try both methods
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        timeout: 10000
+    });
     window.socket = wsSocket;
 
     // Connection established
     wsSocket.on('connect', function() {
-        console.log('WebSocket connection established');
+        console.log('WebSocket connected with transport:', wsSocket.io.engine.transport.name);
         showToast('Connected to server', 'success');
         updateConnectionStatus(true);
+        lastHeartbeat = Date.now();
     });
 
     // Connection confirmation
@@ -32,9 +39,13 @@ function initializeWebSocket() {
         console.log('Connection confirmed by server:', data);
     });
 
-    // Parameter updates
+    // Parameter updates with safer implementation
     wsSocket.on('parameter_update', function(data) {
-        handleParameterUpdate(data);
+        try {
+            handleParameterUpdate(data);
+        } catch (error) {
+            console.error('Error handling parameter update:', error);
+        }
     });
 
     // Dosing updates
@@ -51,48 +62,52 @@ function initializeWebSocket() {
         console.log('Received complete system state:', data);
         showToast('System data refreshed', 'success');
         
-        // Update all UI elements with the complete state
-        updateParameterDisplay('phValue', data.ph);
-        updateParameterDisplay('orpValue', data.orp);
-        updateParameterDisplay('freeChlorineValue', data.freeChlorine);
-        updateParameterDisplay('combinedChlorineValue', data.combinedChlorine);
-        updateParameterDisplay('turbidityValue', data.turbidity);
-        updateParameterDisplay('tempValue', data.temperature);
-        
-        // Update detailed panels
-        updateParameterDisplay('phDetailValue', data.ph);
-        updateParameterDisplay('freeChlorineDetailValue', data.freeChlorine);
-        updateParameterDisplay('combinedChlorineDetailValue', data.combinedChlorine);
-        updateParameterDisplay('turbidityDetailValue', data.turbidity);
-        
-        // Update PAC dosing rate if available
-        if (data.pacDosingRate !== undefined) {
-            updateParameterDisplay('pacDosingRate', data.pacDosingRate);
-        }
-        
-        // Update dosing mode
-        const pacAutoSwitch = document.getElementById('pacAutoSwitch');
-        if (pacAutoSwitch) {
-            pacAutoSwitch.checked = (data.dosingMode === 'AUTOMATIC');
-        }
-        
-        // Don't update pump status if we have active dosing sessions
-        const activeSessions = window.activeDosingSessions || { ph: false, cl: false, pac: false };
-        
-        // Only update pump statuses if not in active sessions
-        if (!activeSessions.ph && typeof window.updatePumpStatus === 'function') {
-            window.updatePumpStatus('phPump', data.phPumpRunning);
-            window.updatePumpStatus('phPumpDetail', data.phPumpRunning);
-        }
-        
-        if (!activeSessions.cl && typeof window.updatePumpStatus === 'function') {
-            window.updatePumpStatus('clPump', data.clPumpRunning);
-            window.updatePumpStatus('clPumpDetail', data.clPumpRunning);
-        }
-        
-        if (!activeSessions.pac && typeof window.updatePumpStatus === 'function') {
-            window.updatePumpStatus('pacPump', data.pacPumpRunning);
-            window.updatePumpStatus('pacPumpDetail', data.pacPumpRunning);
+        try {
+            // Update all UI elements with the complete state
+            updateParameterDisplay('phValue', data.ph);
+            updateParameterDisplay('orpValue', data.orp);
+            updateParameterDisplay('freeChlorineValue', data.freeChlorine);
+            updateParameterDisplay('combinedChlorineValue', data.combinedChlorine);
+            updateParameterDisplay('turbidityValue', data.turbidity);
+            updateParameterDisplay('tempValue', data.temperature);
+            
+            // Update detailed panels
+            updateParameterDisplay('phDetailValue', data.ph);
+            updateParameterDisplay('freeChlorineDetailValue', data.freeChlorine);
+            updateParameterDisplay('combinedChlorineDetailValue', data.combinedChlorine);
+            updateParameterDisplay('turbidityDetailValue', data.turbidity);
+            
+            // Update PAC dosing rate if available
+            if (data.pacDosingRate !== undefined) {
+                updateParameterDisplay('pacDosingRate', data.pacDosingRate);
+            }
+            
+            // Update dosing mode
+            const pacAutoSwitch = document.getElementById('pacAutoSwitch');
+            if (pacAutoSwitch) {
+                pacAutoSwitch.checked = (data.dosingMode === 'AUTOMATIC');
+            }
+            
+            // Don't update pump status if we have active dosing sessions
+            const activeSessions = window.activeDosingSessions || { ph: false, cl: false, pac: false };
+            
+            // Only update pump statuses if not in active sessions
+            if (!activeSessions.ph && typeof window.updatePumpStatus === 'function') {
+                window.updatePumpStatus('phPump', data.phPumpRunning);
+                window.updatePumpStatus('phPumpDetail', data.phPumpRunning);
+            }
+            
+            if (!activeSessions.cl && typeof window.updatePumpStatus === 'function') {
+                window.updatePumpStatus('clPump', data.clPumpRunning);
+                window.updatePumpStatus('clPumpDetail', data.clPumpRunning);
+            }
+            
+            if (!activeSessions.pac && typeof window.updatePumpStatus === 'function') {
+                window.updatePumpStatus('pacPump', data.pacPumpRunning);
+                window.updatePumpStatus('pacPumpDetail', data.pacPumpRunning);
+            }
+        } catch (error) {
+            console.error('Error updating UI from system state:', error);
         }
     });
 
@@ -106,7 +121,7 @@ function initializeWebSocket() {
     // Add better error handling
     wsSocket.on('connect_error', function(error) {
         console.error('Connection error:', error);
-        showToast('Connection error. Will retry automatically.', 'error');
+        showToast('Connection error: ' + error.message, 'warning');
     });
 
     // Add heartbeat handler
@@ -154,7 +169,7 @@ function requestParameters() {
     }
 }
 
-// Handle parameter update message
+// Handle parameter update with better error handling
 function handleParameterUpdate(data) {
     // Update other parameters as normal
     updateParameterDisplay('phValue', data.ph);
@@ -175,57 +190,31 @@ function handleParameterUpdate(data) {
         updateParameterDisplay('pacDosingRate', data.pacDosingRate);
     }
     
-    // Update dosing mode UI elements
-    if (data.dosingMode) {
-        // Update pacAutoSwitch checkbox based on mode
-        const pacAutoSwitch = document.getElementById('pacAutoSwitch');
-        if (pacAutoSwitch) {
-            pacAutoSwitch.checked = (data.dosingMode === 'AUTOMATIC');
-        }
-        
-        // Update status badge
-        const dosingStatus = document.getElementById('pacDosingStatus');
-        if (dosingStatus) {
-            if (data.dosingMode === 'AUTOMATIC') {
-                dosingStatus.textContent = 'Optimized';
-                dosingStatus.className = 'badge bg-success';
-            } else if (data.dosingMode === 'MANUAL') {
-                dosingStatus.textContent = 'Manual';
-                dosingStatus.className = 'badge bg-warning';
-            } else {
-                dosingStatus.textContent = 'Off';
-                dosingStatus.className = 'badge bg-secondary';
-            }
-        }
-        
-        // Enable or disable manual controls based on mode
-        const isManualMode = (data.dosingMode === 'MANUAL');
-        const pacDoseBtn = document.getElementById('pacDoseBtn');
-        const pacStopBtn = document.getElementById('pacStopBtn');
-        const pacFlowRate = document.getElementById('pacFlowRate');
-        
-        if (pacDoseBtn) pacDoseBtn.disabled = !isManualMode;
-        if (pacStopBtn) pacStopBtn.disabled = !isManualMode;
-        if (pacFlowRate) pacFlowRate.disabled = !isManualMode;
-        
-        // Update threshold inputs state
-        const pacHighThreshold = document.getElementById('pacHighThreshold');
-        const pacLowThreshold = document.getElementById('pacLowThreshold');
-        const pacTargetValue = document.getElementById('pacTargetValue');
-        
-        if (pacHighThreshold) pacHighThreshold.disabled = isManualMode;
-        if (pacLowThreshold) pacLowThreshold.disabled = isManualMode;
-        if (pacTargetValue) pacTargetValue.disabled = isManualMode;
+    // Only update pump statuses if not in active sessions
+    const activeSessions = window.activeDosingSessions || { ph: false, cl: false, pac: false };
+    
+    if (data.phPumpRunning !== undefined && !activeSessions.ph && typeof window.updatePumpStatus === 'function') {
+        window.updatePumpStatus('phPump', data.phPumpRunning);
+        window.updatePumpStatus('phPumpDetail', data.phPumpRunning);
     }
     
-    // Update PAC flow rate if available
-    if (data.pacDosingRate !== undefined) {
-        updateParameterDisplay('pacDosingRate', data.pacDosingRate);
+    if (data.clPumpRunning !== undefined && !activeSessions.cl && typeof window.updatePumpStatus === 'function') {
+        window.updatePumpStatus('clPump', data.clPumpRunning);
+        window.updatePumpStatus('clPumpDetail', data.clPumpRunning);
     }
     
-    // Also update charts if they exist
+    if (data.pacPumpRunning !== undefined && !activeSessions.pac && typeof window.updatePumpStatus === 'function') {
+        window.updatePumpStatus('pacPump', data.pacPumpRunning);
+        window.updatePumpStatus('pacPumpDetail', data.pacPumpRunning);
+    }
+    
+    // Update charts if available and initialized
     if (window.updateChartData && typeof window.updateChartData === 'function') {
-        window.updateChartData(data);
+        try {
+            window.updateChartData(data);
+        } catch (error) {
+            console.error('Error updating charts:', error);
+        }
     }
 }
 
@@ -407,6 +396,8 @@ function addEventToHistory(event) {
 
 // Initialize all WebSocket features
 function initializeWebSocketFeatures() {
+    console.log('Initializing WebSocket features...');
+    
     // Create a hidden element for event-history if it doesn't exist
     if (!document.getElementById('event-history')) {
         const hiddenEventHistory = document.createElement('div');
@@ -420,6 +411,9 @@ function initializeWebSocketFeatures() {
     
     // Setup controls for PAC auto/manual switching
     setupPacAutoSwitch();
+    
+    // Log initialization
+    console.log('WebSocket features initialized');
 }
 
 // Setup pacAutoSwitch event listener (separate function)
@@ -454,18 +448,7 @@ function setupPacAutoSwitch() {
     }
 }
 
-// Export functions for use in dashboard.js
-window.WebSocketManager = {
-    initializeWebSocketFeatures,
-    initializeWebSocket,
-    requestParameters,
-    showToast,
-    updateConnectionStatus,
-    setupPacAutoSwitch
-};
-
 // Add heartbeat monitoring system
-let lastHeartbeat = Date.now();
 const MAX_HEARTBEAT_DELAY = 10000; // 10 seconds
 
 function startHeartbeatMonitor() {
@@ -492,3 +475,13 @@ function startHeartbeatMonitor() {
     // Store interval ID for cleanup if needed
     window.heartbeatInterval = heartbeatInterval;
 }
+
+// Export functions for use in dashboard.js
+window.WebSocketManager = {
+    initializeWebSocketFeatures,
+    initializeWebSocket,
+    requestParameters,
+    showToast,
+    updateConnectionStatus,
+    setupPacAutoSwitch
+};

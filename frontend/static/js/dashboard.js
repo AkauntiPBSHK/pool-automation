@@ -56,6 +56,7 @@ window.updatePumpStatus = function(id, running) {
 };
 
 // DOM Ready
+// DOM Ready 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Dashboard initialized');
     
@@ -89,88 +90,99 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Define a structured initialization function with better ordering
     function initializeSystem() {
-        console.log('Initializing system');
+        console.log('Initializing system in staged sequence...');
         
-        // Initialize WebSocket
-        if (typeof initializeWebSocket === 'function') {
-            initializeWebSocket();
-        } else if (typeof window.WebSocketManager?.initializeWebSocketFeatures === 'function') {
-            window.WebSocketManager.initializeWebSocketFeatures();
-        }
+        // First stage: UI and accessibility setup
+        enhanceSidebarAccessibility();
+        enhanceParameterCardsAccessibility();
+        enhanceControlsAccessibility();
+        updateAllRangeAriaAttributes();
         
-        // Initialize charts
-        if (typeof initializeCharts === 'function') {
-            initializeCharts();
-        } else {
-            // Fall back to individual chart initializations if they exist
-            if (typeof initializeChemistryChart === 'function') initializeChemistryChart();
-            if (typeof initializeTurbidityChart === 'function') initializeTurbidityChart();
-            if (typeof initializeHistoryChart === 'function') initializeHistoryChart();
-        }
+        // Initialize section controls
+        initializeWaterChemistryControls();
+        initializeTurbidityPACControls();
+        initializeHistoryTab();
+        initializeSettingsTab();
         
-        // Make initial data requests
-        fetchStatus();
-        if (typeof fetchDosingStatus === 'function') {
-            fetchDosingStatus();
-        }
+        // Second stage: Initial data load and settings
+        console.log('Loading initial data and settings...');
+        updateParameterDisplays(mockData);
+        updateUIFromSettings();
         
-        console.log('System initialization complete');
+        // Third stage: Charts with proper cleanup and initialization
+        console.log('Initializing charts...');
+        setTimeout(() => {
+            // Use initializeCharts if available, otherwise individual initializations
+            if (typeof initializeCharts === 'function') {
+                initializeCharts();
+            } else {
+                console.log('Using individual chart initializations');
+                
+                // Add short delays between chart initializations to avoid conflicts
+                setTimeout(() => {
+                    if (typeof initializeChemistryChart === 'function') initializeChemistryChart();
+                    
+                    setTimeout(() => {
+                        if (typeof initializeTurbidityChart === 'function') initializeTurbidityChart();
+                        
+                        setTimeout(() => {
+                            if (typeof initializeHistoryChart === 'function') initializeHistoryChart();
+                            console.log('All charts initialized');
+                        }, 50);
+                    }, 50);
+                }, 50);
+            }
+            
+            // Fourth stage: WebSocket and data fetching (after charts are ready)
+            setTimeout(() => {
+                console.log('Setting up WebSocket connection...');
+                
+                // Initialize socket connection
+                if (typeof initializeSocketConnection === 'function') {
+                    initializeSocketConnection();
+                }
+                
+                // Use WebSocketManager.initializeWebSocketFeatures if available
+                if (window.WebSocketManager && typeof window.WebSocketManager.initializeWebSocketFeatures === 'function') {
+                    window.WebSocketManager.initializeWebSocketFeatures();
+                }
+                
+                // Fetch initial data after connection setup
+                console.log('Fetching initial data...');
+                fetchStatus();
+                
+                if (typeof fetchDosingStatus === 'function') {
+                    fetchDosingStatus();
+                }
+                
+                // Start simulation if needed
+                if (getParameterByName('simulate') !== 'false') {
+                    startSimulation();
+                }
+                
+                console.log('System initialization complete');
+            }, 300);
+        }, 100);
     }
-
-    // Initialize accessibility enhancements
-    enhanceSidebarAccessibility();
-    enhanceParameterCardsAccessibility();
-    enhanceControlsAccessibility();
-    updateAllRangeAriaAttributes();
     
-    // Initialize water chemistry section
-    initializeWaterChemistryControls();
-
-    // Initialize turbidity & PAC section
-    initializeTurbidityPACControls();
-    
-    // Initialize history tab
-    initializeHistoryTab();
-
-    // Add this to the DOMContentLoaded event
-    initializeSocketConnection();
-
-    // Initial data fetch
-    fetchStatus();
-    
-    // Load initial data
-    updateParameterDisplays(mockData);
-
-    // Apply any saved settings to the UI
-    updateUIFromSettings();
-
-    fetchDosingStatus();
-    
-    // Setup socket events
-    socket.on('connect', function() {
-        console.log('Connected to server');
-        updateStatusBar('Connected to server', 'success');
-    });
-    
-    socket.on('disconnect', function() {
-        console.log('Disconnected from server');
-        updateStatusBar('Disconnected from server', 'danger');
-    });
-    
-    if (getParameterByName('simulate') !== 'false') {
-        startSimulation();
+    // Setup socket events - keep these for backward compatibility
+    // but they may be redundant with what's in initializeSocketConnection
+    if (socket) {
+        socket.on('connect', function() {
+            console.log('Connected to server');
+            updateStatusBar('Connected to server', 'success');
+        });
+        
+        socket.on('disconnect', function() {
+            console.log('Disconnected from server');
+            updateStatusBar('Disconnected from server', 'danger');
+        });
     }
-
-    // Initialize settings tab
-    initializeSettingsTab();
-
+    
+    // Start the staged initialization process
     initializeSystem();
-
-    // Initialize WebSocket features
-    if (window.WebSocketManager && typeof window.WebSocketManager.initializeWebSocketFeatures === 'function') {
-        window.WebSocketManager.initializeWebSocketFeatures();
-    }
 });
 
 /**
@@ -420,180 +432,194 @@ function showToast(message, type = 'success') {
 
 window.showToast = showToast;
 
-/**
- * Initialize chemistry chart
- */
+// Initialize chemistry chart with proper cleanup
 function initializeChemistryChart() {
+    console.log('Initializing chemistry chart');
     const ctx = document.getElementById('chemistryChart');
     
-    if (!ctx) return;
-    
-    // Generate sample data
-    const hours = 24;
-    const labels = Array.from({length: hours}, (_, i) => `${23 - i}h ago`);
-    
-    // Sample pH data
-    const phData = [];
-    for (let i = 0; i < hours; i++) {
-        phData.push(7.4 + (Math.random() - 0.5) * 0.3);
+    if (!ctx) {
+        console.error('Chemistry chart canvas not found!');
+        return;
     }
     
-    // Sample chlorine data
-    const clData = [];
-    for (let i = 0; i < hours; i++) {
-        clData.push(1.2 + (Math.random() - 0.5) * 0.4);
+    // Destroy existing chart if it exists
+    if (window.chemistryChart instanceof Chart) {
+        console.log('Destroying existing chemistry chart');
+        window.chemistryChart.destroy();
     }
     
-    // Create chart
-    chemistryChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels.reverse(),
-            datasets: [
-                {
-                    label: 'pH',
-                    data: phData.reverse(),
-                    borderColor: 'rgba(13, 110, 253, 1)',
-                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                    borderWidth: 2,
-                    tension: 0.3,
-                    fill: false,
-                    yAxisID: 'y-ph'
-                },
-                {
-                    label: 'Free Chlorine',
-                    data: clData.reverse(),
-                    borderColor: 'rgba(25, 135, 84, 1)',
-                    backgroundColor: 'rgba(25, 135, 84, 0.1)',
-                    borderWidth: 2,
-                    tension: 0.3,
-                    fill: false,
-                    yAxisID: 'y-cl'
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            resizeDelay: 100,
-            onResize: function(chart, size) {
-                // Adjust point size and line width based on chart size
-                if (size.width < 400) {
-                    chart.data.datasets.forEach(dataset => {
-                        dataset.pointRadius = 1;
-                        dataset.borderWidth = 1;
-                    });
-                    chart.options.scales.x.ticks.maxTicksLimit = 4;
-                } else if (size.width < 768) {
-                    chart.data.datasets.forEach(dataset => {
-                        dataset.pointRadius = 2;
-                        dataset.borderWidth = 2;
-                    });
-                    chart.options.scales.x.ticks.maxTicksLimit = 6;
-                } else {
-                    chart.data.datasets.forEach(dataset => {
-                        dataset.pointRadius = 3;
-                        dataset.borderWidth = 2;
-                    });
-                    chart.options.scales.x.ticks.maxTicksLimit = 8;
-                }
+    try {
+        // Generate sample data
+        const hours = 24;
+        const labels = Array.from({length: hours}, (_, i) => `${23 - i}h ago`);
+        
+        // Sample pH data
+        const phData = [];
+        for (let i = 0; i < hours; i++) {
+            phData.push(7.4 + (Math.random() - 0.5) * 0.3);
+        }
+        
+        // Sample chlorine data
+        const clData = [];
+        for (let i = 0; i < hours; i++) {
+            clData.push(1.2 + (Math.random() - 0.5) * 0.4);
+        }
+        
+        // Create chart with better error handling
+        window.chemistryChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels.reverse(),
+                datasets: [
+                    {
+                        label: 'pH',
+                        data: phData.reverse(),
+                        borderColor: 'rgba(13, 110, 253, 1)',
+                        backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: false,
+                        yAxisID: 'y-ph'
+                    },
+                    {
+                        label: 'Free Chlorine',
+                        data: clData.reverse(),
+                        borderColor: 'rgba(25, 135, 84, 1)',
+                        backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: false,
+                        yAxisID: 'y-cl'
+                    }
+                ]
             },
-            interaction: {
-                mode: 'index',
-                intersect: false
-            },
-            scales: {
-                x: {
-                    ticks: {
-                        maxRotation: 0,
-                        autoSkip: true,
-                        maxTicksLimit: 8,
-                        font: function(context) {
-                            const chart = context.chart;
-                            return {
-                                size: chart.width < 400 ? 8 : 10
-                            };
-                        }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                resizeDelay: 100,
+                onResize: function(chart, size) {
+                    // Adjust point size and line width based on chart size
+                    if (size.width < 400) {
+                        chart.data.datasets.forEach(dataset => {
+                            dataset.pointRadius = 1;
+                            dataset.borderWidth = 1;
+                        });
+                        chart.options.scales.x.ticks.maxTicksLimit = 4;
+                    } else if (size.width < 768) {
+                        chart.data.datasets.forEach(dataset => {
+                            dataset.pointRadius = 2;
+                            dataset.borderWidth = 2;
+                        });
+                        chart.options.scales.x.ticks.maxTicksLimit = 6;
+                    } else {
+                        chart.data.datasets.forEach(dataset => {
+                            dataset.pointRadius = 3;
+                            dataset.borderWidth = 2;
+                        });
+                        chart.options.scales.x.ticks.maxTicksLimit = 8;
                     }
                 },
-                'y-ph': {
-                    type: 'linear',
-                    position: 'left',
-                    title: {
-                        display: true,
-                        text: 'pH',
-                        font: function(context) {
-                            const chart = context.chart;
-                            return {
-                                size: chart.width < 400 ? 10 : 12
-                            };
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            maxRotation: 0,
+                            autoSkip: true,
+                            maxTicksLimit: 8,
+                            font: function(context) {
+                                const chart = context.chart;
+                                return {
+                                    size: chart.width < 400 ? 8 : 10
+                                };
+                            }
                         }
                     },
-                    min: 6.8,
-                    max: 8.0,
-                    grid: {
-                        drawOnChartArea: true
-                    }
-                },
-                'y-cl': {
-                    type: 'linear',
-                    position: 'right',
-                    title: {
-                        display: true,
-                        text: 'Chlorine (mg/L)',
-                        font: function(context) {
-                            const chart = context.chart;
-                            return {
-                                size: chart.width < 400 ? 10 : 12
-                            };
-                        }
-                    },
-                    min: 0,
-                    max: 3.0,
-                    grid: {
-                        drawOnChartArea: false
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'top',
-                    labels: {
-                        boxWidth: function(context) {
-                            const chart = context.chart;
-                            return chart.width < 400 ? 10 : 15;
+                    'y-ph': {
+                        type: 'linear',
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'pH',
+                            font: function(context) {
+                                const chart = context.chart;
+                                return {
+                                    size: chart.width < 400 ? 10 : 12
+                                };
+                            }
                         },
-                        font: function(context) {
-                            const chart = context.chart;
-                            return {
-                                size: chart.width < 400 ? 10 : 12
-                            };
+                        min: 6.8,
+                        max: 8.0,
+                        grid: {
+                            drawOnChartArea: true
+                        }
+                    },
+                    'y-cl': {
+                        type: 'linear',
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Chlorine (mg/L)',
+                            font: function(context) {
+                                const chart = context.chart;
+                                return {
+                                    size: chart.width < 400 ? 10 : 12
+                                };
+                            }
+                        },
+                        min: 0,
+                        max: 3.0,
+                        grid: {
+                            drawOnChartArea: false
                         }
                     }
                 },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            let label = context.dataset.label || '';
-                            if (label) {
-                                label += ': ';
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            boxWidth: function(context) {
+                                const chart = context.chart;
+                                return chart.width < 400 ? 10 : 15;
+                            },
+                            font: function(context) {
+                                const chart = context.chart;
+                                return {
+                                    size: chart.width < 400 ? 10 : 12
+                                };
                             }
-                            if (context.parsed.y !== null) {
-                                label += context.parsed.y.toFixed(2);
-                                if (context.dataset.label === 'pH') {
-                                    label += ' pH';
-                                } else if (context.dataset.label === 'Free Chlorine') {
-                                    label += ' mg/L';
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
                                 }
+                                if (context.parsed.y !== null) {
+                                    label += context.parsed.y.toFixed(2);
+                                    if (context.dataset.label === 'pH') {
+                                        label += ' pH';
+                                    } else if (context.dataset.label === 'Free Chlorine') {
+                                        label += ' mg/L';
+                                    }
+                                }
+                                return label;
                             }
-                            return label;
                         }
                     }
                 }
             }
-        }
-    });
+        });
+        
+        console.log('Chemistry chart initialized successfully');
+    } catch (error) {
+        console.error('Error initializing chemistry chart:', error);
+    }
 }
 
 /**
@@ -1373,174 +1399,188 @@ function updateTurbidityPACDisplays() {
     }
 }
 
-/**
- * Initialize turbidity chart
- */
+// Initialize turbidity chart with proper cleanup
 function initializeTurbidityChart() {
+    console.log('Initializing turbidity chart');
     const ctx = document.getElementById('turbidityChart');
     
-    if (!ctx) return;
-    
-    // Generate sample data
-    const hours = 24;
-    const labels = Array.from({length: hours}, (_, i) => `${23 - i}h ago`);
-    
-    // Sample turbidity data
-    const turbidityData = [];
-    for (let i = 0; i < hours; i++) {
-        turbidityData.push(0.15 + (Math.random() - 0.5) * 0.1);
+    if (!ctx) {
+        console.error('Turbidity chart canvas not found!');
+        return;
     }
     
-    // Sample dosing events data
-    const dosingEvents = [];
-    for (let i = 0; i < hours; i++) {
-        if (Math.random() > 0.7) {
-            dosingEvents.push({
-                x: `${23 - i}h ago`,
-                y: 0.4 // Top of the chart
-            });
-        } else {
-            dosingEvents.push(null);
+    // Destroy existing chart if it exists
+    if (window.turbidityChart instanceof Chart) {
+        console.log('Destroying existing turbidity chart');
+        window.turbidityChart.destroy();
+    }
+    
+    try {
+        // Generate sample data
+        const hours = 24;
+        const labels = Array.from({length: hours}, (_, i) => `${23 - i}h ago`);
+        
+        // Sample turbidity data
+        const turbidityData = [];
+        for (let i = 0; i < hours; i++) {
+            turbidityData.push(0.15 + (Math.random() - 0.5) * 0.1);
         }
-    }
+        
+        // Sample dosing events data
+        const dosingEvents = [];
+        for (let i = 0; i < hours; i++) {
+            if (Math.random() > 0.7) {
+                dosingEvents.push({
+                    x: `${23 - i}h ago`,
+                    y: 0.4 // Top of the chart
+                });
+            } else {
+                dosingEvents.push(null);
+            }
+        }
     
-    // Create chart
-    turbidityChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: 'Turbidity (NTU)',
-                    data: turbidityData,
-                    borderColor: 'rgba(13, 110, 253, 1)',
-                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
-                    borderWidth: 2,
-                    tension: 0.3,
-                    fill: true
+        // Create chart
+        window.turbidityChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Turbidity (NTU)',
+                        data: turbidityData,
+                        borderColor: 'rgba(13, 110, 253, 1)',
+                        backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: true
+                    },
+                    {
+                        label: 'PAC Dosing',
+                        data: dosingEvents,
+                        borderColor: 'rgba(220, 53, 69, 0.8)',
+                        backgroundColor: 'rgba(220, 53, 69, 0.8)',
+                        borderWidth: 2,
+                        pointRadius: 8,
+                        pointStyle: 'triangle',
+                        pointRotation: 180,
+                        showLine: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                resizeDelay: 100,
+                onResize: function(chart, size) {
+                    // Adjust point size, triangle size, and line width based on chart size
+                    if (size.width < 400) {
+                        // For main turbidity dataset
+                        chart.data.datasets[0].pointRadius = 1;
+                        chart.data.datasets[0].borderWidth = 1;
+                        
+                        // For dosing events triangles
+                        chart.data.datasets[1].pointRadius = 4;
+                        
+                        // Limit the number of x-axis labels
+                        chart.options.scales.x.ticks.maxTicksLimit = 4;
+                    } else if (size.width < 768) {
+                        // For main turbidity dataset
+                        chart.data.datasets[0].pointRadius = 2;
+                        chart.data.datasets[0].borderWidth = 2;
+                        
+                        // For dosing events triangles
+                        chart.data.datasets[1].pointRadius = 5;
+                        
+                        // Limit the number of x-axis labels
+                        chart.options.scales.x.ticks.maxTicksLimit = 6;
+                    } else {
+                        // For main turbidity dataset
+                        chart.data.datasets[0].pointRadius = 3;
+                        chart.data.datasets[0].borderWidth = 2;
+                        
+                        // For dosing events triangles
+                        chart.data.datasets[1].pointRadius = 6;
+                        
+                        // Limit the number of x-axis labels
+                        chart.options.scales.x.ticks.maxTicksLimit = 8;
+                    }
                 },
-                {
-                    label: 'PAC Dosing',
-                    data: dosingEvents,
-                    borderColor: 'rgba(220, 53, 69, 0.8)',
-                    backgroundColor: 'rgba(220, 53, 69, 0.8)',
-                    borderWidth: 2,
-                    pointRadius: 8,
-                    pointStyle: 'triangle',
-                    pointRotation: 180,
-                    showLine: false
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            resizeDelay: 100,
-            onResize: function(chart, size) {
-                // Adjust point size, triangle size, and line width based on chart size
-                if (size.width < 400) {
-                    // For main turbidity dataset
-                    chart.data.datasets[0].pointRadius = 1;
-                    chart.data.datasets[0].borderWidth = 1;
-                    
-                    // For dosing events triangles
-                    chart.data.datasets[1].pointRadius = 4;
-                    
-                    // Limit the number of x-axis labels
-                    chart.options.scales.x.ticks.maxTicksLimit = 4;
-                } else if (size.width < 768) {
-                    // For main turbidity dataset
-                    chart.data.datasets[0].pointRadius = 2;
-                    chart.data.datasets[0].borderWidth = 2;
-                    
-                    // For dosing events triangles
-                    chart.data.datasets[1].pointRadius = 5;
-                    
-                    // Limit the number of x-axis labels
-                    chart.options.scales.x.ticks.maxTicksLimit = 6;
-                } else {
-                    // For main turbidity dataset
-                    chart.data.datasets[0].pointRadius = 3;
-                    chart.data.datasets[0].borderWidth = 2;
-                    
-                    // For dosing events triangles
-                    chart.data.datasets[1].pointRadius = 6;
-                    
-                    // Limit the number of x-axis labels
-                    chart.options.scales.x.ticks.maxTicksLimit = 8;
-                }
-            },
-            interaction: {
-                mode: 'nearest',
-                intersect: false
-            },
-            scales: {
-                x: {
-                    ticks: {
-                        maxRotation: 0,
-                        autoSkip: true,
-                        maxTicksLimit: 8,
-                        font: function(context) {
-                            const chart = context.chart;
-                            return {
-                                size: chart.width < 400 ? 8 : 10
-                            };
+                interaction: {
+                    mode: 'nearest',
+                    intersect: false
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            maxRotation: 0,
+                            autoSkip: true,
+                            maxTicksLimit: 8,
+                            font: function(context) {
+                                const chart = context.chart;
+                                return {
+                                    size: chart.width < 400 ? 8 : 10
+                                };
+                            }
+                        }
+                    },
+                    y: {
+                        type: 'linear',
+                        min: 0.08,
+                        max: 0.22,
+                        title: {
+                            display: true,
+                            text: 'Turbidity (NTU)',
+                            font: function(context) {
+                                const chart = context.chart;
+                                return {
+                                    size: chart.width < 400 ? 10 : 12
+                                };
+                            }
                         }
                     }
                 },
-                y: {
-                    type: 'linear',
-                    min: 0.08,
-                    max: 0.22,
-                    title: {
+                plugins: {
+                    legend: {
                         display: true,
-                        text: 'Turbidity (NTU)',
-                        font: function(context) {
-                            const chart = context.chart;
-                            return {
-                                size: chart.width < 400 ? 10 : 12
-                            };
+                        position: 'top',
+                        labels: {
+                            boxWidth: function(context) {
+                                const chart = context.chart;
+                                return chart.width < 400 ? 10 : 15;
+                            },
+                            font: function(context) {
+                                const chart = context.chart;
+                                return {
+                                    size: chart.width < 400 ? 10 : 12
+                                };
+                            }
                         }
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'top',
-                    labels: {
-                        boxWidth: function(context) {
-                            const chart = context.chart;
-                            return chart.width < 400 ? 10 : 15;
-                        },
-                        font: function(context) {
-                            const chart = context.chart;
-                            return {
-                                size: chart.width < 400 ? 10 : 12
-                            };
-                        }
-                    }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            if (context.dataset.label === 'PAC Dosing' && context.raw !== null) {
-                                return 'PAC Dosing Event';
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                if (context.dataset.label === 'PAC Dosing' && context.raw !== null) {
+                                    return 'PAC Dosing Event';
+                                }
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += context.parsed.y.toFixed(3) + ' NTU';
+                                }
+                                return label;
                             }
-                            let label = context.dataset.label || '';
-                            if (label) {
-                                label += ': ';
-                            }
-                            if (context.parsed.y !== null) {
-                                label += context.parsed.y.toFixed(3) + ' NTU';
-                            }
-                            return label;
                         }
                     }
                 }
             }
-        }
-    });
+        });
+
+        console.log('Turbidity chart initialized successfully');
+    } catch (error) {
+        console.error('Error initializing turbidity chart:', error);
+    }
 }
 
 /**
@@ -1733,41 +1773,47 @@ function initializeHistoryTab() {
 }
 
 /**
- * Initialize history chart with better defaults
+ * Initialize history chart with proper cleanup
  */
 function initializeHistoryChart() {
+    console.log('Initializing history chart');
     const ctx = document.getElementById('historyChart');
     
     if (!ctx) {
-        console.error('Chart canvas element not found!');
+        console.error('History chart canvas not found!');
         return;
     }
     
-    console.log('Initializing history chart...');
-    
-    // Generate sample data
-    const hours = 168; // 7 days
-    const labels = [];
-    const now = new Date();
-    
-    // Generate labels with less density (every 6 hours instead of hourly)
-    for (let i = hours - 1; i >= 0; i -= 6) {
-        const date = new Date(now);
-        date.setHours(date.getHours() - i);
-        labels.push(formatDateTime(date));
+    // Destroy existing chart if it exists
+    if (window.historyChart instanceof Chart) {
+        console.log('Destroying existing history chart');
+        window.historyChart.destroy();
+        window.historyChart = null;
     }
     
-    // Sample data sets with smoothing
-    const phData = smoothData(generateSampleData(7.4, 0.2, Math.ceil(hours/6)));
-    const orpData = smoothData(generateSampleData(720, 30, Math.ceil(hours/6)));
-    const freeChlorineData = smoothData(generateSampleData(1.2, 0.3, Math.ceil(hours/6)));
-    const combinedChlorineData = smoothData(generateSampleData(0.2, 0.1, Math.ceil(hours/6)));
-    const turbidityData = smoothData(generateSampleData(0.15, 0.05, Math.ceil(hours/6)));
-    const temperatureData = smoothData(generateSampleData(28, 1, Math.ceil(hours/6)));
-    
-    // Create a cleaner chart
     try {
-        historyChart = new Chart(ctx, {
+        // Generate sample data
+        const hours = 168; // 7 days
+        const labels = [];
+        const now = new Date();
+        
+        // Generate labels with less density (every 6 hours instead of hourly)
+        for (let i = hours - 1; i >= 0; i -= 6) {
+            const date = new Date(now);
+            date.setHours(date.getHours() - i);
+            labels.push(formatDateTime(date));
+        }
+        
+        // Sample data sets with smoothing
+        const phData = smoothData(generateSampleData(7.4, 0.2, Math.ceil(hours/6)));
+        const orpData = smoothData(generateSampleData(720, 30, Math.ceil(hours/6)));
+        const freeChlorineData = smoothData(generateSampleData(1.2, 0.3, Math.ceil(hours/6)));
+        const combinedChlorineData = smoothData(generateSampleData(0.2, 0.1, Math.ceil(hours/6)));
+        const turbidityData = smoothData(generateSampleData(0.15, 0.05, Math.ceil(hours/6)));
+        const temperatureData = smoothData(generateSampleData(28, 1, Math.ceil(hours/6)));
+        
+        // Create a cleaner chart
+        window.historyChart = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: labels,
@@ -1966,8 +2012,7 @@ function initializeHistoryChart() {
                         display: true,
                         position: 'top',
                         labels: {
-                            usePointStyle: true
-                            },
+                            usePointStyle: true,
                             boxWidth: function(context) {
                                 const chart = context.chart;
                                 return chart.width < 400 ? 10 : 15;
@@ -1977,7 +2022,8 @@ function initializeHistoryChart() {
                                 return {
                                     size: chart.width < 400 ? 10 : 12
                                 };
-                            },
+                            }
+                        },
                         // Make legend display-only by providing an empty click handler
                         onClick: function(e, legendItem, legend) {
                             // Do nothing - legend is display only
@@ -1988,14 +2034,18 @@ function initializeHistoryChart() {
                         callbacks: {
                             label: function(context) {
                                 let label = context.dataset.label || '';
+                                
                                 if (label) {
                                     label += ': ';
                                 }
+                                
                                 if (context.dataset.label === 'Dosing Events' && context.raw !== null) {
                                     return 'Dosing Event';
                                 }
+                                
                                 if (context.parsed.y !== null) {
                                     label += context.parsed.y.toFixed(2);
+                                    
                                     if (context.dataset.label === 'pH') {
                                         label += ' pH';
                                     } else if (context.dataset.label.includes('Chlorine')) {
@@ -2008,6 +2058,7 @@ function initializeHistoryChart() {
                                         label += ' °C';
                                     }
                                 }
+                                
                                 return label;
                             }
                         }
@@ -2016,18 +2067,42 @@ function initializeHistoryChart() {
             }
         });
         
-    console.log('Chart initialized successfully');
+        // Link parameter checkboxes to chart visibility
+        linkCheckboxesToChart();
+        syncCheckboxesWithChart();
         
-    // Link parameter checkboxes to chart visibility
-    linkCheckboxesToChart();
-    syncCheckboxesWithChart();
+        // Initialize parameter buttons
+        initializeParameterButtons();
         
-    // Initialize parameter buttons
-    initializeParameterButtons();
-        
+        console.log('History chart initialized successfully');
     } catch (error) {
-        console.error('Error initializing chart:', error);
+        console.error('Error initializing history chart:', error);
     }
+}
+
+// Initialize all charts with a single function
+function initializeCharts() {
+    console.log('Initializing all charts...');
+    
+    // Add short delay between chart initializations to avoid conflicts
+    setTimeout(() => {
+        if (document.getElementById('chemistryChart')) {
+            initializeChemistryChart();
+        }
+        
+        setTimeout(() => {
+            if (document.getElementById('turbidityChart')) {
+                initializeTurbidityChart();
+            }
+            
+            setTimeout(() => {
+                if (document.getElementById('historyChart')) {
+                    initializeHistoryChart();
+                }
+                console.log('All charts initialized');
+            }, 50);
+        }, 50);
+    }, 50);
 }
 
 /**
@@ -5222,66 +5297,92 @@ function updateUIForParameter(parameter, value) {
     }
 }
 
-// Make charts update in real-time with WebSocket data
+// Safe chart data update function
 window.updateChartData = function(data) {
-    // Update turbidity chart
-    if (window.turbidityChart && data.turbidity !== undefined) {
-        // Get current data
-        const chartData = window.turbidityChart.data.datasets[0].data;
-        const labels = window.turbidityChart.data.labels;
-        
-        // Add new data point (keep last 24 points)
-        if (chartData.length >= 24) {
-            chartData.shift();
-            labels.shift();
+    console.log('Updating chart data with:', data);
+    
+    // Update turbidity chart with better error handling
+    try {
+        if (window.turbidityChart && 
+            window.turbidityChart.data && 
+            window.turbidityChart.data.datasets && 
+            window.turbidityChart.data.datasets[0] && 
+            data.turbidity !== undefined) {
+            
+            // Get current data
+            const chartData = window.turbidityChart.data.datasets[0].data;
+            const labels = window.turbidityChart.data.labels;
+            
+            // Add new data point (keep last 24 points)
+            if (chartData.length >= 24) {
+                chartData.shift();
+                labels.shift();
+            }
+            
+            chartData.push(data.turbidity);
+            labels.push(formatTime(new Date()));
+            
+            // Update chart with minimal animation for performance
+            window.turbidityChart.update('none');
         }
-        
-        chartData.push(data.turbidity);
-        labels.push(formatTime(new Date()));
-        
-        // Update chart
-        window.turbidityChart.update();
+    } catch (error) {
+        console.error('Error updating turbidity chart:', error);
     }
     
-    // Update chemistry chart
-    if (window.chemistryChart) {
-        // Update pH data if available
-        if (data.ph !== undefined) {
-            const phData = window.chemistryChart.data.datasets[0].data;
+    // Update chemistry chart with better error handling
+    try {
+        if (window.chemistryChart && 
+            window.chemistryChart.data && 
+            window.chemistryChart.data.datasets) {
             
-            // Keep last 24 points
-            if (phData.length >= 24) {
-                phData.shift();
+            // Update pH data if available
+            if (data.ph !== undefined && 
+                window.chemistryChart.data.datasets[0] && 
+                window.chemistryChart.data.datasets[0].data) {
+                
+                const phData = window.chemistryChart.data.datasets[0].data;
+                
+                // Keep last 24 points
+                if (phData.length >= 24) {
+                    phData.shift();
+                }
+                
+                phData.push(data.ph);
             }
             
-            phData.push(data.ph);
-        }
-        
-        // Update chlorine data if available
-        if (data.freeChlorine !== undefined) {
-            const clData = window.chemistryChart.data.datasets[1].data;
-            
-            // Keep last 24 points
-            if (clData.length >= 24) {
-                clData.shift();
+            // Update chlorine data if available
+            if (data.freeChlorine !== undefined && 
+                window.chemistryChart.data.datasets[1] && 
+                window.chemistryChart.data.datasets[1].data) {
+                
+                const clData = window.chemistryChart.data.datasets[1].data;
+                
+                // Keep last 24 points
+                if (clData.length >= 24) {
+                    clData.shift();
+                }
+                
+                clData.push(data.freeChlorine);
             }
             
-            clData.push(data.freeChlorine);
+            // Update labels
+            if (window.chemistryChart.data.labels) {
+                const labels = window.chemistryChart.data.labels;
+                if (labels.length >= 24) {
+                    labels.shift();
+                }
+                labels.push(formatTime(new Date()));
+            }
+            
+            // Update chart with minimal animation for performance
+            window.chemistryChart.update('none');
         }
-        
-        // Update labels
-        const labels = window.chemistryChart.data.labels;
-        if (labels.length >= 24) {
-            labels.shift();
-        }
-        labels.push(formatTime(new Date()));
-        
-        // Update chart
-        window.chemistryChart.update();
+    } catch (error) {
+        console.error('Error updating chemistry chart:', error);
     }
 };
 
-// Helper function for formatting time
+// Helper function for formatting time if it doesn't exist
 function formatTime(date) {
     return date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 }

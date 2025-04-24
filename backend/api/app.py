@@ -40,9 +40,17 @@ app = Flask(__name__,
 )
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-key')
 CORS(app)  # Enable CORS for all routes
-socketio = SocketIO(app, cors_allowed_origins="*")
 
-CORS(app, resources={r"/api/*": {"origins": "*", "methods": ["GET", "POST"]}})
+# Configure Socket.IO with better settings
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",  # Allow all origins for development
+    logger=True,               # Enable Socket.IO logging
+    engineio_logger=True,      # More detailed Engine.IO logs
+    ping_timeout=60,           # Increase ping timeout
+    ping_interval=25,          # More frequent pings
+    transports=['websocket', 'polling']  # Support both transport methods
+)
 
 # Load configuration
 def load_config():
