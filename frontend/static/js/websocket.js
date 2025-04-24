@@ -112,24 +112,34 @@ function handleParameterUpdate(data) {
     updateParameterDisplay('combinedChlorineDetailValue', data.combinedChlorine);
     updateParameterDisplay('turbidityDetailValue', data.turbidity);
     
-    if (data.phPumpRunning !== undefined) {
-        // Call the function from dashboard.js
+    // IMPORTANT: Only update pump status if they were explicitly included
+    // AND don't override local pump state within 10 seconds of local change
+    const now = Date.now();
+    
+    // Get current pump states
+    const currentPhPump = window.mockData?.phPumpRunning || false;
+    const currentClPump = window.mockData?.clPumpRunning || false;
+    const currentPacPump = window.mockData?.pacPumpRunning || false;
+    
+    // Only update pump statuses if explicitly provided AND not recently changed
+    if (data.phPumpRunning !== undefined && 
+        (typeof window.lastPhPumpChange === 'undefined' || now - window.lastPhPumpChange > 10000)) {
         if (typeof window.updatePumpStatus === 'function') {
             window.updatePumpStatus('phPump', data.phPumpRunning);
             window.updatePumpStatus('phPumpDetail', data.phPumpRunning);
         }
     }
     
-    if (data.clPumpRunning !== undefined) {
-        // Call the function from dashboard.js
+    if (data.clPumpRunning !== undefined && 
+        (typeof window.lastClPumpChange === 'undefined' || now - window.lastClPumpChange > 10000)) {
         if (typeof window.updatePumpStatus === 'function') {
             window.updatePumpStatus('clPump', data.clPumpRunning);
             window.updatePumpStatus('clPumpDetail', data.clPumpRunning);
         }
     }
     
-    if (data.pacPumpRunning !== undefined) {
-        // Call the function from dashboard.js
+    if (data.pacPumpRunning !== undefined && 
+        (typeof window.lastPacPumpChange === 'undefined' || now - window.lastPacPumpChange > 10000)) {
         if (typeof window.updatePumpStatus === 'function') {
             window.updatePumpStatus('pacPump', data.pacPumpRunning);
             window.updatePumpStatus('pacPumpDetail', data.pacPumpRunning);

@@ -223,6 +223,7 @@ function startPHDosing(duration) {
     
     // Update local data
     mockData.phPumpRunning = true;
+    window.lastPhPumpChange = Date.now();
     
     // Update UI status indicators
     updatePumpStatus('phPump', true);
