@@ -635,22 +635,6 @@ def handle_request_params():
     """Handle client request for current parameters."""
     send_status_update()
 
-@socketio.on('request_heartbeat')
-def handle_heartbeat_request():
-    """Send a heartbeat response to the client."""
-    emit('heartbeat')
-
-# Add periodic automatic heartbeats
-def send_heartbeats():
-    """Send periodic heartbeats to all clients."""
-    while True:
-        socketio.emit('heartbeat')
-        time.sleep(30)  # Send heartbeat every 30 seconds
-
-# Start heartbeat thread when your app starts
-heartbeat_thread = threading.Thread(target=send_heartbeats, daemon=True)
-heartbeat_thread.start()
-
 @socketio.on('request_system_state')
 def handle_system_state_request():
     """Handle client request for complete system state."""

@@ -6,7 +6,6 @@ window.socket = null;
 let reconnectAttempts = 0;
 let maxReconnectAttempts = 5;
 let reconnectInterval = 3000; // 3 seconds
-let lastHeartbeat = Date.now();
 
 // Initialize WebSocket connection
 function initializeWebSocket() {
@@ -33,7 +32,6 @@ function initializeWebSocket() {
         console.log('Connected to server using:', wsSocket.io.engine.transport.name);
         showToast('Connected to server', 'success');
         updateConnectionStatus(true);
-        lastHeartbeat = Date.now();
     });
 
     // Connection confirmation
@@ -130,15 +128,6 @@ function initializeWebSocket() {
             startSimulation();
         }
     });
-
-    // Add heartbeat handler
-    wsSocket.on('heartbeat', function() {
-        lastHeartbeat = Date.now();
-        console.log('Heartbeat received');
-    });
-    
-    // Start heartbeat monitoring
-    startHeartbeatMonitor();
 }
 
 function checkSocketIOStatus() {
@@ -477,34 +466,6 @@ function setupPacAutoSwitch() {
             });
         });
     }
-}
-
-// Add heartbeat monitoring system
-const MAX_HEARTBEAT_DELAY = 10000; // 10 seconds
-
-function startHeartbeatMonitor() {
-    // Check heartbeat periodically
-    const heartbeatInterval = setInterval(function() {
-        const now = Date.now();
-        if (socket && socket.connected) {
-            // If we haven't received a heartbeat recently, request one
-            if (now - lastHeartbeat > MAX_HEARTBEAT_DELAY) {
-                console.warn('Heartbeat missed, connection may be stale');
-                socket.emit('request_heartbeat');
-                
-                // If still no response after another 5 seconds, reconnect
-                setTimeout(function() {
-                    if (now - lastHeartbeat > MAX_HEARTBEAT_DELAY) {
-                        showToast('Connection appears stale, reconnecting...', 'warning');
-                        socket.disconnect().connect(); 
-                    }
-                }, 5000);
-            }
-        }
-    }, 5000);
-    
-    // Store interval ID for cleanup if needed
-    window.heartbeatInterval = heartbeatInterval;
 }
 
 // Export functions for use in dashboard.js
