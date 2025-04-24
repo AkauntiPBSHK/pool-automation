@@ -2,6 +2,12 @@
  * Pool Automation Dashboard JavaScript
  */
 
+window.activeDosingSessions = {
+    ph: false,
+    cl: false,
+    pac: false
+};
+
 // Mock data for simulation mode
 const mockData = {
     ph: 7.4,
@@ -17,14 +23,9 @@ const mockData = {
     pacDosingRate: 75 // Default value in ml/h
 };
 
-window.activeDosingSessions = {
-    ph: false,
-    cl: false,
-    pac: false
-};
-
 // Connect to Socket.IO
 const socket = io();
+window.mockData = mockData;
 
 // Global variables for charts
 let chemistryChart = null;
@@ -74,8 +75,18 @@ document.addEventListener('DOMContentLoaded', function() {
     
     document.getElementById('refreshBtn').addEventListener('click', function() {
         console.log('Refreshing data');
-        fetchStatus();
-        updateParameterDisplays(mockData);
+        
+        // Try WebSocket method first if connected
+        if (socket && socket.connected) {
+            console.log('Using WebSocket to request system state');
+            socket.emit('request_system_state');
+            showToast('Requesting latest system data...', 'info');
+        } else {
+            // Fall back to HTTP method
+            console.log('WebSocket not available, using HTTP fallback');
+            fetchStatus();
+            updateParameterDisplays(mockData);
+        }
     });
 
     // Initialize accessibility enhancements
@@ -130,6 +141,8 @@ document.addEventListener('DOMContentLoaded', function() {
         window.WebSocketManager.initializeWebSocketFeatures();
     }
 });
+
+initializeSystem();
 
 /**
  * Initialize navigation between tabs
@@ -375,6 +388,8 @@ function showToast(message, type = 'success') {
         toastElement.remove();
     });
 }
+
+window.showToast = showToast;
 
 /**
  * Initialize chemistry chart

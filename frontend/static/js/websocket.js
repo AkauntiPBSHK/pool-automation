@@ -2,6 +2,7 @@
 
 // Initialize socket connection with your existing Flask-SocketIO setup
 let wsSocket = null;
+window.socket = null;
 let reconnectAttempts = 0;
 let maxReconnectAttempts = 5;
 let reconnectInterval = 3000; // 3 seconds
@@ -17,13 +18,11 @@ function initializeWebSocket() {
     
     // Create a Socket.IO connection to the server
     wsSocket = io();
+    window.socket = wsSocket;
 
     // Connection established
     wsSocket.on('connect', function() {
         console.log('WebSocket connection established');
-        reconnectAttempts = 0;
-        
-        // Update UI connection status
         showToast('Connected to server', 'success');
         updateConnectionStatus(true);
     });
@@ -48,28 +47,66 @@ function initializeWebSocket() {
         handleSystemEvent(data);
     });
 
+    socket.on('complete_system_state', function(data) {
+        console.log('Received complete system state:', data);
+        showToast('System data refreshed', 'success');
+        
+        // Update all UI elements with the complete state
+        updateParameterDisplay('phValue', data.ph);
+        updateParameterDisplay('orpValue', data.orp);
+        updateParameterDisplay('freeChlorineValue', data.freeChlorine);
+        updateParameterDisplay('combinedChlorineValue', data.combinedChlorine);
+        updateParameterDisplay('turbidityValue', data.turbidity);
+        updateParameterDisplay('tempValue', data.temperature);
+        
+        // Update detailed panels
+        updateParameterDisplay('phDetailValue', data.ph);
+        updateParameterDisplay('freeChlorineDetailValue', data.freeChlorine);
+        updateParameterDisplay('combinedChlorineDetailValue', data.combinedChlorine);
+        updateParameterDisplay('turbidityDetailValue', data.turbidity);
+        
+        // Update PAC dosing rate if available
+        if (data.pacDosingRate !== undefined) {
+            updateParameterDisplay('pacDosingRate', data.pacDosingRate);
+        }
+        
+        // Update dosing mode
+        const pacAutoSwitch = document.getElementById('pacAutoSwitch');
+        if (pacAutoSwitch) {
+            pacAutoSwitch.checked = (data.dosingMode === 'AUTOMATIC');
+        }
+        
+        // Don't update pump status if we have active dosing sessions
+        const activeSessions = window.activeDosingSessions || { ph: false, cl: false, pac: false };
+        
+        // Only update pump statuses if not in active sessions
+        if (!activeSessions.ph && typeof window.updatePumpStatus === 'function') {
+            window.updatePumpStatus('phPump', data.phPumpRunning);
+            window.updatePumpStatus('phPumpDetail', data.phPumpRunning);
+        }
+        
+        if (!activeSessions.cl && typeof window.updatePumpStatus === 'function') {
+            window.updatePumpStatus('clPump', data.clPumpRunning);
+            window.updatePumpStatus('clPumpDetail', data.clPumpRunning);
+        }
+        
+        if (!activeSessions.pac && typeof window.updatePumpStatus === 'function') {
+            window.updatePumpStatus('pacPump', data.pacPumpRunning);
+            window.updatePumpStatus('pacPumpDetail', data.pacPumpRunning);
+        }
+    });
+
     // Connection lost
     wsSocket.on('disconnect', function() {
         console.log('WebSocket connection lost');
         updateConnectionStatus(false);
-        
-        // Attempt to reconnect
-        if (reconnectAttempts < maxReconnectAttempts) {
-            reconnectAttempts++;
-            const delay = reconnectInterval * reconnectAttempts;
-            
-            console.log(`Attempting to reconnect in ${delay/1000} seconds...`);
-            setTimeout(initializeWebSocket, delay);
-            
-            showToast(`Connection lost. Reconnecting (${reconnectAttempts}/${maxReconnectAttempts})...`, 'warning');
-        } else {
-            showToast('Connection lost. Please refresh the page.', 'error');
-        }
+        showToast('Connection lost. Attempting to reconnect...', 'warning');
     });
 
-    // Error handling
-    wsSocket.on('error', function(error) {
-        console.error('WebSocket error:', error);
+    // Add better error handling
+    wsSocket.on('connect_error', function(error) {
+        console.error('Connection error:', error);
+        showToast('Connection error. Will retry automatically.', 'error');
     });
 }
 
@@ -85,6 +122,18 @@ function updateConnectionStatus(connected) {
             statusIndicator.classList.remove('status-connected');
             statusIndicator.classList.add('status-disconnected');
             statusIndicator.title = 'Disconnected from server';
+        }
+    }
+    
+    // Also update the status bar
+    const statusBar = document.getElementById('statusBar');
+    if (statusBar) {
+        if (connected) {
+            statusBar.className = 'alert alert-success';
+            statusBar.textContent = 'Connected to server';
+        } else {
+            statusBar.className = 'alert alert-danger';
+            statusBar.textContent = 'Disconnected from server. Using simulation mode.';
         }
     }
 }
@@ -170,6 +219,8 @@ function handleParameterUpdate(data) {
         updateChartData(data);
     }
 }
+
+
 
 // Handle dosing update message
 function handleDosingUpdate(data) {

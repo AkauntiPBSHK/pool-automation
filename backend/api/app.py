@@ -590,6 +590,36 @@ def handle_request_params():
     """Handle client request for current parameters."""
     send_status_update()
 
+@socketio.on('request_system_state')
+def handle_system_state_request():
+    """Handle client request for complete system state."""
+    logger.info(f"System state requested by client: {request.sid}")
+    
+    if simulator:
+        # Get all current parameters and pump states
+        params = simulator.get_all_parameters()
+        pump_states = simulator.get_pump_states()
+        
+        # Combine into a complete status update
+        complete_state = {
+            "ph": round(params['ph'], 2),
+            "orp": round(params['orp']),
+            "freeChlorine": round(params['free_chlorine'], 2),
+            "combinedChlorine": round(params['combined_chlorine'], 2),
+            "turbidity": round(params['turbidity'], 3),
+            "temperature": round(params['temperature'], 1),
+            "phPumpRunning": pump_states.get('acid', False),
+            "clPumpRunning": pump_states.get('chlorine', False),
+            "pacPumpRunning": pump_states.get('pac', False),
+            "pacDosingRate": mock_pac_pump.get_flow_rate(),
+            "dosingMode": dosing_controller.mode.name,
+            "timestamp": time.time(),
+            "systemStatus": "normal"
+        }
+        
+        # Send the complete state to the requesting client only
+        emit('complete_system_state', complete_state)
+
 # Main entry point
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
