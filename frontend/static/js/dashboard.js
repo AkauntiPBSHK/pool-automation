@@ -89,6 +89,35 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    function initializeSystem() {
+        console.log('Initializing system');
+        
+        // Initialize WebSocket
+        if (typeof initializeWebSocket === 'function') {
+            initializeWebSocket();
+        } else if (typeof window.WebSocketManager?.initializeWebSocketFeatures === 'function') {
+            window.WebSocketManager.initializeWebSocketFeatures();
+        }
+        
+        // Initialize charts
+        if (typeof initializeCharts === 'function') {
+            initializeCharts();
+        } else {
+            // Fall back to individual chart initializations if they exist
+            if (typeof initializeChemistryChart === 'function') initializeChemistryChart();
+            if (typeof initializeTurbidityChart === 'function') initializeTurbidityChart();
+            if (typeof initializeHistoryChart === 'function') initializeHistoryChart();
+        }
+        
+        // Make initial data requests
+        fetchStatus();
+        if (typeof fetchDosingStatus === 'function') {
+            fetchDosingStatus();
+        }
+        
+        console.log('System initialization complete');
+    }
+
     // Initialize accessibility enhancements
     enhanceSidebarAccessibility();
     enhanceParameterCardsAccessibility();
