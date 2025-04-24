@@ -17,20 +17,22 @@ function initializeWebSocket() {
 
     console.log('Initializing WebSocket connection...');
     
-    // Create a Socket.IO connection with better transport options
+    // Configuration for newer Socket.IO versions
     wsSocket = io('http://127.0.0.1:5000', {
-        transports: ['polling', 'websocket'],  // Start with polling FIRST, then upgrade
-        reconnectionDelayMax: 10000,
-        reconnectionAttempts: 10,
+        transports: ['polling', 'websocket'],
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
         timeout: 20000,
-        forceNew: true,
-        path: '/socket.io/'
+        autoConnect: true,
+        path: '/socket.io/',
+        forceNew: true
     });
+    
     window.socket = wsSocket;
 
-    // Add transport logging for debugging
-    wsSocket.io.engine.on('transport', function(transport) {
-        console.log('Transport established:', transport.name);
+    // Add transport debugging
+    wsSocket.io.on('upgrade', (transport) => {
+        console.log('Transport upgraded to:', transport.name);
     });
 
     // Connection established

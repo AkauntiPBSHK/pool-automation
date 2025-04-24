@@ -43,17 +43,18 @@ CORS(app)  # Enable CORS for all routes
 
 async_mode = None  # Let Flask-SocketIO choose the best async mode
 
-# Configure Socket.IO with better settings
+# Update your app.py Socket.IO configuration for newer versions
 socketio = SocketIO(
     app,
     cors_allowed_origins="*",
     logger=True,
     engineio_logger=True,
-    async_mode=async_mode,  # Let the library choose the best mode
     ping_timeout=60,
     ping_interval=25,
-    path='/socket.io/',
-    manage_session=False  # Disable session management if not needed
+    max_http_buffer_size=1e8,  # Increased buffer size
+    allow_upgrades=True,       # Allow transport upgrades
+    http_compression=True,     # Enable compression
+    websocket_extra_options={} # Any extra websocket options if needed
 )
 
 # Load configuration
