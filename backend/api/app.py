@@ -43,7 +43,7 @@ CORS(app)  # Enable CORS for all routes
 
 async_mode = None  # Let Flask-SocketIO choose the best async mode
 
-# Update your app.py Socket.IO configuration for newer versions
+# Update your Socket.IO configuration to use polling only
 socketio = SocketIO(
     app,
     cors_allowed_origins="*",
@@ -51,10 +51,7 @@ socketio = SocketIO(
     engineio_logger=True,
     ping_timeout=60,
     ping_interval=25,
-    max_http_buffer_size=1e8,  # Increased buffer size
-    allow_upgrades=True,       # Allow transport upgrades
-    http_compression=True,     # Enable compression
-    websocket_extra_options={} # Any extra websocket options if needed
+    transports=["polling"]    # Only allow polling transport
 )
 
 # Load configuration
@@ -234,6 +231,14 @@ def status():
         "status": "ok",
         "simulation_mode": simulation_mode,
         "version": "0.1.0"
+    })
+
+@app.route('/socket-status')
+def socket_status():
+    """Simple Socket.IO status check"""
+    return jsonify({
+        "status": "Socket.IO server running",
+        "transport": "polling-only mode"
     })
 
 # Add these API endpoints
@@ -512,6 +517,26 @@ def manual_dosing():
             "success": False, 
             "message": "Manual dosing failed. Controller must be in MANUAL mode."
         }), 400
+    
+# Add a simpler debugging route without version references
+@app.route('/socket-debug')
+def socket_debug():
+    """Debugging info for Socket.IO configuration"""
+    # Log headers for debugging
+    headers = dict(request.headers)
+    
+    # Return configuration and headers without version info
+    return jsonify({
+        "socket_config": {
+            "transports": socketio.eio.transports if hasattr(socketio, 'eio') else "Unknown",
+            "cors_allowed_origins": socketio.cors_allowed_origins if hasattr(socketio, 'cors_allowed_origins') else "Unknown",
+            "async_mode": socketio.async_mode if hasattr(socketio, 'async_mode') else "Unknown"
+        },
+        "request_headers": headers,
+        "server_info": {
+            "flask_version": app.version if hasattr(app, 'version') else "Unknown"
+        }
+    })
 
 @app.route('/api/init')
 def initialize_database():

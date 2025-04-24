@@ -15,29 +15,22 @@ function initializeWebSocket() {
         return;
     }
 
-    console.log('Initializing WebSocket connection...');
+    console.log('Initializing connection with polling transport only...');
     
-    // Configuration for newer Socket.IO versions
+    // Force polling only - no WebSocket upgrade
     wsSocket = io('http://127.0.0.1:5000', {
-        transports: ['polling', 'websocket'],
+        transports: ['polling'],     // ONLY use polling
+        forceNew: true,
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
-        timeout: 20000,
-        autoConnect: true,
-        path: '/socket.io/',
-        forceNew: true
+        timeout: 20000
     });
     
     window.socket = wsSocket;
 
-    // Add transport debugging
-    wsSocket.io.on('upgrade', (transport) => {
-        console.log('Transport upgraded to:', transport.name);
-    });
-
-    // Connection established
+    // Connection established 
     wsSocket.on('connect', function() {
-        console.log('WebSocket connected with transport:', wsSocket.io.engine.transport.name);
+        console.log('Connected to server using:', wsSocket.io.engine.transport.name);
         showToast('Connected to server', 'success');
         updateConnectionStatus(true);
         lastHeartbeat = Date.now();
@@ -147,6 +140,30 @@ function initializeWebSocket() {
     // Start heartbeat monitoring
     startHeartbeatMonitor();
 }
+
+function checkSocketIOStatus() {
+    // Check connection status
+    if (!wsSocket) {
+        console.log("No Socket.IO connection exists");
+        return "No connection";
+    }
+    
+    // Connection details
+    const details = {
+        connected: wsSocket.connected,
+        transport: wsSocket.io.engine.transport.name,
+        protocol: location.protocol,
+        host: location.host,
+        uri: wsSocket.io.uri,
+        opts: wsSocket.io.opts
+    };
+    
+    console.table(details);
+    return details;
+}
+
+// Make it available globally for console debugging
+window.checkSocketIOStatus = checkSocketIOStatus;
 
 // Update connection status indicator in UI
 function updateConnectionStatus(connected) {
