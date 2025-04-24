@@ -931,84 +931,65 @@ function updateStatusBar(message, type) {
     statusBar.textContent = message;
 }
 
-/**
- * Set operation mode
- */
+// Update setMode function to keep PAC mode in sync
 function setMode(mode) {
     const autoBtn = document.getElementById('autoMode');
     const manualBtn = document.getElementById('manualMode');
     
     if (mode === 'automatic') {
+        // Update UI
         autoBtn.classList.add('btn-success', 'active');
         autoBtn.classList.remove('btn-outline-secondary');
-        
         manualBtn.classList.add('btn-outline-secondary');
         manualBtn.classList.remove('btn-warning', 'active');
         
-        updateStatusBar('Automatic mode activated', 'success');
-        
-        // Set PAC dosing to automatic mode too
+        // Update PAC mode to match global mode
         const pacAutoSwitch = document.getElementById('pacAutoSwitch');
         if (pacAutoSwitch && !pacAutoSwitch.checked) {
-            // Programmatically click the switch to trigger its event handler
             pacAutoSwitch.checked = true;
-            
-            // Also call the API directly to ensure server state is updated
+            // Call API to update server
             fetch('/api/dosing/mode', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ mode: 'AUTOMATIC' }),
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Update UI after successful server update
                     togglePACAutoMode(true);
                 }
-            })
-            .catch(error => {
-                console.error('Error updating PAC mode:', error);
             });
         }
+        
+        updateStatusBar('Automatic mode activated', 'success');
     } else {
+        // Update UI
         manualBtn.classList.add('btn-warning', 'active');
         manualBtn.classList.remove('btn-outline-secondary');
-        
         autoBtn.classList.add('btn-outline-secondary');
         autoBtn.classList.remove('btn-success', 'active');
         
-        updateStatusBar('Manual mode activated', 'warning');
-        
-        // Set PAC dosing to manual mode too
+        // Update PAC mode to match global mode
         const pacAutoSwitch = document.getElementById('pacAutoSwitch');
         if (pacAutoSwitch && pacAutoSwitch.checked) {
-            // Programmatically click the switch to trigger its event handler
             pacAutoSwitch.checked = false;
-            
-            // Also call the API directly to ensure server state is updated
+            // Call API to update server
             fetch('/api/dosing/mode', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ mode: 'MANUAL' }),
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Update UI after successful server update
                     togglePACAutoMode(false);
                 }
-            })
-            .catch(error => {
-                console.error('Error updating PAC mode:', error);
             });
         }
+        
+        updateStatusBar('Manual mode activated', 'warning');
     }
 
-    // Update control availability based on mode
     updateControlsBasedOnMode();
 }
 
@@ -1056,38 +1037,41 @@ let turbidityChart = null;
  */
 function initializeTurbidityPACControls() {
     
+// Update PAC auto switch handler to keep global mode in sync
     document.getElementById('pacAutoSwitch').addEventListener('change', function() {
         const mode = this.checked ? 'AUTOMATIC' : 'MANUAL';
         
-        // Call the API to update the mode
         fetch('/api/dosing/mode', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ mode: mode }),
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                console.log('Mode updated:', data);
-                // Update UI elements
+                // Update PAC controls
                 togglePACAutoMode(this.checked);
-                showToast(`PAC dosing switched to ${mode.toLowerCase()} mode`);
-            } else {
-                console.error('Failed to update mode:', data);
-                // Revert the checkbox state
-                this.checked = !this.checked;
-                showToast('Failed to update dosing mode', 'warning');
+                
+                // Also update global mode buttons
+                const autoBtn = document.getElementById('autoMode');
+                const manualBtn = document.getElementById('manualMode');
+                
+                if (this.checked) { // AUTOMATIC mode
+                    autoBtn.classList.add('btn-success', 'active');
+                    autoBtn.classList.remove('btn-outline-secondary');
+                    manualBtn.classList.add('btn-outline-secondary');
+                    manualBtn.classList.remove('btn-warning', 'active');
+                    updateStatusBar('Automatic mode activated', 'success');
+                } else { // MANUAL mode
+                    manualBtn.classList.add('btn-warning', 'active');
+                    manualBtn.classList.remove('btn-outline-secondary');
+                    autoBtn.classList.add('btn-outline-secondary');
+                    autoBtn.classList.remove('btn-success', 'active');
+                    updateStatusBar('Manual mode activated', 'warning');
+                }
             }
-        })
-        .catch(error => {
-            console.error('Error updating mode:', error);
-            // Revert the checkbox state
-            this.checked = !this.checked;
-            showToast('Error connecting to server', 'error');
         });
-    })
+    });
     
     // Initialize threshold input fields
     document.getElementById('pacHighThreshold').addEventListener('change', function() {
@@ -5207,4 +5191,68 @@ function updateUIForParameter(parameter, value) {
             }
             break;
     }
+}
+
+// Make charts update in real-time with WebSocket data
+window.updateChartData = function(data) {
+    // Update turbidity chart
+    if (window.turbidityChart && data.turbidity !== undefined) {
+        // Get current data
+        const chartData = window.turbidityChart.data.datasets[0].data;
+        const labels = window.turbidityChart.data.labels;
+        
+        // Add new data point (keep last 24 points)
+        if (chartData.length >= 24) {
+            chartData.shift();
+            labels.shift();
+        }
+        
+        chartData.push(data.turbidity);
+        labels.push(formatTime(new Date()));
+        
+        // Update chart
+        window.turbidityChart.update();
+    }
+    
+    // Update chemistry chart
+    if (window.chemistryChart) {
+        // Update pH data if available
+        if (data.ph !== undefined) {
+            const phData = window.chemistryChart.data.datasets[0].data;
+            
+            // Keep last 24 points
+            if (phData.length >= 24) {
+                phData.shift();
+            }
+            
+            phData.push(data.ph);
+        }
+        
+        // Update chlorine data if available
+        if (data.freeChlorine !== undefined) {
+            const clData = window.chemistryChart.data.datasets[1].data;
+            
+            // Keep last 24 points
+            if (clData.length >= 24) {
+                clData.shift();
+            }
+            
+            clData.push(data.freeChlorine);
+        }
+        
+        // Update labels
+        const labels = window.chemistryChart.data.labels;
+        if (labels.length >= 24) {
+            labels.shift();
+        }
+        labels.push(formatTime(new Date()));
+        
+        // Update chart
+        window.chemistryChart.update();
+    }
+};
+
+// Helper function for formatting time
+function formatTime(date) {
+    return date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 }

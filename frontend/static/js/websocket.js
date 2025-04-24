@@ -108,6 +108,15 @@ function initializeWebSocket() {
         console.error('Connection error:', error);
         showToast('Connection error. Will retry automatically.', 'error');
     });
+
+    // Add heartbeat handler
+    wsSocket.on('heartbeat', function() {
+        lastHeartbeat = Date.now();
+        console.log('Heartbeat received');
+    });
+    
+    // Start heartbeat monitoring
+    startHeartbeatMonitor();
 }
 
 // Update connection status indicator in UI
@@ -214,9 +223,9 @@ function handleParameterUpdate(data) {
         updateParameterDisplay('pacDosingRate', data.pacDosingRate);
     }
     
-    // Update charts if the function exists
-    if (typeof updateChartData === 'function') {
-        updateChartData(data);
+    // Also update charts if they exist
+    if (window.updateChartData && typeof window.updateChartData === 'function') {
+        window.updateChartData(data);
     }
 }
 
@@ -454,3 +463,32 @@ window.WebSocketManager = {
     updateConnectionStatus,
     setupPacAutoSwitch
 };
+
+// Add heartbeat monitoring system
+let lastHeartbeat = Date.now();
+const MAX_HEARTBEAT_DELAY = 10000; // 10 seconds
+
+function startHeartbeatMonitor() {
+    // Check heartbeat periodically
+    const heartbeatInterval = setInterval(function() {
+        const now = Date.now();
+        if (socket && socket.connected) {
+            // If we haven't received a heartbeat recently, request one
+            if (now - lastHeartbeat > MAX_HEARTBEAT_DELAY) {
+                console.warn('Heartbeat missed, connection may be stale');
+                socket.emit('request_heartbeat');
+                
+                // If still no response after another 5 seconds, reconnect
+                setTimeout(function() {
+                    if (now - lastHeartbeat > MAX_HEARTBEAT_DELAY) {
+                        showToast('Connection appears stale, reconnecting...', 'warning');
+                        socket.disconnect().connect(); 
+                    }
+                }, 5000);
+            }
+        }
+    }, 5000);
+    
+    // Store interval ID for cleanup if needed
+    window.heartbeatInterval = heartbeatInterval;
+}
