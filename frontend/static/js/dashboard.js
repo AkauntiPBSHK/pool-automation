@@ -55,135 +55,96 @@ window.updatePumpStatus = function(id, running) {
     console.log(`Updated ${id}Status to ${running ? 'active' : 'inactive'}`);
 };
 
-// DOM Ready
-// DOM Ready 
+// Improve DOM Content Loading sequence
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Dashboard initialized');
+    console.log('Dashboard initialized - starting boot sequence');
     
-    // Initialize navigation
+    // Stage 1: Initialize navigation and UI
+    console.log('Stage 1: Initializing UI and controls');
     initializeNavigation();
+
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.style.display = tab.id === 'overview-tab' ? 'block' : 'none';
+    });
+
+    // Setup event listeners
+    setupEventListeners();
     
-    // Setup mode toggle event listeners
+    // Add accessibility features
+    enhanceSidebarAccessibility();
+    enhanceParameterCardsAccessibility();
+    enhanceControlsAccessibility();
+    updateAllRangeAriaAttributes();
+
+    // Stage 2: Initialize panel controls (without charts yet)
+    console.log('Stage 2: Initializing panel controls');
+    initializeWaterChemistryControls();
+    initializeTurbidityPACControls();
+    initializeHistoryTab();
+    initializeSettingsTab();
+    
+    // Stage 3: Load settings and initial data
+    console.log('Stage 3: Loading settings and initial data');
+    loadSavedSettings();
+    updateUIFromSettings();
+    updateParameterDisplays(mockData);
+
+    // Stage 4: Initialize charts after a short delay
+    console.log('Stage 4: Initializing charts (with delay)');
+    setTimeout(() => {
+        try {
+            initializeCharts();
+        } catch (error) {
+            console.error('Error initializing charts:', error);
+            // Maybe show a toast notification to the user
+            showToast('Error initializing charts. Some features may be limited.', 'warning');
+        }
+
+        // Stage 5: Set up WebSocket after charts are ready
+        console.log('Stage 5: Setting up WebSocket connection');
+        setTimeout(() => {
+            if (window.WebSocketManager && typeof window.WebSocketManager.initializeWebSocketFeatures === 'function') {
+                window.WebSocketManager.initializeWebSocketFeatures();
+            }
+            
+            // Final stage: Start data polling or simulation
+            console.log('Final stage: Starting data updates');
+            fetchStatus();
+            fetchDosingStatus();
+            
+            if (getParameterByName('simulate') !== 'false') {
+                startSimulation();
+            }
+            
+            console.log('System initialization complete');
+        }, 300);
+    }, 200);
+});
+
+/**
+ * Set up event listeners in one place for better organization
+ */
+function setupEventListeners() {
+    // Mode toggle buttons
     document.getElementById('autoMode').addEventListener('click', function() {
-        console.log('Switching to automatic mode');
         setMode('automatic');
     });
     
     document.getElementById('manualMode').addEventListener('click', function() {
-        console.log('Switching to manual mode');
         setMode('manual');
     });
     
+    // Refresh button
     document.getElementById('refreshBtn').addEventListener('click', function() {
-        console.log('Refreshing data');
-        
-        // Try WebSocket method first if connected
         if (socket && socket.connected) {
-            console.log('Using WebSocket to request system state');
             socket.emit('request_system_state');
             showToast('Requesting latest system data...', 'info');
         } else {
-            // Fall back to HTTP method
-            console.log('WebSocket not available, using HTTP fallback');
             fetchStatus();
             updateParameterDisplays(mockData);
         }
     });
-
-    // Define a structured initialization function with better ordering
-    function initializeSystem() {
-        console.log('Initializing system in staged sequence...');
-        
-        // First stage: UI and accessibility setup
-        enhanceSidebarAccessibility();
-        enhanceParameterCardsAccessibility();
-        enhanceControlsAccessibility();
-        updateAllRangeAriaAttributes();
-        
-        // Initialize section controls
-        initializeWaterChemistryControls();
-        initializeTurbidityPACControls();
-        initializeHistoryTab();
-        initializeSettingsTab();
-        
-        // Second stage: Initial data load and settings
-        console.log('Loading initial data and settings...');
-        updateParameterDisplays(mockData);
-        updateUIFromSettings();
-        
-        // Third stage: Charts with proper cleanup and initialization
-        console.log('Initializing charts...');
-        setTimeout(() => {
-            // Use initializeCharts if available, otherwise individual initializations
-            if (typeof initializeCharts === 'function') {
-                initializeCharts();
-            } else {
-                console.log('Using individual chart initializations');
-                
-                // Add short delays between chart initializations to avoid conflicts
-                setTimeout(() => {
-                    if (typeof initializeChemistryChart === 'function') initializeChemistryChart();
-                    
-                    setTimeout(() => {
-                        if (typeof initializeTurbidityChart === 'function') initializeTurbidityChart();
-                        
-                        setTimeout(() => {
-                            if (typeof initializeHistoryChart === 'function') initializeHistoryChart();
-                            console.log('All charts initialized');
-                        }, 50);
-                    }, 50);
-                }, 50);
-            }
-            
-            // Fourth stage: WebSocket and data fetching (after charts are ready)
-            setTimeout(() => {
-                console.log('Setting up WebSocket connection...');
-                
-                // Initialize socket connection
-                if (typeof initializeSocketConnection === 'function') {
-                    initializeSocketConnection();
-                }
-                
-                // Use WebSocketManager.initializeWebSocketFeatures if available
-                if (window.WebSocketManager && typeof window.WebSocketManager.initializeWebSocketFeatures === 'function') {
-                    window.WebSocketManager.initializeWebSocketFeatures();
-                }
-                
-                // Fetch initial data after connection setup
-                console.log('Fetching initial data...');
-                fetchStatus();
-                
-                if (typeof fetchDosingStatus === 'function') {
-                    fetchDosingStatus();
-                }
-                
-                // Start simulation if needed
-                if (getParameterByName('simulate') !== 'false') {
-                    startSimulation();
-                }
-                
-                console.log('System initialization complete');
-            }, 300);
-        }, 100);
-    }
-    
-    // Setup socket events - keep these for backward compatibility
-    // but they may be redundant with what's in initializeSocketConnection
-    if (socket) {
-        socket.on('connect', function() {
-            console.log('Connected to server');
-            updateStatusBar('Connected to server', 'success');
-        });
-        
-        socket.on('disconnect', function() {
-            console.log('Disconnected from server');
-            updateStatusBar('Disconnected from server', 'danger');
-        });
-    }
-    
-    // Start the staged initialization process
-    initializeSystem();
-});
+}
 
 /**
  * Initialize navigation between tabs
@@ -2080,29 +2041,46 @@ function initializeHistoryChart() {
     }
 }
 
-// Initialize all charts with a single function
+/**
+ * Initialize all charts with proper cleanup and sequencing
+ */
 function initializeCharts() {
-    console.log('Initializing all charts...');
+    console.log('Initializing all charts sequentially...');
     
-    // Add short delay between chart initializations to avoid conflicts
-    setTimeout(() => {
+    // Create a sequence to initialize charts with delays
+    function initializeChartSequence() {
+        // Phase 1: Initialize Chemistry Chart
+        console.log('Initializing chemistry chart...');
         if (document.getElementById('chemistryChart')) {
-            initializeChemistryChart();
+            if (typeof initializeChemistryChart === 'function') {
+                initializeChemistryChart();
+            }
         }
         
+        // Phase 2: Initialize Turbidity Chart after a short delay
         setTimeout(() => {
+            console.log('Initializing turbidity chart...');
             if (document.getElementById('turbidityChart')) {
-                initializeTurbidityChart();
+                if (typeof initializeTurbidityChart === 'function') {
+                    initializeTurbidityChart();
+                }
             }
             
+            // Phase 3: Initialize History Chart after another short delay
             setTimeout(() => {
+                console.log('Initializing history chart...');
                 if (document.getElementById('historyChart')) {
-                    initializeHistoryChart();
+                    if (typeof initializeHistoryChart === 'function') {
+                        initializeHistoryChart();
+                    }
                 }
-                console.log('All charts initialized');
-            }, 50);
-        }, 50);
-    }, 50);
+                console.log('All charts initialized successfully');
+            }, 100);
+        }, 100);
+    }
+    
+    // Start the sequence
+    initializeChartSequence();
 }
 
 /**
@@ -5297,11 +5275,19 @@ function updateUIForParameter(parameter, value) {
     }
 }
 
-// Safe chart data update function
+/**
+ * Safe chart data update function with better error handling
+ */
 window.updateChartData = function(data) {
-    console.log('Updating chart data with:', data);
+    // Skip updates if no data is provided
+    if (!data) {
+        console.warn('No data provided to updateChartData');
+        return;
+    }
     
-    // Update turbidity chart with better error handling
+    console.log('Updating chart data:', data);
+    
+    // Update turbidity chart with proper error handling
     try {
         if (window.turbidityChart && 
             window.turbidityChart.data && 
@@ -5314,22 +5300,28 @@ window.updateChartData = function(data) {
             const labels = window.turbidityChart.data.labels;
             
             // Add new data point (keep last 24 points)
-            if (chartData.length >= 24) {
+            if (chartData && chartData.length >= 24) {
                 chartData.shift();
-                labels.shift();
+                if (labels && labels.length >= 24) {
+                    labels.shift();
+                }
             }
             
-            chartData.push(data.turbidity);
-            labels.push(formatTime(new Date()));
-            
-            // Update chart with minimal animation for performance
-            window.turbidityChart.update('none');
+            if (chartData) {
+                chartData.push(data.turbidity);
+                if (labels) {
+                    labels.push(formatTime(new Date()));
+                }
+                
+                // Use 'none' animation mode for better performance
+                window.turbidityChart.update('none');
+            }
         }
     } catch (error) {
         console.error('Error updating turbidity chart:', error);
     }
     
-    // Update chemistry chart with better error handling
+    // Update chemistry chart with proper error handling
     try {
         if (window.chemistryChart && 
             window.chemistryChart.data && 

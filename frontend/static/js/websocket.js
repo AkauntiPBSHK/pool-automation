@@ -58,6 +58,15 @@ function initializeWebSocket() {
         handleSystemEvent(data);
     });
 
+    // Add to the initializeWebSocket function
+    wsSocket.on('connect_error', function(error) {
+        handleSocketError(error);
+    });
+
+    wsSocket.on('error', function(error) {
+        handleSocketError(error, 'danger');
+    });
+
     socket.on('complete_system_state', function(data) {
         console.log('Received complete system state:', data);
         showToast('System data refreshed', 'success');
@@ -414,6 +423,23 @@ function addEventToHistory(event) {
     }
 }
 
+// Add to websocket.js for better error handling
+function handleSocketError(error, severity = 'warning') {
+    console.error('Socket.IO error:', error);
+    
+    // Show toast with appropriate severity
+    showToast('Connection error: ' + (error.message || 'Unknown error'), severity);
+    
+    // Update status indicators
+    updateConnectionStatus(false);
+    updateStatusBar('Connection error. Using simulation mode.', 'danger');
+    
+    // Start simulation as fallback
+    if (typeof startSimulation === 'function') {
+        startSimulation();
+    }
+}
+
 // Initialize all WebSocket features
 function initializeWebSocketFeatures() {
     console.log('Initializing WebSocket features...');
@@ -467,6 +493,53 @@ function setupPacAutoSwitch() {
         });
     }
 }
+
+// Add to the end of websocket.js for debugging assistance
+window.diagnosticTools = {
+    // Connection status check
+    checkSocketStatus: function() {
+        if (!wsSocket) return "No connection established";
+        
+        return {
+            connected: wsSocket.connected,
+            id: wsSocket.id,
+            transport: wsSocket.io.engine?.transport?.name || "Unknown",
+            uri: wsSocket.io.uri,
+            reconnectionAttempts: wsSocket.io.reconnectionAttempts,
+            backoff: wsSocket.io.backoff
+        };
+    },
+    
+    // Chart status diagnostic
+    checkChartStatus: function() {
+        return {
+            chemistry: window.chemistryChart ? 
+                { initialized: true, datasets: window.chemistryChart.data.datasets.length } : 
+                { initialized: false },
+            turbidity: window.turbidityChart ? 
+                { initialized: true, datasets: window.turbidityChart.data.datasets.length } : 
+                { initialized: false },
+            history: window.historyChart ? 
+                { initialized: true, datasets: window.historyChart.data.datasets.length } : 
+                { initialized: false }
+        };
+    },
+    
+    // Force retry connection
+    retryConnection: function() {
+        if (wsSocket) {
+            wsSocket.disconnect();
+        }
+        
+        setTimeout(() => {
+            if (window.WebSocketManager && typeof window.WebSocketManager.initializeWebSocketFeatures === 'function') {
+                window.WebSocketManager.initializeWebSocketFeatures();
+                return "Connection retry initiated";
+            }
+            return "WebSocketManager not available";
+        }, 500);
+    }
+};
 
 // Export functions for use in dashboard.js
 window.WebSocketManager = {
