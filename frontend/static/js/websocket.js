@@ -112,29 +112,9 @@ function handleParameterUpdate(data) {
     updateParameterDisplay('combinedChlorineDetailValue', data.combinedChlorine);
     updateParameterDisplay('turbidityDetailValue', data.turbidity);
     
-    // Important: Don't update pump status if we have an active dosing session
-    const activeSessions = window.activeDosingSessions || { ph: false, cl: false, pac: false };
-    
-    // Only update pump status if we're not in an active dosing session
-    if (data.phPumpRunning !== undefined && !activeSessions.ph) {
-        if (typeof window.updatePumpStatus === 'function') {
-            window.updatePumpStatus('phPump', data.phPumpRunning);
-            window.updatePumpStatus('phPumpDetail', data.phPumpRunning);
-        }
-    }
-    
-    if (data.clPumpRunning !== undefined && !activeSessions.cl) {
-        if (typeof window.updatePumpStatus === 'function') {
-            window.updatePumpStatus('clPump', data.clPumpRunning);
-            window.updatePumpStatus('clPumpDetail', data.clPumpRunning);
-        }
-    }
-    
-    if (data.pacPumpRunning !== undefined && !activeSessions.pac) {
-        if (typeof window.updatePumpStatus === 'function') {
-            window.updatePumpStatus('pacPump', data.pacPumpRunning);
-            window.updatePumpStatus('pacPumpDetail', data.pacPumpRunning);
-        }
+    // PAC dosing rate if available
+    if (data.pacDosingRate !== undefined) {
+        updateParameterDisplay('pacDosingRate', data.pacDosingRate);
     }
     
     // Update dosing mode UI elements
