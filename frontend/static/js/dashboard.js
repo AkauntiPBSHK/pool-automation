@@ -136,13 +136,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize settings tab
     initializeSettingsTab();
 
+    initializeSystem();
+
     // Initialize WebSocket features
     if (window.WebSocketManager && typeof window.WebSocketManager.initializeWebSocketFeatures === 'function') {
         window.WebSocketManager.initializeWebSocketFeatures();
     }
 });
-
-initializeSystem();
 
 /**
  * Initialize navigation between tabs
