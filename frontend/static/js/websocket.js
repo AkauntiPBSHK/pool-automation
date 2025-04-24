@@ -112,15 +112,20 @@ function handleParameterUpdate(data) {
     updateParameterDisplay('combinedChlorineDetailValue', data.combinedChlorine);
     updateParameterDisplay('turbidityDetailValue', data.turbidity);
     
-    // Update pump status indicators
-    updatePumpStatus('phPumpStatus', data.phPumpRunning);
-    updatePumpStatus('clPumpStatus', data.clPumpRunning);
-    updatePumpStatus('pacPumpStatus', data.pacPumpRunning);
+    if (data.phPumpRunning !== undefined) {
+        window.updatePumpStatus('phPump', data.phPumpRunning);
+        window.updatePumpStatus('phPumpDetail', data.phPumpRunning);
+    }
     
-    // Also update detailed pump statuses if they exist
-    updatePumpStatus('phPumpDetailStatus', data.phPumpRunning);
-    updatePumpStatus('clPumpDetailStatus', data.clPumpRunning);
-    updatePumpStatus('pacPumpDetailStatus', data.pacPumpRunning);
+    if (data.clPumpRunning !== undefined) {
+        window.updatePumpStatus('clPump', data.clPumpRunning);
+        window.updatePumpStatus('clPumpDetail', data.clPumpRunning);
+    }
+    
+    if (data.pacPumpRunning !== undefined) {
+        window.updatePumpStatus('pacPump', data.pacPumpRunning);
+        window.updatePumpStatus('pacPumpDetail', data.pacPumpRunning);
+    }
     
     // Update dosing mode UI elements
     if (data.dosingMode) {
@@ -234,20 +239,6 @@ function updateParameterDisplay(elementId, value) {
                 element.classList.remove('value-warning');
             }
         }
-    }
-}
-
-// Updated updatePumpStatus function to match your HTML structure
-function updatePumpStatus(elementId, isRunning) {
-    const element = document.getElementById(elementId);
-    if (!element) return;
-    
-    if (isRunning) {
-        element.innerHTML = '<i class="bi bi-droplet-fill me-1"></i> Pump active';
-        element.className = 'text-primary';
-    } else {
-        element.innerHTML = '<i class="bi bi-droplet me-1"></i> Pump inactive';
-        element.className = 'text-secondary';
     }
 }
 

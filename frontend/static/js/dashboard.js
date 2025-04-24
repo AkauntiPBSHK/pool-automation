@@ -23,6 +23,31 @@ const socket = io();
 // Global variables for charts
 let chemistryChart = null;
 
+// Make it globally accessible by attaching to window
+window.updatePumpStatus = function(id, running) {
+    // Check if element exists before updating
+    const statusEl = document.getElementById(id + 'Status');
+    if (!statusEl) {
+        console.warn(`Element with ID ${id}Status not found`);
+        return;
+    }
+    
+    const isPac = id.includes('pac');
+    
+    if (running) {
+        // Update text and styling for active pump
+        statusEl.innerHTML = `<i class="bi bi-droplet-fill me-1"></i> ${isPac ? 'PAC pump' : 'Pump'} active`;
+        statusEl.className = 'text-primary pump-active';
+    } else {
+        // Update text and styling for inactive pump
+        statusEl.innerHTML = `<i class="bi bi-droplet me-1"></i> ${isPac ? 'PAC pump' : 'Pump'} inactive`;
+        statusEl.className = 'text-secondary';
+    }
+    
+    // Log the update for debugging
+    console.log(`Updated ${id}Status to ${running ? 'active' : 'inactive'}`);
+};
+
 // DOM Ready
 document.addEventListener('DOMContentLoaded', function() {
     console.log('Dashboard initialized');
@@ -194,9 +219,14 @@ function updateControlsBasedOnMode() {
  * Simulate starting pH dosing
  */
 function startPHDosing(duration) {
+    console.log(`Starting pH dosing for ${duration} seconds`);
+    
+    // Update mock data and UI immediately
     mockData.phPumpRunning = true;
-    updatePumpStatus('phPump', true);
-    updatePumpStatus('phPumpDetail', true);
+    
+    // Use the unified function
+    window.updatePumpStatus('phPump', true);
+    window.updatePumpStatus('phPumpDetail', true);
     
     // Show toast notification
     showToast(`pH dosing started for ${duration} seconds`);
@@ -223,9 +253,14 @@ function stopPHDosing() {
  * Simulate starting chlorine dosing
  */
 function startCLDosing(duration) {
+    console.log(`Starting cl dosing for ${duration} seconds`);
+    
+    // Update mock data and UI immediately
     mockData.clPumpRunning = true;
-    updatePumpStatus('clPump', true);
-    updatePumpStatus('clPumpDetail', true);
+    
+    // Use the unified function
+    window.updatePumpStatus('clPump', true);
+    window.updatePumpStatus('clPumpDetail', true);
     
     // Show toast notification
     showToast(`Chlorine dosing started for ${duration} seconds`);
@@ -1142,42 +1177,33 @@ function updateTurbidityPACControlsBasedOnMode() {
  * Simulate starting PAC dosing
  */
 function startPACDosing(flowRate) {
+    console.log(`Starting PAC dosing at ${flowRate} ml/h`);
+    
     // Update local UI immediately for responsiveness
     mockData.pacPumpRunning = true;
     mockData.pacDosingRate = parseInt(flowRate);
-    updatePumpStatus('pacPump', true);
-    updatePumpStatus('pacPumpDetail', true);
     
-    // Call the API to actually start the dosing
-    fetch('/api/dosing/manual', {
+    // Use the unified function
+    window.updatePumpStatus('pacPump', true);
+    window.updatePumpStatus('pacPumpDetail', true);
+    
+    // Show toast notification
+    showToast(`PAC dosing started at ${flowRate} ml/h`);
+    
+    // Call API if using real server
+    fetch('/api/pumps/pac', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            duration: 30, // Default 30 seconds, could make this configurable
+            command: 'start',
+            duration: 30,
             flow_rate: parseInt(flowRate)
         }),
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showToast(`PAC dosing started at ${flowRate} ml/h`);
-        } else {
-            // Revert UI if dosing failed
-            mockData.pacPumpRunning = false;
-            updatePumpStatus('pacPump', false);
-            updatePumpStatus('pacPumpDetail', false);
-            showToast('Failed to start dosing: ' + data.message, 'warning');
-        }
-    })
     .catch(error => {
-        console.error('Error starting dosing:', error);
-        // Revert UI on error
-        mockData.pacPumpRunning = false;
-        updatePumpStatus('pacPump', false);
-        updatePumpStatus('pacPumpDetail', false);
-        showToast('Error connecting to server', 'error');
+        console.error('Error starting PAC dosing:', error);
     });
 }
 
