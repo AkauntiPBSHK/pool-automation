@@ -876,6 +876,32 @@ function setMode(mode) {
         manualBtn.classList.remove('btn-warning', 'active');
         
         updateStatusBar('Automatic mode activated', 'success');
+        
+        // Set PAC dosing to automatic mode too
+        const pacAutoSwitch = document.getElementById('pacAutoSwitch');
+        if (pacAutoSwitch && !pacAutoSwitch.checked) {
+            // Programmatically click the switch to trigger its event handler
+            pacAutoSwitch.checked = true;
+            
+            // Also call the API directly to ensure server state is updated
+            fetch('/api/dosing/mode', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ mode: 'AUTOMATIC' }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update UI after successful server update
+                    togglePACAutoMode(true);
+                }
+            })
+            .catch(error => {
+                console.error('Error updating PAC mode:', error);
+            });
+        }
     } else {
         manualBtn.classList.add('btn-warning', 'active');
         manualBtn.classList.remove('btn-outline-secondary');
@@ -884,6 +910,32 @@ function setMode(mode) {
         autoBtn.classList.remove('btn-success', 'active');
         
         updateStatusBar('Manual mode activated', 'warning');
+        
+        // Set PAC dosing to manual mode too
+        const pacAutoSwitch = document.getElementById('pacAutoSwitch');
+        if (pacAutoSwitch && pacAutoSwitch.checked) {
+            // Programmatically click the switch to trigger its event handler
+            pacAutoSwitch.checked = false;
+            
+            // Also call the API directly to ensure server state is updated
+            fetch('/api/dosing/mode', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ mode: 'MANUAL' }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update UI after successful server update
+                    togglePACAutoMode(false);
+                }
+            })
+            .catch(error => {
+                console.error('Error updating PAC mode:', error);
+            });
+        }
     }
 
     // Update control availability based on mode
