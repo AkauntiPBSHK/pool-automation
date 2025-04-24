@@ -18,13 +18,20 @@ function initializeWebSocket() {
     console.log('Initializing WebSocket connection...');
     
     // Create a Socket.IO connection with better transport options
-    wsSocket = io({
-        transports: ['websocket', 'polling'], // Try both methods
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-        timeout: 10000
+    wsSocket = io('http://127.0.0.1:5000', {
+        transports: ['polling', 'websocket'],  // Start with polling FIRST, then upgrade
+        reconnectionDelayMax: 10000,
+        reconnectionAttempts: 10,
+        timeout: 20000,
+        forceNew: true,
+        path: '/socket.io/'
     });
     window.socket = wsSocket;
+
+    // Add transport logging for debugging
+    wsSocket.io.engine.on('transport', function(transport) {
+        console.log('Transport established:', transport.name);
+    });
 
     // Connection established
     wsSocket.on('connect', function() {
@@ -122,6 +129,11 @@ function initializeWebSocket() {
     wsSocket.on('connect_error', function(error) {
         console.error('Connection error:', error);
         showToast('Connection error: ' + error.message, 'warning');
+        
+        if (wsSocket.io.reconnectionAttempts > 3) {
+            console.warn('Multiple connection failures - switching to simulation mode');
+            startSimulation();
+        }
     });
 
     // Add heartbeat handler
