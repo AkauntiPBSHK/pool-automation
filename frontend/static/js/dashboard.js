@@ -4776,17 +4776,20 @@ function generatePumpChanges() {
     let changed = false;
     
     // Occasionally toggle pump states (5% chance for each pump)
-    if (Math.random() < 0.05) {
+    const activeSessions = window.activeDosingSessions || { ph: false, cl: false, pac: false };
+
+    // Only toggle pumps that aren't in active dosing sessions
+    if (Math.random() < 0.05 && !activeSessions.ph) {
         data.phPumpRunning = !data.phPumpRunning;
         changed = true;
     }
     
-    if (Math.random() < 0.05) {
+    if (Math.random() < 0.05 && !activeSessions.cl) {
         data.clPumpRunning = !data.clPumpRunning;
         changed = true;
     }
     
-    if (Math.random() < 0.05) {
+    if (Math.random() < 0.05 && !activeSessions.pac) {
         data.pacPumpRunning = !data.pacPumpRunning;
         changed = true;
     }
