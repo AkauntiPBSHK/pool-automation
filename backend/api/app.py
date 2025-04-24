@@ -80,7 +80,6 @@ def log_dosing_event(event_type, duration, flow_rate, turbidity):
     db.log_dosing_event(event_type, duration, flow_rate, turbidity)
     logger.info(f"Dosing event logged: {event_type}, {duration}s, {flow_rate}ml/h, {turbidity}NTU")
 
-# Add to your app.py - update this function
 def send_status_update():
     """Send current system status to all connected clients."""
     if not simulator:
@@ -89,23 +88,65 @@ def send_status_update():
     params = simulator.get_all_parameters()
     pump_states = simulator.get_pump_states()
     
+    # Create a more comprehensive status update
     status_data = {
-        "ph": round(params['ph'], 1),
+        "ph": round(params['ph'], 2),
         "orp": round(params['orp']),
         "freeChlorine": round(params['free_chlorine'], 2),
-        "combinedChlorine": round(params['combined_chlorine'], 1),
+        "combinedChlorine": round(params['combined_chlorine'], 2),
         "turbidity": round(params['turbidity'], 3),
         "temperature": round(params['temperature'], 1),
         "phPumpRunning": pump_states.get('acid', False),
         "clPumpRunning": pump_states.get('chlorine', False),
         "pacPumpRunning": pump_states.get('pac', False),
         "pacDosingRate": mock_pac_pump.get_flow_rate(),
-        "dosingMode": dosing_controller.mode.name
+        "dosingMode": dosing_controller.mode.name,
+        "timestamp": time.time(),
+        "turbidityLimits": {
+            "highThreshold": dosing_controller.high_threshold,
+            "lowThreshold": dosing_controller.low_threshold,
+            "target": dosing_controller.target_ntu
+        }
     }
     
     socketio.emit('parameter_update', status_data)
 
-# Add a background task to send updates periodically
+# Add these functions for emitting dosing and system events
+def emit_dosing_update(event_type, details=None):
+    """Emit dosing controller update to all clients."""
+    if not dosing_controller:
+        return
+    
+    status = dosing_controller.get_status()
+    
+    data = {
+        'event': event_type,
+        'mode': dosing_controller.mode.name,
+        'status': status
+    }
+    
+    if details:
+        data.update(details)
+    
+    socketio.emit('dosing_update', data)
+
+def emit_system_event(event_type, description, parameter=None, value=None):
+    """Emit system event to all clients."""
+    data = {
+        'event': event_type,
+        'description': description,
+        'timestamp': time.time()
+    }
+    
+    if parameter:
+        data['parameter'] = parameter
+    
+    if value:
+        data['value'] = value
+    
+    socketio.emit('system_event', data)
+
+# Modify your start_background_tasks function
 def start_background_tasks():
     """Start background tasks for real-time updates."""
     def send_updates():
@@ -219,6 +260,7 @@ def dashboard_data():
             "pacDosingRate": 75
         })
     
+# Update your control_pac_pump endpoint to use emit_system_event
 @app.route('/api/pumps/pac', methods=['POST'])
 def control_pac_pump():
     """Control the PAC dosing pump."""
@@ -236,6 +278,11 @@ def control_pac_pump():
             mock_pac_pump.set_flow_rate(flow_rate)
         
         success = mock_pac_pump.start(duration=duration)
+        
+        # Emit system event
+        emit_system_event('pac_pump_started', 
+                         f"PAC pump started manually for {duration}s at {mock_pac_pump.get_flow_rate()} mL/h")
+        
         return jsonify({
             "success": success,
             "message": f"PAC pump started for {duration} seconds at {mock_pac_pump.get_flow_rate()} ml/h"
@@ -243,6 +290,10 @@ def control_pac_pump():
     
     elif command == 'stop':
         success = mock_pac_pump.stop()
+        
+        # Emit system event
+        emit_system_event('pac_pump_stopped', "PAC pump stopped manually")
+        
         return jsonify({
             "success": success,
             "message": "PAC pump stopped"
@@ -254,6 +305,10 @@ def control_pac_pump():
             return jsonify({"error": "Missing flow_rate parameter"}), 400
         
         success = mock_pac_pump.set_flow_rate(flow_rate)
+        
+        # Emit system event
+        emit_system_event('pac_flow_rate_changed', f"PAC pump flow rate set to {flow_rate} mL/h")
+        
         return jsonify({
             "success": success,
             "message": f"PAC pump flow rate set to {flow_rate} ml/h"
@@ -376,6 +431,7 @@ def dosing_status():
     """Get the current status of the dosing controller."""
     return jsonify(dosing_controller.get_status())
 
+# Update your set_dosing_mode endpoint to use the emit_dosing_update function
 @app.route('/api/dosing/mode', methods=['POST'])
 def set_dosing_mode():
     """Set the dosing controller mode."""
@@ -392,14 +448,15 @@ def set_dosing_mode():
     
     dosing_controller.set_mode(mode)
     
-    # Add this: emit a WebSocket event when mode changes
-    socketio.emit('dosing_mode_changed', {
-        'mode': mode_str,
-        'status': dosing_controller.get_status()
-    })
+    # Use the new emit function instead of direct socketio.emit
+    emit_dosing_update('mode_changed')
+    
+    # Log the event
+    emit_system_event('dosing_mode_changed', f"Dosing mode changed to {mode_str}")
     
     return jsonify({"success": True, "mode": mode_str})
 
+# Update your manual_dosing endpoint to use the emit functions
 @app.route('/api/dosing/manual', methods=['POST'])
 def manual_dosing():
     """Trigger manual dosing."""
@@ -407,15 +464,28 @@ def manual_dosing():
         return jsonify({"error": "Invalid request format"}), 400
     
     data = request.json
-    duration = data.get('duration')
+    duration = data.get('duration', 30)  # Default to 30 seconds if not specified
     flow_rate = data.get('flow_rate')
     
     success = dosing_controller.manual_dose(duration, flow_rate)
     
     if success:
+        # Get current turbidity for the event
+        current_turbidity = mock_turbidity_sensor.get_reading()
+        
+        # Emit dosing update
+        emit_dosing_update('manual_dose_started', {
+            'duration': duration,
+            'flow_rate': mock_pac_pump.get_flow_rate()
+        })
+        
+        # Emit system event
+        event_desc = f"Manual dosing started (duration: {duration}s, flow rate: {mock_pac_pump.get_flow_rate()} mL/h)"
+        emit_system_event('manual_dose_started', event_desc, 'turbidity', str(current_turbidity))
+        
         return jsonify({
             "success": True, 
-            "message": f"Manual dosing started for {duration or dosing_controller.dose_duration} seconds"
+            "message": f"Manual dosing started for {duration} seconds"
         })
     else:
         return jsonify({
@@ -502,11 +572,23 @@ def initialize_database():
 @socketio.on('connect')
 def handle_connect():
     logger.info(f"Client connected: {request.sid}")
-    socketio.emit('status', {'connected': True})
+    # Send initial data upon connection
+    socketio.emit('connection_confirmed', {
+        'status': 'connected',
+        'clientId': request.sid
+    })
+    
+    # Send current parameters
+    send_status_update()
 
 @socketio.on('disconnect')
 def handle_disconnect():
     logger.info(f"Client disconnected: {request.sid}")
+
+@socketio.on('request_params')
+def handle_request_params():
+    """Handle client request for current parameters."""
+    send_status_update()
 
 # Main entry point
 if __name__ == '__main__':

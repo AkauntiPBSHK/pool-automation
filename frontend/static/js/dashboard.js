@@ -93,6 +93,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize settings tab
     initializeSettingsTab();
+
+    // Initialize WebSocket features
+    if (window.WebSocketManager && typeof window.WebSocketManager.initializeWebSocketFeatures === 'function') {
+        window.WebSocketManager.initializeWebSocketFeatures();
+    }
 });
 
 /**
