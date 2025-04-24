@@ -17,6 +17,12 @@ const mockData = {
     pacDosingRate: 75 // Default value in ml/h
 };
 
+window.activeDosingSessions = {
+    ph: false,
+    cl: false,
+    pac: false
+};
+
 // Connect to Socket.IO
 const socket = io();
 
@@ -221,9 +227,11 @@ function updateControlsBasedOnMode() {
 function startPHDosing(duration) {
     console.log(`Starting pH dosing for ${duration} seconds`);
     
+    // Set dosing session active
+    window.activeDosingSessions.ph = true;
+    
     // Update local data
     mockData.phPumpRunning = true;
-    window.lastPhPumpChange = Date.now();
     
     // Update UI status indicators
     updatePumpStatus('phPump', true);
@@ -238,11 +246,16 @@ function startPHDosing(duration) {
     }, duration * 1000);
 }
 
-/**
- * Simulate stopping pH dosing
- */
 function stopPHDosing() {
+    console.log('Stopping pH dosing');
+    
+    // End dosing session
+    window.activeDosingSessions.ph = false;
+    
+    // Update local data
     mockData.phPumpRunning = false;
+    
+    // Update UI status indicators
     updatePumpStatus('phPump', false);
     updatePumpStatus('phPumpDetail', false);
     
@@ -254,7 +267,10 @@ function stopPHDosing() {
  * Simulate starting chlorine dosing
  */
 function startCLDosing(duration) {
-    console.log(`Starting cl dosing for ${duration} seconds`);
+    console.log(`Starting chlorine dosing for ${duration} seconds`);
+    
+    // Set dosing session active
+    window.activeDosingSessions.cl = true;
     
     // Update local data
     mockData.clPumpRunning = true;
@@ -264,7 +280,7 @@ function startCLDosing(duration) {
     updatePumpStatus('clPumpDetail', true);
     
     // Show toast notification
-    showToast(`cl dosing started for ${duration} seconds`);
+    showToast(`Chlorine dosing started for ${duration} seconds`);
     
     // Auto-stop after duration
     setTimeout(() => {
@@ -272,11 +288,16 @@ function startCLDosing(duration) {
     }, duration * 1000);
 }
 
-/**
- * Simulate stopping chlorine dosing
- */
 function stopCLDosing() {
+    console.log('Stopping chlorine dosing');
+    
+    // End dosing session
+    window.activeDosingSessions.cl = false;
+    
+    // Update local data
     mockData.clPumpRunning = false;
+    
+    // Update UI status indicators
     updatePumpStatus('clPump', false);
     updatePumpStatus('clPumpDetail', false);
     
@@ -1175,6 +1196,9 @@ function updateTurbidityPACControlsBasedOnMode() {
 function startPACDosing(flowRate) {
     console.log(`Starting PAC dosing at ${flowRate} ml/h`);
     
+    // Set dosing session active
+    window.activeDosingSessions.pac = true;
+    
     // Update local data
     mockData.pacPumpRunning = true;
     mockData.pacDosingRate = parseInt(flowRate);
@@ -1183,70 +1207,42 @@ function startPACDosing(flowRate) {
     updatePumpStatus('pacPump', true);
     updatePumpStatus('pacPumpDetail', true);
     
+    // Show toast notification
+    showToast(`PAC dosing started at ${flowRate} ml/h`);
+    
     // API call
     fetch('/api/pumps/pac', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             command: 'start',
-            duration: 30, // Default 30 seconds
+            duration: 30,
             flow_rate: parseInt(flowRate)
         }),
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showToast(`PAC dosing started at ${flowRate} ml/h`);
-        } else {
-            // Revert UI if failed
-            mockData.pacPumpRunning = false;
-            updatePumpStatus('pacPump', false);
-            updatePumpStatus('pacPumpDetail', false);
-            showToast('Failed to start PAC dosing', 'warning');
-        }
-    })
-    .catch(error => {
-        console.error('Error starting PAC dosing:', error);
-        // Revert UI on error
-        mockData.pacPumpRunning = false;
-        updatePumpStatus('pacPump', false);
-        updatePumpStatus('pacPumpDetail', false);
-    });
+    .catch(error => console.error('Error starting PAC dosing:', error));
+    
+    // For demo purposes, auto-stop after 30 seconds
+    setTimeout(() => {
+        stopPACDosing();
+    }, 30000);
 }
 
-/**
- * Simulate stopping PAC dosing
- */
 function stopPACDosing() {
-    // Update local UI immediately for responsiveness
+    console.log('Stopping PAC dosing');
+    
+    // End dosing session
+    window.activeDosingSessions.pac = false;
+    
+    // Update local data
     mockData.pacPumpRunning = false;
+    
+    // Update UI status indicators
     updatePumpStatus('pacPump', false);
     updatePumpStatus('pacPumpDetail', false);
     
-    // Call the API to actually stop the dosing
-    fetch('/api/pumps/pac', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            command: 'stop'
-        }),
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            showToast('PAC dosing stopped');
-        } else {
-            showToast('Failed to stop dosing: ' + data.message, 'warning');
-        }
-    })
-    .catch(error => {
-        console.error('Error stopping dosing:', error);
-        showToast('Error connecting to server', 'error');
-    });
+    // Show toast notification
+    showToast('PAC dosing stopped');
 }
 
 /**

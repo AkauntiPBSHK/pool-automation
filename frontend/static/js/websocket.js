@@ -98,7 +98,7 @@ function requestParameters() {
 
 // Handle parameter update message
 function handleParameterUpdate(data) {
-    // Update UI with new parameter values - using your HTML element IDs
+    // Update other parameters as normal
     updateParameterDisplay('phValue', data.ph);
     updateParameterDisplay('orpValue', data.orp);
     updateParameterDisplay('freeChlorineValue', data.freeChlorine);
@@ -106,40 +106,31 @@ function handleParameterUpdate(data) {
     updateParameterDisplay('turbidityValue', data.turbidity);
     updateParameterDisplay('tempValue', data.temperature);
     
-    // Also update detailed values if they exist
+    // Also update detailed values
     updateParameterDisplay('phDetailValue', data.ph);
     updateParameterDisplay('freeChlorineDetailValue', data.freeChlorine);
     updateParameterDisplay('combinedChlorineDetailValue', data.combinedChlorine);
     updateParameterDisplay('turbidityDetailValue', data.turbidity);
     
-    // IMPORTANT: Only update pump status if they were explicitly included
-    // AND don't override local pump state within 10 seconds of local change
-    const now = Date.now();
+    // Important: Don't update pump status if we have an active dosing session
+    const activeSessions = window.activeDosingSessions || { ph: false, cl: false, pac: false };
     
-    // Get current pump states
-    const currentPhPump = window.mockData?.phPumpRunning || false;
-    const currentClPump = window.mockData?.clPumpRunning || false;
-    const currentPacPump = window.mockData?.pacPumpRunning || false;
-    
-    // Only update pump statuses if explicitly provided AND not recently changed
-    if (data.phPumpRunning !== undefined && 
-        (typeof window.lastPhPumpChange === 'undefined' || now - window.lastPhPumpChange > 10000)) {
+    // Only update pump status if we're not in an active dosing session
+    if (data.phPumpRunning !== undefined && !activeSessions.ph) {
         if (typeof window.updatePumpStatus === 'function') {
             window.updatePumpStatus('phPump', data.phPumpRunning);
             window.updatePumpStatus('phPumpDetail', data.phPumpRunning);
         }
     }
     
-    if (data.clPumpRunning !== undefined && 
-        (typeof window.lastClPumpChange === 'undefined' || now - window.lastClPumpChange > 10000)) {
+    if (data.clPumpRunning !== undefined && !activeSessions.cl) {
         if (typeof window.updatePumpStatus === 'function') {
             window.updatePumpStatus('clPump', data.clPumpRunning);
             window.updatePumpStatus('clPumpDetail', data.clPumpRunning);
         }
     }
     
-    if (data.pacPumpRunning !== undefined && 
-        (typeof window.lastPacPumpChange === 'undefined' || now - window.lastPacPumpChange > 10000)) {
+    if (data.pacPumpRunning !== undefined && !activeSessions.pac) {
         if (typeof window.updatePumpStatus === 'function') {
             window.updatePumpStatus('pacPump', data.pacPumpRunning);
             window.updatePumpStatus('pacPumpDetail', data.pacPumpRunning);
