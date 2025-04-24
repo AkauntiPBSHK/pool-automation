@@ -124,35 +124,45 @@ function handleParameterUpdate(data) {
     
     // Update dosing mode UI elements
     if (data.dosingMode) {
-        // Update pacAutoSwitch checkbox based on mode (UI update only)
+        // Update pacAutoSwitch checkbox based on mode
         const pacAutoSwitch = document.getElementById('pacAutoSwitch');
         if (pacAutoSwitch) {
             pacAutoSwitch.checked = (data.dosingMode === 'AUTOMATIC');
         }
         
-        // Update dosing mode display
-        const dosingModeElement = document.getElementById('dosing-mode');
-        if (dosingModeElement) {
-            dosingModeElement.textContent = data.dosingMode;
-            dosingModeElement.className = 'dosing-mode';
-            dosingModeElement.classList.add(`mode-${data.dosingMode.toLowerCase()}`);
-        }
-        
-        // Update mode selector if it exists
-        const modeSelector = document.getElementById('dosing-mode-select');
-        if (modeSelector) {
-            modeSelector.value = data.dosingMode;
-        }
-        
-        // Show/hide manual dosing controls based on mode
-        const manualControls = document.getElementById('manual-dosing-controls');
-        if (manualControls) {
-            if (data.dosingMode === 'MANUAL') {
-                manualControls.classList.remove('hidden');
+        // Update status badge
+        const dosingStatus = document.getElementById('pacDosingStatus');
+        if (dosingStatus) {
+            if (data.dosingMode === 'AUTOMATIC') {
+                dosingStatus.textContent = 'Optimized';
+                dosingStatus.className = 'badge bg-success';
+            } else if (data.dosingMode === 'MANUAL') {
+                dosingStatus.textContent = 'Manual';
+                dosingStatus.className = 'badge bg-warning';
             } else {
-                manualControls.classList.add('hidden');
+                dosingStatus.textContent = 'Off';
+                dosingStatus.className = 'badge bg-secondary';
             }
         }
+        
+        // Enable or disable manual controls based on mode
+        const isManualMode = (data.dosingMode === 'MANUAL');
+        const pacDoseBtn = document.getElementById('pacDoseBtn');
+        const pacStopBtn = document.getElementById('pacStopBtn');
+        const pacFlowRate = document.getElementById('pacFlowRate');
+        
+        if (pacDoseBtn) pacDoseBtn.disabled = !isManualMode;
+        if (pacStopBtn) pacStopBtn.disabled = !isManualMode;
+        if (pacFlowRate) pacFlowRate.disabled = !isManualMode;
+        
+        // Update threshold inputs state
+        const pacHighThreshold = document.getElementById('pacHighThreshold');
+        const pacLowThreshold = document.getElementById('pacLowThreshold');
+        const pacTargetValue = document.getElementById('pacTargetValue');
+        
+        if (pacHighThreshold) pacHighThreshold.disabled = isManualMode;
+        if (pacLowThreshold) pacLowThreshold.disabled = isManualMode;
+        if (pacTargetValue) pacTargetValue.disabled = isManualMode;
     }
     
     // Update PAC flow rate if available
@@ -367,9 +377,6 @@ function initializeWebSocketFeatures() {
     // Initialize WebSocket connection
     initializeWebSocket();
     
-    // Set up event listeners for dosing controls
-    setupDosingControls();
-    
     // Setup controls for PAC auto/manual switching
     setupPacAutoSwitch();
 }
@@ -401,78 +408,6 @@ function setupPacAutoSwitch() {
                 this.checked = !this.checked;
                 console.error('Error changing dosing mode:', error);
                 showToast('Error changing dosing mode', 'error');
-            });
-        });
-    }
-}
-
-// Set up dosing control event listeners
-function setupDosingControls() {
-    // Dosing mode selector
-    const modeSelector = document.getElementById('dosing-mode-select');
-    if (modeSelector) {
-        modeSelector.addEventListener('change', function() {
-            const newMode = this.value;
-            
-            // Send mode change request to server
-            fetch('/api/dosing/mode', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ mode: newMode })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showToast(`Dosing mode changed to ${newMode}`, 'success');
-                } else {
-                    showToast(`Failed to change dosing mode: ${data.error}`, 'error');
-                    // Reset selector to current mode
-                    this.value = document.getElementById('dosing-mode').textContent;
-                }
-            })
-            .catch(error => {
-                console.error('Error changing dosing mode:', error);
-                showToast('Error changing dosing mode', 'error');
-                // Reset selector to current mode
-                this.value = document.getElementById('dosing-mode').textContent;
-            });
-        });
-    }
-    
-    // Manual dosing form
-    const manualDosingForm = document.getElementById('manual-dosing-form');
-    if (manualDosingForm) {
-        manualDosingForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            // Get form values
-            const duration = parseInt(document.getElementById('dosing-duration').value) || 30;
-            const flowRate = parseFloat(document.getElementById('dosing-flow-rate').value) || 100;
-            
-            // Send manual dosing request to server
-            fetch('/api/dosing/manual', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    duration: duration,
-                    flow_rate: flowRate
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showToast(`Manual dosing started (${duration}s, ${flowRate} mL/h)`, 'success');
-                } else {
-                    showToast(`Failed to start manual dosing: ${data.message}`, 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Error starting manual dosing:', error);
-                showToast('Error starting manual dosing', 'error');
             });
         });
     }

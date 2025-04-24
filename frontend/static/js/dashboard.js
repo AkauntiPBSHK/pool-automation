@@ -943,28 +943,28 @@ function initializeTurbidityPACControls() {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-                mode: mode
-            }),
+            body: JSON.stringify({ mode: mode }),
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
                 console.log('Mode updated:', data);
-                updateDosingModeUI(mode);
+                // Update UI elements
+                togglePACAutoMode(this.checked);
+                showToast(`PAC dosing switched to ${mode.toLowerCase()} mode`);
             } else {
                 console.error('Failed to update mode:', data);
-                // Revert the switch if the API call failed
+                // Revert the checkbox state
                 this.checked = !this.checked;
+                showToast('Failed to update dosing mode', 'warning');
             }
         })
         .catch(error => {
             console.error('Error updating mode:', error);
-            // Revert the switch on error
+            // Revert the checkbox state
             this.checked = !this.checked;
+            showToast('Error connecting to server', 'error');
         });
-        
-        togglePACAutoMode(this.checked);
     })
     
     // Initialize threshold input fields
@@ -1016,7 +1016,7 @@ function togglePACAutoMode(isAuto) {
         document.getElementById('pacStopBtn').disabled = true;
         document.getElementById('pacFlowRate').disabled = true;
         
-        // Disable threshold inputs
+        // Enable threshold inputs in auto mode
         document.getElementById('pacHighThreshold').disabled = false;
         document.getElementById('pacLowThreshold').disabled = false;
         document.getElementById('pacTargetValue').disabled = false;
@@ -1026,11 +1026,10 @@ function togglePACAutoMode(isAuto) {
         document.getElementById('pacDosingStatus').textContent = 'Manual';
         document.getElementById('pacDosingStatus').className = 'badge bg-warning';
         
-        // Enable manual controls if in manual mode
-        const isManualMode = document.getElementById('manualMode').classList.contains('active');
-        document.getElementById('pacDoseBtn').disabled = !isManualMode;
-        document.getElementById('pacStopBtn').disabled = !isManualMode;
-        document.getElementById('pacFlowRate').disabled = !isManualMode;
+        // Always enable manual controls when in PAC manual mode
+        document.getElementById('pacDoseBtn').disabled = false;
+        document.getElementById('pacStopBtn').disabled = false;
+        document.getElementById('pacFlowRate').disabled = false;
         
         // Disable threshold inputs in manual mode
         document.getElementById('pacHighThreshold').disabled = true;
@@ -1091,25 +1090,76 @@ function updateTurbidityPACControlsBasedOnMode() {
  * Simulate starting PAC dosing
  */
 function startPACDosing(flowRate) {
+    // Update local UI immediately for responsiveness
     mockData.pacPumpRunning = true;
     mockData.pacDosingRate = parseInt(flowRate);
     updatePumpStatus('pacPump', true);
     updatePumpStatus('pacPumpDetail', true);
     
-    // Show toast notification
-    showToast(`PAC dosing started at ${flowRate} ml/h`);
+    // Call the API to actually start the dosing
+    fetch('/api/dosing/manual', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            duration: 30, // Default 30 seconds, could make this configurable
+            flow_rate: parseInt(flowRate)
+        }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(`PAC dosing started at ${flowRate} ml/h`);
+        } else {
+            // Revert UI if dosing failed
+            mockData.pacPumpRunning = false;
+            updatePumpStatus('pacPump', false);
+            updatePumpStatus('pacPumpDetail', false);
+            showToast('Failed to start dosing: ' + data.message, 'warning');
+        }
+    })
+    .catch(error => {
+        console.error('Error starting dosing:', error);
+        // Revert UI on error
+        mockData.pacPumpRunning = false;
+        updatePumpStatus('pacPump', false);
+        updatePumpStatus('pacPumpDetail', false);
+        showToast('Error connecting to server', 'error');
+    });
 }
 
 /**
  * Simulate stopping PAC dosing
  */
 function stopPACDosing() {
+    // Update local UI immediately for responsiveness
     mockData.pacPumpRunning = false;
     updatePumpStatus('pacPump', false);
     updatePumpStatus('pacPumpDetail', false);
     
-    // Show toast notification
-    showToast('PAC dosing stopped');
+    // Call the API to actually stop the dosing
+    fetch('/api/pumps/pac', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            command: 'stop'
+        }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('PAC dosing stopped');
+        } else {
+            showToast('Failed to stop dosing: ' + data.message, 'warning');
+        }
+    })
+    .catch(error => {
+        console.error('Error stopping dosing:', error);
+        showToast('Error connecting to server', 'error');
+    });
 }
 
 /**
