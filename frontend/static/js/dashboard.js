@@ -221,12 +221,12 @@ function updateControlsBasedOnMode() {
 function startPHDosing(duration) {
     console.log(`Starting pH dosing for ${duration} seconds`);
     
-    // Update mock data and UI immediately
+    // Update local data
     mockData.phPumpRunning = true;
     
-    // Use the unified function
-    window.updatePumpStatus('phPump', true);
-    window.updatePumpStatus('phPumpDetail', true);
+    // Update UI status indicators
+    updatePumpStatus('phPump', true);
+    updatePumpStatus('phPumpDetail', true);
     
     // Show toast notification
     showToast(`pH dosing started for ${duration} seconds`);
@@ -255,15 +255,15 @@ function stopPHDosing() {
 function startCLDosing(duration) {
     console.log(`Starting cl dosing for ${duration} seconds`);
     
-    // Update mock data and UI immediately
+    // Update local data
     mockData.clPumpRunning = true;
     
-    // Use the unified function
-    window.updatePumpStatus('clPump', true);
-    window.updatePumpStatus('clPumpDetail', true);
+    // Update UI status indicators
+    updatePumpStatus('clPump', true);
+    updatePumpStatus('clPumpDetail', true);
     
     // Show toast notification
-    showToast(`Chlorine dosing started for ${duration} seconds`);
+    showToast(`cl dosing started for ${duration} seconds`);
     
     // Auto-stop after duration
     setTimeout(() => {
@@ -791,35 +791,33 @@ function updateChlorineStatus(freeChlorine, combinedChlorine) {
     }
 }
 
+// Add this near the top of dashboard.js
 /**
-* Update pump status display
-* @param {string} id - Element ID prefix (e.g., 'phPump', 'clPump', 'pacPump')
-* @param {boolean} running - Whether the pump is running
+ * Update pump status display
+ * @param {string} id - Element ID prefix without 'Status' suffix
+ * @param {boolean} running - Whether the pump is running
  */
 function updatePumpStatus(id, running) {
-    const statusEl = document.getElementById(id + 'Status');
-    if (!statusEl) return;
+    console.log(`Updating pump status: ${id} -> ${running ? 'active' : 'inactive'}`);
     
-    const isPac = id === 'pacPump' || id === 'pacPumpDetail';
+    const statusEl = document.getElementById(`${id}Status`);
+    if (!statusEl) {
+        console.warn(`Element not found: ${id}Status`);
+        return;
+    }
+    
+    const isPac = id.includes('pac');
     
     if (running) {
-        statusEl.textContent = isPac ? 'PAC pump active' : 'Pump active';
+        statusEl.innerHTML = `<i class="bi bi-droplet-fill me-1 text-primary"></i>${isPac ? 'PAC pump' : 'Pump'} active`;
         statusEl.className = 'text-primary pump-active';
-        
-        // Add null check before accessing previousElementSibling
-        if (statusEl.previousElementSibling) {
-            statusEl.previousElementSibling.className = 'bi bi-droplet-fill me-2 text-primary';
-        }
     } else {
-        statusEl.textContent = isPac ? 'PAC pump inactive' : 'Pump inactive';
+        statusEl.innerHTML = `<i class="bi bi-droplet me-1"></i>${isPac ? 'PAC pump' : 'Pump'} inactive`;
         statusEl.className = 'text-secondary';
-        
-        // Add null check before accessing previousElementSibling
-        if (statusEl.previousElementSibling) {
-            statusEl.previousElementSibling.className = 'bi bi-droplet me-2';
-        }
     }
 }
+
+window.updatePumpStatus = updatePumpStatus;
 
 /**
  * Fetch current system status
@@ -1173,24 +1171,18 @@ function updateTurbidityPACControlsBasedOnMode() {
     }
 }
 
-/**
- * Simulate starting PAC dosing
- */
 function startPACDosing(flowRate) {
     console.log(`Starting PAC dosing at ${flowRate} ml/h`);
     
-    // Update local UI immediately for responsiveness
+    // Update local data
     mockData.pacPumpRunning = true;
     mockData.pacDosingRate = parseInt(flowRate);
     
-    // Use the unified function
-    window.updatePumpStatus('pacPump', true);
-    window.updatePumpStatus('pacPumpDetail', true);
+    // Update UI status indicators
+    updatePumpStatus('pacPump', true);
+    updatePumpStatus('pacPumpDetail', true);
     
-    // Show toast notification
-    showToast(`PAC dosing started at ${flowRate} ml/h`);
-    
-    // Call API if using real server
+    // API call
     fetch('/api/pumps/pac', {
         method: 'POST',
         headers: {
@@ -1198,12 +1190,28 @@ function startPACDosing(flowRate) {
         },
         body: JSON.stringify({
             command: 'start',
-            duration: 30,
+            duration: 30, // Default 30 seconds
             flow_rate: parseInt(flowRate)
         }),
     })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(`PAC dosing started at ${flowRate} ml/h`);
+        } else {
+            // Revert UI if failed
+            mockData.pacPumpRunning = false;
+            updatePumpStatus('pacPump', false);
+            updatePumpStatus('pacPumpDetail', false);
+            showToast('Failed to start PAC dosing', 'warning');
+        }
+    })
     .catch(error => {
         console.error('Error starting PAC dosing:', error);
+        // Revert UI on error
+        mockData.pacPumpRunning = false;
+        updatePumpStatus('pacPump', false);
+        updatePumpStatus('pacPumpDetail', false);
     });
 }
 

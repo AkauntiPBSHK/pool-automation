@@ -113,18 +113,27 @@ function handleParameterUpdate(data) {
     updateParameterDisplay('turbidityDetailValue', data.turbidity);
     
     if (data.phPumpRunning !== undefined) {
-        window.updatePumpStatus('phPump', data.phPumpRunning);
-        window.updatePumpStatus('phPumpDetail', data.phPumpRunning);
+        // Call the function from dashboard.js
+        if (typeof window.updatePumpStatus === 'function') {
+            window.updatePumpStatus('phPump', data.phPumpRunning);
+            window.updatePumpStatus('phPumpDetail', data.phPumpRunning);
+        }
     }
     
     if (data.clPumpRunning !== undefined) {
-        window.updatePumpStatus('clPump', data.clPumpRunning);
-        window.updatePumpStatus('clPumpDetail', data.clPumpRunning);
+        // Call the function from dashboard.js
+        if (typeof window.updatePumpStatus === 'function') {
+            window.updatePumpStatus('clPump', data.clPumpRunning);
+            window.updatePumpStatus('clPumpDetail', data.clPumpRunning);
+        }
     }
     
     if (data.pacPumpRunning !== undefined) {
-        window.updatePumpStatus('pacPump', data.pacPumpRunning);
-        window.updatePumpStatus('pacPumpDetail', data.pacPumpRunning);
+        // Call the function from dashboard.js
+        if (typeof window.updatePumpStatus === 'function') {
+            window.updatePumpStatus('pacPump', data.pacPumpRunning);
+            window.updatePumpStatus('pacPumpDetail', data.pacPumpRunning);
+        }
     }
     
     // Update dosing mode UI elements
