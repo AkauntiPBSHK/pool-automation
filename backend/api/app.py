@@ -41,15 +41,19 @@ app = Flask(__name__,
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-key')
 CORS(app)  # Enable CORS for all routes
 
+async_mode = None  # Let Flask-SocketIO choose the best async mode
+
 # Configure Socket.IO with better settings
 socketio = SocketIO(
     app,
-    cors_allowed_origins="*",  # Allow all origins for development
-    logger=True,               # Enable Socket.IO logging
-    engineio_logger=True,      # More detailed Engine.IO logs
-    ping_timeout=60,           # Increase ping timeout
-    ping_interval=25,          # More frequent pings
-    transports=['websocket', 'polling']  # Support both transport methods
+    cors_allowed_origins="*",
+    logger=True,
+    engineio_logger=True,
+    async_mode=async_mode,  # Let the library choose the best mode
+    ping_timeout=60,
+    ping_interval=25,
+    path='/socket.io/',
+    manage_session=False  # Disable session management if not needed
 )
 
 # Load configuration
@@ -464,6 +468,12 @@ def set_dosing_mode():
     emit_system_event('dosing_mode_changed', f"Dosing mode changed to {mode_str}")
     
     return jsonify({"success": True, "mode": mode_str})
+
+# Add health check route for Socket.IO
+@app.route('/socket.io-test')
+def socket_io_test():
+    return jsonify({"status": "Socket.IO server is running", 
+                    "async_mode": socketio.async_mode})
 
 # Update your manual_dosing endpoint to use the emit functions
 @app.route('/api/dosing/manual', methods=['POST'])
