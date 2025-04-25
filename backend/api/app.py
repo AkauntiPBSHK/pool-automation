@@ -612,6 +612,88 @@ def initialize_database():
     except Exception as e:
         logger.error(f"Error initializing database: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
+    
+# Add to app.py
+@app.route('/api/notifications/settings', methods=['POST'])
+def update_notification_settings():
+    """Update notification settings."""
+    if not request.is_json:
+        return jsonify({"error": "Invalid request format"}), 400
+    
+    data = request.json
+    
+    # Save notification settings
+    email = data.get('email')
+    alert_types = data.get('alertTypes', [])
+    
+    # Update the database
+    db = DatabaseHandler()
+    db.save_notification_settings(email, alert_types)
+    
+    return jsonify({
+        "success": True,
+        "message": "Notification settings updated"
+    })
+
+@app.route('/api/notifications/test', methods=['POST'])
+def test_notification():
+    """Send a test notification."""
+    if not request.is_json:
+        return jsonify({"error": "Invalid request format"}), 400
+    
+    data = request.json
+    email = data.get('email')
+    
+    if not email:
+        return jsonify({"error": "Email address required"}), 400
+    
+    # Send test notification
+    try:
+        send_notification(
+            email, 
+            "Pool Automation System - Test Notification", 
+            "This is a test notification from your Pool Automation System."
+        )
+        
+        return jsonify({
+            "success": True,
+            "message": "Test notification sent"
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"Failed to send notification: {str(e)}"
+        }), 500
+
+def send_notification(email, subject, message):
+    """Send an email notification."""
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+    
+    # Get email settings from config
+    smtp_server = config.get('notifications', {}).get('smtp_server', '')
+    smtp_port = config.get('notifications', {}).get('smtp_port', 587)
+    smtp_user = config.get('notifications', {}).get('smtp_username', '')
+    smtp_pass = config.get('notifications', {}).get('smtp_password', '')
+    
+    if not smtp_server or not smtp_user or not smtp_pass:
+        raise ValueError("SMTP settings not configured")
+    
+    # Create message
+    msg = MIMEMultipart()
+    msg['From'] = smtp_user
+    msg['To'] = email
+    msg['Subject'] = subject
+    
+    # Add body
+    msg.attach(MIMEText(message, 'plain'))
+    
+    # Send email
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(smtp_user, smtp_pass)
+        server.send_message(msg)
 
 # WebSocket events
 @socketio.on('connect')

@@ -316,3 +316,86 @@ function categorizeHttpError(status) {
         return "Unknown";
     }
 }
+
+// Add to utility.js
+function enhanceMobileResponsiveness() {
+    // Get device type
+    const isMobile = window.innerWidth < 768;
+    const isTablet = window.innerWidth >= 768 && window.innerWidth < 992;
+    
+    // Apply mobile optimizations
+    if (isMobile) {
+        // Simplify charts for better performance
+        document.querySelectorAll('canvas').forEach(canvas => {
+            const chartInstance = Chart.getChart(canvas);
+            if (chartInstance) {
+                // Reduce data points for performance
+                if (chartInstance.data && chartInstance.data.datasets) {
+                    chartInstance.data.datasets.forEach(dataset => {
+                        if (dataset.pointRadius) dataset.pointRadius = 1;
+                        if (dataset.borderWidth) dataset.borderWidth = 1;
+                    });
+                }
+                
+                // Reduce font sizes
+                if (chartInstance.options && chartInstance.options.plugins && 
+                    chartInstance.options.plugins.legend) {
+                    chartInstance.options.plugins.legend.labels.font.size = 10;
+                }
+                
+                // Limit axis ticks
+                if (chartInstance.options && chartInstance.options.scales && 
+                    chartInstance.options.scales.x) {
+                    chartInstance.options.scales.x.ticks.maxTicksLimit = 5;
+                }
+                
+                chartInstance.update();
+            }
+        });
+        
+        // Make cards simpler
+        document.querySelectorAll('.card').forEach(card => {
+            // Remove some padding
+            card.querySelectorAll('.card-body').forEach(body => {
+                body.classList.add('p-2');
+                body.classList.remove('p-3', 'p-4');
+            });
+            
+            // Collapse some sections that aren't critical
+            card.querySelectorAll('.card-body > div:not(:first-child)').forEach(div => {
+                if (!div.classList.contains('essential')) {
+                    div.classList.add('collapse-mobile');
+                }
+            });
+        });
+        
+        // Add a mobile menu toggle
+        if (!document.getElementById('mobile-menu-toggle')) {
+            const toggle = document.createElement('button');
+            toggle.id = 'mobile-menu-toggle';
+            toggle.className = 'btn btn-primary position-fixed';
+            toggle.style.cssText = 'bottom: 20px; right: 20px; z-index: 1000; border-radius: 50%; width: 50px; height: 50px;';
+            toggle.innerHTML = '<i class="bi bi-list"></i>';
+            toggle.addEventListener('click', () => {
+                const sidebar = document.getElementById('sidebar');
+                if (sidebar) {
+                    sidebar.classList.toggle('show-mobile');
+                }
+            });
+            document.body.appendChild(toggle);
+        }
+    } else {
+        // Remove mobile-specific elements if window was resized
+        const toggle = document.getElementById('mobile-menu-toggle');
+        if (toggle) toggle.remove();
+        
+        // Remove collapse classes
+        document.querySelectorAll('.collapse-mobile').forEach(el => {
+            el.classList.remove('collapse-mobile');
+        });
+    }
+}
+
+// Call on load and resize
+window.addEventListener('load', enhanceMobileResponsiveness);
+window.addEventListener('resize', enhanceMobileResponsiveness);

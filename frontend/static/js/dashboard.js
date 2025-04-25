@@ -5378,3 +5378,99 @@ window.updateChartData = function(data) {
 function formatTime(date) {
     return date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 }
+
+// Add to dashboard.js
+function setupLiveChartUpdates() {
+    // Ensure socket and charts are initialized
+    if (!socket || !window.turbidityChart || !window.chemistryChart) return;
+    
+    // Handle real-time parameter updates for charts
+    socket.on('parameter_update', function(data) {
+        // Get current timestamp
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        
+        // Update turbidity chart if it exists and has data
+        if (window.turbidityChart && window.turbidityChart.data && 
+            window.turbidityChart.data.datasets && window.turbidityChart.data.datasets[0]) {
+            
+            // Add new data point (limit to 50 points)
+            if (window.turbidityChart.data.labels.length >= 50) {
+                window.turbidityChart.data.labels.shift();
+                window.turbidityChart.data.datasets[0].data.shift();
+                
+                // Also shift dosing events if they exist
+                if (window.turbidityChart.data.datasets[1]) {
+                    window.turbidityChart.data.datasets[1].data.shift();
+                }
+            }
+            
+            // Add new turbidity value
+            window.turbidityChart.data.labels.push(timeStr);
+            window.turbidityChart.data.datasets[0].data.push(data.turbidity);
+            
+            // Add null for dosing event (will be updated on dosing event message)
+            if (window.turbidityChart.data.datasets[1]) {
+                window.turbidityChart.data.datasets[1].data.push(null);
+            }
+            
+            // Update chart with animation duration of 0 for better performance
+            window.turbidityChart.update('none');
+        }
+        
+        // Similarly update chemistry chart
+        if (window.chemistryChart && window.chemistryChart.data && 
+            window.chemistryChart.data.datasets) {
+            
+            // Manage data points (limit to 50)
+            if (window.chemistryChart.data.labels.length >= 50) {
+                window.chemistryChart.data.labels.shift();
+                window.chemistryChart.data.datasets.forEach(dataset => {
+                    if (dataset.data) dataset.data.shift();
+                });
+            }
+            
+            // Add label
+            window.chemistryChart.data.labels.push(timeStr);
+            
+            // Add data for each parameter
+            if (window.chemistryChart.data.datasets[0] && data.ph !== undefined) {
+                window.chemistryChart.data.datasets[0].data.push(data.ph);
+            }
+            
+            if (window.chemistryChart.data.datasets[1] && data.orp !== undefined) {
+                window.chemistryChart.data.datasets[1].data.push(data.orp / 100); // Scale for display
+            }
+            
+            if (window.chemistryChart.data.datasets[2] && data.freeChlorine !== undefined) {
+                window.chemistryChart.data.datasets[2].data.push(data.freeChlorine);
+            }
+            
+            // Update chart without animation
+            window.chemistryChart.update('none');
+        }
+    });
+    
+    // Handle dosing events for chart annotation
+    socket.on('dosing_event', function(data) {
+        // If this is a PAC dosing event, add a marker to the turbidity chart
+        if (data.type && data.type.toLowerCase() === 'pac' && 
+            window.turbidityChart && window.turbidityChart.data && 
+            window.turbidityChart.data.datasets && window.turbidityChart.data.datasets[1]) {
+            
+            // Replace the last null value with the dosing marker
+            const lastIndex = window.turbidityChart.data.datasets[1].data.length - 1;
+            if (lastIndex >= 0) {
+                // Set marker at top of chart
+                window.turbidityChart.data.datasets[1].data[lastIndex] = 0.4; // Position at top
+                window.turbidityChart.update('none');
+                
+                // After 5 seconds, fade out the marker
+                setTimeout(() => {
+                    window.turbidityChart.data.datasets[1].data[lastIndex] = null;
+                    window.turbidityChart.update('none');
+                }, 5000);
+            }
+        }
+    });
+}
