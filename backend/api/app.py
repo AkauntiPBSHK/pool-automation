@@ -18,7 +18,7 @@ from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 from dotenv import load_dotenv
 from backend.models.database import DatabaseHandler
-from backend.utils.enhanced_simulator import EnhancedPoolSimulator
+from backend.utils.simulator import SystemSimulator
 from backend.hardware.sensors.mock import MockTurbiditySensor
 from backend.hardware.actuators.mock import MockPump
 from backend.hardware.controllers.dosing import DosingController, DosingMode
@@ -79,7 +79,7 @@ def load_config():
 
 config = load_config()
 # Create a global instance of the system simulator
-simulator = EnhancedPoolSimulator(config.get('simulation', {}))
+simulator = SystemSimulator(config.get('simulation', {}))
 
 # Create mock hardware using the simulator
 mock_turbidity_sensor = MockTurbiditySensor(config.get('hardware', {}).get('turbidity_sensor', {}), simulator)
