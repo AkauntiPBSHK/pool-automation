@@ -8,6 +8,24 @@ window.activeDosingSessions = {
     pac: false
 };
 
+const buttonToDataset = {
+    'pH': 0,
+    'ORP': 1,
+    'Free Chlorine': 2,
+    'Combined Cl': 3,
+    'Turbidity': 4,
+    'Temperature': 5
+};
+
+const datasetToButton = {
+    0: 'pH',
+    1: 'ORP',
+    2: 'Free Chlorine',
+    3: 'Combined Cl',
+    4: 'Turbidity',
+    5: 'Temperature'
+};
+
 // Mock data for simulation mode
 const mockData = {
     ph: 7.4,
@@ -2091,51 +2109,45 @@ function initializeCharts() {
  * Initialize parameter button states based on chart visibility
  */
 function initializeParameterButtons() {
-    if (!historyChart) return;
-    
-    // Map parameters to their dataset indices
-    const paramMap = {
-        'pH': 0,
-        'ORP': 1,
-        'Free Chlorine': 2,
-        'Combined Cl': 3,
-        'Turbidity': 4,
-        'Temperature': 5
-    };
-    
-    // Set up click handlers for all parameter buttons
+    // Clear any existing event handlers by replacing buttons
     document.querySelectorAll('.parameters button').forEach(button => {
-        // Remove existing click handlers by cloning the button
         const newButton = button.cloneNode(true);
         button.parentNode.replaceChild(newButton, button);
         
-        // Add our new handler
+        // Add our new failsafe handler
         newButton.addEventListener('click', function() {
-            // Get parameter name
-            const paramName = this.textContent.trim();
-            const datasetIndex = paramMap[paramName];
-
-            // Toggle visibility (inverse of current state)
-            const currentVisibility = this.classList.contains('active');
-            const newVisibility = !currentVisibility;
-
-            // Update synchronized state
-            syncParameterSelection('button', paramName, newVisibility);
-
-            if (datasetIndex !== undefined) {
-                // Toggle visibility in the chart
-                const currentVisibility = historyChart.isDatasetVisible(datasetIndex);
-                const newVisibility = !currentVisibility;
+            try {
+                console.log("Button clicked:", this.textContent.trim());
                 
-                // Update chart visibility
-                historyChart.setDatasetVisibility(datasetIndex, newVisibility);
+                // Get parameter name
+                const paramName = this.textContent.trim();
+                if (!buttonToDataset.hasOwnProperty(paramName)) {
+                    console.warn("Unknown parameter:", paramName);
+                    return;
+                }
+                
+                const datasetIndex = buttonToDataset[paramName];
+                if (!historyChart || !historyChart.data || !historyChart.data.datasets || 
+                    !historyChart.data.datasets[datasetIndex]) {
+                    console.warn("Chart or dataset not available");
+                    return;
+                }
+                
+                // Toggle visibility (inverse of current state)
+                const isCurrentlyVisible = !historyChart.data.datasets[datasetIndex].hidden;
+                const newVisibility = !isCurrentlyVisible;
+                
+                console.log(`Setting ${paramName} visibility to ${newVisibility}`);
+                
+                // Set visibility directly for maximum compatibility
+                historyChart.data.datasets[datasetIndex].hidden = !newVisibility;
                 
                 // Update button appearance
                 this.classList.toggle('active', newVisibility);
                 this.classList.toggle('btn-primary', newVisibility);
                 this.classList.toggle('btn-outline-secondary', !newVisibility);
                 
-                // Update corresponding checkbox
+                // Update corresponding checkbox if it exists
                 const checkboxMap = {
                     'pH': 'showPh',
                     'ORP': 'showOrp',
@@ -2145,7 +2157,8 @@ function initializeParameterButtons() {
                     'Temperature': 'showTemp'
                 };
                 
-                const checkbox = document.getElementById(checkboxMap[paramName]);
+                const checkboxId = checkboxMap[paramName];
+                const checkbox = document.getElementById(checkboxId);
                 if (checkbox) {
                     checkbox.checked = newVisibility;
                 }
@@ -2153,33 +2166,37 @@ function initializeParameterButtons() {
                 // Update axis visibility
                 updateAllAxisVisibility();
                 
-                // Update chart
-                historyChart.update();
+                // Force chart update
+                historyChart.update('none');
+            } catch (error) {
+                console.error("Error in parameter button handler:", error);
             }
         });
-        
-        // Set initial state based on chart visibility
-        const paramName = newButton.textContent.trim();
-        const datasetIndex = buttonToDataset[paramName];
-        if (datasetIndex !== undefined && historyChart && historyChart.data && 
-            historyChart.data.datasets && historyChart.data.datasets[datasetIndex]) {
-            // Use dataset.hidden property as fallback
-            const isVisible = typeof historyChart.isDatasetVisible === 'function' ? 
-                historyChart.isDatasetVisible(datasetIndex) : 
-                !historyChart.data.datasets[datasetIndex].hidden;
-                newButton.classList.toggle('active', isVisible);
-                newButton.classList.toggle('btn-primary', isVisible);
-                newButton.classList.toggle('btn-outline-secondary', !isVisible);
-        }
     });
-
-    // Set up dosing events checkbox
+    
+    // Also fix the dosing events checkbox
     const dosingEventsCheckbox = document.getElementById('showDosingEvents');
     if (dosingEventsCheckbox) {
-        dosingEventsCheckbox.addEventListener('change', function() {
-            historyChart.setDatasetVisibility(6, this.checked);
-            updateAllAxisVisibility();
-            historyChart.update();
+        // Remove existing listeners
+        const newCheckbox = dosingEventsCheckbox.cloneNode(true);
+        dosingEventsCheckbox.parentNode.replaceChild(newCheckbox, dosingEventsCheckbox);
+        
+        // Add new failsafe handler
+        newCheckbox.addEventListener('change', function() {
+            try {
+                if (!historyChart || !historyChart.data || !historyChart.data.datasets) {
+                    console.warn("Chart not available for dosing events toggle");
+                    return;
+                }
+                
+                const dosingEventsIndex = 6;
+                if (historyChart.data.datasets[dosingEventsIndex]) {
+                    historyChart.data.datasets[dosingEventsIndex].hidden = !this.checked;
+                    historyChart.update('none');
+                }
+            } catch (error) {
+                console.error("Error in dosing events checkbox handler:", error);
+            }
         });
     }
 }
@@ -2948,55 +2965,52 @@ function updateActivePageNumberStyle(paginationContainer) {
  */
 
 function updateAllAxisVisibility() {
-    if (!historyChart) return;
-    
-    // First, set all axes to hidden
-    Object.keys(historyChart.options.scales).forEach(scaleId => {
-        if (scaleId.startsWith('y-')) {
-            historyChart.options.scales[scaleId].display = false;
-            if (historyChart.options.scales[scaleId].title) {
-                historyChart.options.scales[scaleId].title.display = false;
-            }
+    try {
+        if (!historyChart || !historyChart.options || !historyChart.options.scales) {
+            console.warn("Cannot update axis visibility - chart not ready");
+            return;
         }
-    });
-    
-    // Map datasets to their corresponding axes
-    const datasetToAxisMap = {
-        0: 'y-ph',          // pH
-        1: 'y-orp',         // ORP
-        2: 'y-chlorine',    // Free Chlorine
-        3: 'y-chlorine',    // Combined Chlorine (shares axis with Free Chlorine)
-        4: 'y-turbidity',   // Turbidity
-        5: 'y-temp',        // Temperature
-        6: 'y-ph'           // Dosing Events (shown on pH axis)
-    };
-    
-    // For each dataset, check if it's visible and update its axis
-    for (let i = 0; i < historyChart.data.datasets.length; i++) {
-        if (historyChart.isDatasetVisible(i)) {
-            const axisId = datasetToAxisMap[i];
-            if (axisId && historyChart.options.scales[axisId]) {
-                historyChart.options.scales[axisId].display = true;
-                
-                // Also ensure axis title is visible
-                if (historyChart.options.scales[axisId].title) {
-                    historyChart.options.scales[axisId].title.display = true;
+        
+        // First, set all axes to hidden
+        Object.keys(historyChart.options.scales).forEach(scaleId => {
+            if (scaleId.startsWith('y-')) {
+                historyChart.options.scales[scaleId].display = false;
+                if (historyChart.options.scales[scaleId].title) {
+                    historyChart.options.scales[scaleId].title.display = false;
+                }
+            }
+        });
+        
+        // Map datasets to their corresponding axes
+        const datasetToAxisMap = {
+            0: 'y-ph',          // pH
+            1: 'y-orp',         // ORP
+            2: 'y-chlorine',    // Free Chlorine
+            3: 'y-chlorine',    // Combined Chlorine (shares axis with Free Chlorine)
+            4: 'y-turbidity',   // Turbidity
+            5: 'y-temp',        // Temperature
+            6: 'y-ph'           // Dosing Events (shown on pH axis)
+        };
+        
+        // For each dataset, check if it's visible and update its axis
+        for (let i = 0; i < historyChart.data.datasets.length; i++) {
+            // Check visibility directly using hidden property
+            const isVisible = !historyChart.data.datasets[i].hidden;
+            
+            if (isVisible) {
+                const axisId = datasetToAxisMap[i];
+                if (axisId && historyChart.options.scales[axisId]) {
+                    historyChart.options.scales[axisId].display = true;
+                    
+                    // Also ensure axis title is visible
+                    if (historyChart.options.scales[axisId].title) {
+                        historyChart.options.scales[axisId].title.display = true;
+                    }
                 }
             }
         }
-    }
-    
-    // Special case: If dosing events is the only visible dataset on y-ph axis
-    const phDatasetVisible = historyChart.isDatasetVisible(0); // pH
-    const dosingEventsVisible = historyChart.isDatasetVisible(6); // Dosing Events
-    
-    if (!phDatasetVisible && dosingEventsVisible) {
-        // If only dosing events are visible, show pH axis for reference but with muted styling
-        historyChart.options.scales['y-ph'].display = true;
-        historyChart.options.scales['y-ph'].grid.color = 'rgba(0, 0, 0, 0.1)'; // Muted grid
-    } else if (phDatasetVisible) {
-        // Reset grid color when pH dataset is visible
-        historyChart.options.scales['y-ph'].grid.color = undefined; // Use default
+    } catch (error) {
+        console.error("Error updating axis visibility:", error);
     }
 }
 
@@ -4668,15 +4682,6 @@ function syncParameterSelection(source, id, isVisible) {
     
     // Maps for relating different UI elements
 
-    const buttonToDataset = {
-        'pH': 0,
-        'ORP': 1,
-        'Free Chlorine': 2,
-        'Combined Cl': 3,
-        'Turbidity': 4,
-        'Temperature': 5
-    };
-
     const checkboxToDataset = {
         'showPh': 0,
         'showOrp': 1,
@@ -4695,15 +4700,6 @@ function syncParameterSelection(source, id, isVisible) {
         4: 'showTurbidity',
         5: 'showTemp',
         6: 'showDosingEvents'
-    };
-    
-    const datasetToButton = {
-        0: 'pH',
-        1: 'ORP',
-        2: 'Free Chlorine',
-        3: 'Combined Cl',
-        4: 'Turbidity',
-        5: 'Temperature'
     };
     
     if (source === 'checkbox') {
