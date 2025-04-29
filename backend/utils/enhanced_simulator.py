@@ -109,31 +109,31 @@ class EnhancedPoolSimulator:
         
         return schedule
     
-def update(self):
-    """Update the simulation state."""
-    now = time.time()
-    elapsed = now - self.last_update
-    
-    # Only update at the configured interval
-    if elapsed < self.update_interval:
-        return
-    
-    # Apply time scaling
-    effective_elapsed = elapsed * self.time_scale
-    
-    # Update simulation in the correct order
-    with threading.Lock():  # Add thread safety
-        self._update_bather_load()
-        self._apply_daily_patterns(effective_elapsed)
-        self._apply_chemical_interactions(effective_elapsed)
-        self._apply_pump_effects(effective_elapsed)
-        self._apply_random_drift(effective_elapsed)
-        self._check_for_events()
+    def update(self):
+        """Update the simulation state."""
+        now = time.time()
+        elapsed = now - self.last_update
         
-        # Always apply constraints at the end
-        self._apply_constraints()
-    
-    self.last_update = now
+        # Only update at the configured interval
+        if elapsed < self.update_interval:
+            return
+        
+        # Apply time scaling
+        effective_elapsed = elapsed * self.time_scale
+        
+        # Update simulation in the correct order
+        with threading.Lock():  # Add thread safety
+            self._update_bather_load()
+            self._apply_daily_patterns(effective_elapsed)
+            self._apply_chemical_interactions(effective_elapsed)
+            self._apply_pump_effects(effective_elapsed)
+            self._apply_random_drift(effective_elapsed)
+            self._check_for_events()
+            
+            # Always apply constraints at the end
+            self._apply_constraints()
+        
+        self.last_update = now
     
     def _update_bather_load(self):
         """Update the simulated bather load based on time of day."""
