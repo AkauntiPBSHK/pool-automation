@@ -278,15 +278,16 @@ class EnhancedPoolSimulator:
             # Schedule next event (3-8 hours, adjusted by time scale)
             self.next_event_time = now + random.uniform(10800, 28800) / self.time_scale
     
-    def _generate_random_event(self):
+    def _generate_random_event(self, event_type=None):
         """Generate a random event that affects water quality."""
-        event_type = random.choice([
-            'turbidity_spike',
-            'ph_shift',
-            'chlorine_drop',
-            'temperature_change',
-            'combined_chlorine_increase'
-        ])
+        if event_type is None:
+            event_type = random.choice([
+                'turbidity_spike',
+                'ph_shift',
+                'chlorine_drop',
+                'temperature_change',
+                'combined_chlorine_increase'
+            ])
         
         if event_type == 'turbidity_spike':
             # Simulate a sudden turbidity increase (e.g., dirt, leaves, etc.)
@@ -455,9 +456,3 @@ class EnhancedPoolSimulator:
             # Trigger a random event
             self._generate_random_event()
             return True
-        
-    def _apply_constraints(self):
-        """Apply physical constraints to parameters."""
-        for param, limits in self.constraints.items():
-            if param in self.parameters:
-                self.parameters[param] = max(limits['min'], min(limits['max'], self.parameters[param]))

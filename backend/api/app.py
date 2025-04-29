@@ -184,9 +184,6 @@ def start_background_tasks():
     thread.start()
     logger.info("Background tasks started")
 
-# Call this after initializing the Flask app
-start_background_tasks()
-
 # Initialize the dosing controller with the simulator components
 dosing_controller = AdvancedDosingController(
     mock_turbidity_sensor, 
@@ -207,6 +204,9 @@ dosing_controller = AdvancedDosingController(
 
 # Start the controller in automatic mode
 dosing_controller.start(DosingMode.AUTOMATIC)
+
+# Call this after initializing the Flask app
+start_background_tasks()
 
 # Simulated data generator
 def get_simulated_data():
