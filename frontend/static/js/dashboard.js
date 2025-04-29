@@ -2161,11 +2161,15 @@ function initializeParameterButtons() {
         // Set initial state based on chart visibility
         const paramName = newButton.textContent.trim();
         const datasetIndex = buttonToDataset[paramName];
-        if (datasetIndex !== undefined) {
-            const isVisible = historyChart.isDatasetVisible(datasetIndex);
-            newButton.classList.toggle('active', isVisible);
-            newButton.classList.toggle('btn-primary', isVisible);
-            newButton.classList.toggle('btn-outline-secondary', !isVisible);
+        if (datasetIndex !== undefined && historyChart && historyChart.data && 
+            historyChart.data.datasets && historyChart.data.datasets[datasetIndex]) {
+            // Use dataset.hidden property as fallback
+            const isVisible = typeof historyChart.isDatasetVisible === 'function' ? 
+                historyChart.isDatasetVisible(datasetIndex) : 
+                !historyChart.data.datasets[datasetIndex].hidden;
+                newButton.classList.toggle('active', isVisible);
+                newButton.classList.toggle('btn-primary', isVisible);
+                newButton.classList.toggle('btn-outline-secondary', !isVisible);
         }
     });
 
@@ -2408,6 +2412,8 @@ function updateHistoryChartVisibility() {
     document.querySelectorAll('#history-tab input[type="checkbox"]').forEach(checkbox => {
         syncParameterSelection('checkbox', checkbox.id, checkbox.checked);
     });
+
+    historyChart.update('none');
 }
 
 /**
@@ -4661,6 +4667,16 @@ function syncParameterSelection(source, id, isVisible) {
     if (!historyChart) return;
     
     // Maps for relating different UI elements
+
+    const buttonToDataset = {
+        'pH': 0,
+        'ORP': 1,
+        'Free Chlorine': 2,
+        'Combined Cl': 3,
+        'Turbidity': 4,
+        'Temperature': 5
+    };
+
     const checkboxToDataset = {
         'showPh': 0,
         'showOrp': 1,
@@ -4679,15 +4695,6 @@ function syncParameterSelection(source, id, isVisible) {
         4: 'showTurbidity',
         5: 'showTemp',
         6: 'showDosingEvents'
-    };
-    
-    const buttonToDataset = {
-        'pH': 0,
-        'ORP': 1,
-        'Free Chlorine': 2,
-        'Combined Cl': 3,
-        'Turbidity': 4,
-        'Temperature': 5
     };
     
     const datasetToButton = {
