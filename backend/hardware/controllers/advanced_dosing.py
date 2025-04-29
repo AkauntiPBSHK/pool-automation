@@ -87,8 +87,7 @@ class AdvancedDosingController:
         logger.info(f"Dosing controller started in {mode.name} mode")
         
         if self.event_logger:
-            self.event_logger('system', f'Dosing controller started in {mode.name} mode')
-        
+            self.log_system_event('system', f'Dosing controller started in {mode.name} mode')
         return True
     
     def stop(self):
