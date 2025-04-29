@@ -5022,74 +5022,127 @@ function configureChartTimeAxis(chart, hours) {
  * @param {object} [chart] - Chart.js chart object (defaults to historyChart if not provided)
  */
 function updateChartAriaLabel(chartId, hours, chart) {
-    // Use historyChart as default if no chart object provided
-    chart = chart || historyChart;
-    
-    // Exit if no valid chart
-    if (!chart) return;
-    
-    // If chartId and hours are provided, it's the time-range version
-    if (chartId && hours) {
-      const chartContainer = document.querySelector(`#${chartId}`).closest('.chart-container');
-      if (!chartContainer) return;
-      
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setHours(startDate.getHours() - hours);
-      
-      // Format dates for accessibility description
-      const formatDate = (date) => {
-        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-      };
-      
-      // Get visible parameters for a more descriptive label
-      const visibleParams = [];
-      if (chart.isDatasetVisible(0)) visibleParams.push('pH');
-      if (chart.isDatasetVisible(1)) visibleParams.push('ORP');
-      if (chart.isDatasetVisible(2)) visibleParams.push('Free Chlorine');
-      if (chart.isDatasetVisible(3)) visibleParams.push('Combined Chlorine');
-      if (chart.isDatasetVisible(4)) visibleParams.push('Turbidity');
-      if (chart.isDatasetVisible(5)) visibleParams.push('Temperature');
-      if (chart.isDatasetVisible(6) && chart.data.datasets[6]) visibleParams.push('Dosing Events');
-      
-      const paramText = visibleParams.length > 0 
-        ? `showing ${visibleParams.join(', ')}` 
-        : 'showing selected parameters';
-          
-      chartContainer.setAttribute('aria-label', 
-        `Chart ${paramText} from ${formatDate(startDate)} to ${formatDate(endDate)}`);
-    } 
-    // No chartId/hours - update based on visible datasets only
-    else {
-      const container = chart.canvas ? chart.canvas.closest('.chart-container') : null;
-      if (!container) return;
-      
-      // Get names of visible parameters
-      const visibleParams = [];
-      
-      // Check each dataset if it exists
-      if (chart.data.datasets[0] && chart.isDatasetVisible(0)) visibleParams.push('pH');
-      if (chart.data.datasets[1] && chart.isDatasetVisible(1)) visibleParams.push('ORP');
-      if (chart.data.datasets[2] && chart.isDatasetVisible(2)) visibleParams.push('free chlorine');
-      if (chart.data.datasets[3] && chart.isDatasetVisible(3)) visibleParams.push('combined chlorine');
-      if (chart.data.datasets[4] && chart.isDatasetVisible(4)) visibleParams.push('turbidity');
-      if (chart.data.datasets[5] && chart.isDatasetVisible(5)) visibleParams.push('temperature');
-      if (chart.data.datasets[6] && chart.isDatasetVisible(6)) visibleParams.push('dosing events');
-      
-      // Create descriptive label
-      let label = 'Chart showing ';
-      
-      if (visibleParams.length === 0) {
-        label += 'no parameters';
-      } else if (visibleParams.length === 1) {
-        label += visibleParams[0];
-      } else {
-        label += visibleParams.slice(0, -1).join(', ') + ' and ' + visibleParams[visibleParams.length - 1];
-      }
-      
-      container.setAttribute('aria-label', label);
+    try {
+        // Use historyChart as default if no chart object provided
+        chart = chart || window.historyChart;
+        
+        // Exit if no valid chart
+        if (!chart || !chart.data || !chart.data.datasets) {
+            console.warn('No valid chart available for ARIA label update');
+            return;
+        }
+        
+        // Check if dataset is visible safely
+        const isDatasetVisible = (index) => {
+            // First check if the dataset exists
+            if (!chart.data.datasets[index]) return false;
+            
+            // Try the Chart.js API method first
+            if (typeof chart.isDatasetVisible === 'function') {
+                try {
+                    return chart.isDatasetVisible(index);
+                } catch (e) {
+                    // Fallback to checking hidden property directly
+                    return !chart.data.datasets[index].hidden;
+                }
+            } else {
+                // No visibility method, check hidden property
+                return !chart.data.datasets[index].hidden;
+            }
+        };
+        
+        // If chartId and hours are provided, it's the time-range version
+        if (chartId && hours) {
+            const chartElement = document.getElementById(chartId);
+            if (!chartElement) {
+                console.warn(`Chart element with ID ${chartId} not found`);
+                return;
+            }
+            
+            const chartContainer = chartElement.closest('.chart-container');
+            if (!chartContainer) {
+                console.warn('Chart container not found');
+                return;
+            }
+            
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setHours(startDate.getHours() - hours);
+            
+            // Format dates for accessibility description
+            const formatDate = (date) => {
+                return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            };
+            
+            // Get visible parameters for a more descriptive label
+            const visibleParams = [];
+            const parameterMap = [
+                {index: 0, name: 'pH'},
+                {index: 1, name: 'ORP'},
+                {index: 2, name: 'Free Chlorine'},
+                {index: 3, name: 'Combined Chlorine'},
+                {index: 4, name: 'Turbidity'},
+                {index: 5, name: 'Temperature'},
+                {index: 6, name: 'Dosing Events'}
+            ];
+            
+            parameterMap.forEach(param => {
+                if (isDatasetVisible(param.index)) {
+                    visibleParams.push(param.name);
+                }
+            });
+            
+            const paramText = visibleParams.length > 0 
+                ? `showing ${visibleParams.join(', ')}` 
+                : 'showing selected parameters';
+                
+            chartContainer.setAttribute('aria-label', 
+                `Chart ${paramText} from ${formatDate(startDate)} to ${formatDate(endDate)}`);
+        } 
+        // No chartId/hours - update based on visible datasets only
+        else {
+            const container = chart.canvas ? chart.canvas.closest('.chart-container') : null;
+            if (!container) {
+                console.warn('Chart container not found for ARIA label update');
+                return;
+            }
+            
+            // Get names of visible parameters
+            const visibleParams = [];
+            const parameterMap = [
+                {index: 0, name: 'pH'},
+                {index: 1, name: 'ORP'},
+                {index: 2, name: 'free chlorine'},
+                {index: 3, name: 'combined chlorine'},
+                {index: 4, name: 'turbidity'},
+                {index: 5, name: 'temperature'},
+                {index: 6, name: 'dosing events'}
+            ];
+            
+            parameterMap.forEach(param => {
+                if (isDatasetVisible(param.index)) {
+                    visibleParams.push(param.name);
+                }
+            });
+            
+            // Create descriptive label
+            let label = 'Chart showing ';
+            
+            if (visibleParams.length === 0) {
+                label += 'no parameters';
+            } else if (visibleParams.length === 1) {
+                label += visibleParams[0];
+            } else {
+                label += visibleParams.slice(0, -1).join(', ') + ' and ' + visibleParams[visibleParams.length - 1];
+            }
+            
+            container.setAttribute('aria-label', label);
+        }
+    } catch (error) {
+        console.error('Error updating chart ARIA label:', error);
+        // Don't let ARIA label errors break chart functionality
     }
-  }
+}
 
 /**
  * Update history chart with new data for a time period
