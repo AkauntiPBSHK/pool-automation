@@ -91,6 +91,36 @@ def log_dosing_event(event_type, duration, flow_rate, turbidity):
     db.log_dosing_event(event_type, duration, flow_rate, turbidity)
     logger.info(f"Dosing event logged: {event_type}, {duration}s, {flow_rate}ml/h, {turbidity}NTU")
 
+# Add your new adapter function right here, after log_dosing_event
+def event_logger_adapter(*args, **kwargs):
+    """Adapter function to handle different event logger formats."""
+    # Handle system events (just logging, no database entry)
+    if len(args) >= 1 and args[0] == 'system':
+        message = args[1] if len(args) > 1 else "System event"
+        logger.info(f"System event: {message}")
+        return
+    
+    # For dosing events
+    if len(args) >= 2 and args[0] == 'dosing':
+        # Second argument is event subtype
+        event_subtype = args[1]
+        duration = kwargs.get('duration', 0)
+        flow_rate = kwargs.get('flow_rate', 0)
+        turbidity = kwargs.get('turbidity', 0)
+        
+        # Call original logger with combined event type
+        log_dosing_event(f"PAC-{event_subtype}", duration, flow_rate, turbidity)
+        return
+    
+    # Handle basic calls with minimal arguments (fallback)
+    event_type = args[0] if args else "unknown"
+    duration = args[1] if len(args) > 1 else 0
+    flow_rate = args[2] if len(args) > 2 else 0
+    turbidity = args[3] if len(args) > 3 else 0
+    
+    # Log with whatever we have
+    log_dosing_event(event_type, duration, flow_rate, turbidity)
+
 def send_status_update():
     """Send current system status to all connected clients."""
     if not simulator:
@@ -194,12 +224,11 @@ dosing_controller = AdvancedDosingController(
         'target_ntu': 0.15,
         'min_dose_interval_sec': 300,
         'dose_duration_sec': 30,
-        # Add PID controller settings
         'pid_kp': 1.0,
         'pid_ki': 0.1,
         'pid_kd': 0.05
     }),
-    log_dosing_event
+    event_logger_adapter  # Use the adapter here
 )
 
 # Start the controller in automatic mode
