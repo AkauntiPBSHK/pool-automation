@@ -109,19 +109,20 @@ class EnhancedPoolSimulator:
         
         return schedule
     
-    def update(self):
-        """Update the simulation state."""
-        now = time.time()
-        elapsed = now - self.last_update
-        
-        # Only update at the configured interval
-        if elapsed < self.update_interval:
-            return
-        
-        # Apply time scaling
-        effective_elapsed = elapsed * self.time_scale
-        
-        # Update simulation
+def update(self):
+    """Update the simulation state."""
+    now = time.time()
+    elapsed = now - self.last_update
+    
+    # Only update at the configured interval
+    if elapsed < self.update_interval:
+        return
+    
+    # Apply time scaling
+    effective_elapsed = elapsed * self.time_scale
+    
+    # Update simulation in the correct order
+    with threading.Lock():  # Add thread safety
         self._update_bather_load()
         self._apply_daily_patterns(effective_elapsed)
         self._apply_chemical_interactions(effective_elapsed)
@@ -129,10 +130,10 @@ class EnhancedPoolSimulator:
         self._apply_random_drift(effective_elapsed)
         self._check_for_events()
         
-        # Apply constraints
+        # Always apply constraints at the end
         self._apply_constraints()
-        
-        self.last_update = now
+    
+    self.last_update = now
     
     def _update_bather_load(self):
         """Update the simulated bather load based on time of day."""
@@ -407,3 +408,56 @@ class EnhancedPoolSimulator:
     def get_recent_events(self, count=10):
         """Get recent simulated events."""
         return sorted(self.events, key=lambda e: e['time'], reverse=True)[:count]
+    
+    def set_parameter(self, name, value):
+        """Set a parameter value directly (for testing or external control)."""
+        if name in self.parameters:
+            self.parameters[name] = value
+            logger.info(f"Parameter {name} manually set to {value}")
+            return True
+        return False
+
+    def set_time_scale(self, scale):
+        """Set the simulation time scale."""
+        if scale > 0:
+            self.time_scale = float(scale)
+            logger.info(f"Simulation time scale set to {scale}x")
+            return True
+        return False
+
+    def get_bather_load(self):
+        """Get the current bather load."""
+        return self.bather_load
+
+    def reset_events(self):
+        """Clear all recorded events."""
+        self.events = []
+        return True
+
+    def trigger_event(self, event_type=None):
+        """Manually trigger a random event or a specific event type."""
+        if event_type:
+            # Try to trigger a specific event if supported
+            event_methods = {
+                'turbidity_spike': lambda: self._generate_random_event('turbidity_spike'),
+                'ph_shift': lambda: self._generate_random_event('ph_shift'),
+                'chlorine_drop': lambda: self._generate_random_event('chlorine_drop'),
+                'temperature_change': lambda: self._generate_random_event('temperature_change'),
+                'combined_chlorine_increase': lambda: self._generate_random_event('combined_chlorine_increase')
+            }
+            if event_type in event_methods:
+                event_methods[event_type]()
+                return True
+            else:
+                logger.warning(f"Unsupported event type: {event_type}")
+                return False
+        else:
+            # Trigger a random event
+            self._generate_random_event()
+            return True
+        
+    def _apply_constraints(self):
+        """Apply physical constraints to parameters."""
+        for param, limits in self.constraints.items():
+            if param in self.parameters:
+                self.parameters[param] = max(limits['min'], min(limits['max'], self.parameters[param]))

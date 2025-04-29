@@ -237,46 +237,57 @@ class AdvancedDosingController:
         current_time = time.time()
         current_turbidity = self.sensor.get_reading()
         
+        # Safety check - if sensor reading failed
+        if current_turbidity is None:
+            logger.error("Failed to get turbidity reading for flow calculation")
+            return self.min_flow
+        
         # Error is the difference from target (positive when turbidity is too high)
         error = current_turbidity - self.target_ntu
         
         # Time since last calculation
         dt = current_time - self.pid.last_time
         
-        if dt > 0:
-            # Calculate PID terms
-            p_term = self.pid.kp * error
-            
-            # Update integral term with anti-windup
-            self.pid.integral += error * dt
-            # Clamp integral to prevent excessive buildup
-            self.pid.integral = max(-5.0, min(5.0, self.pid.integral))
-            i_term = self.pid.ki * self.pid.integral
-            
-            # Calculate derivative term
-            d_term = 0
-            if dt > 0:
-                d_term = self.pid.kd * (error - self.pid.last_error) / dt
-            
-            # Combine terms
-            output = p_term + i_term + d_term
-            
-            # Update last values
-            self.pid.last_error = error
-            self.pid.last_time = current_time
-            
-            # Scale output to flow rate range and clamp
-            # Map the output range (-1 to 1) to flow rate range
-            base_flow = (self.min_flow + self.max_flow) / 2
-            flow_range = (self.max_flow - self.min_flow) / 2
-            
-            flow_rate = base_flow + output * flow_range
-            flow_rate = max(self.min_flow, min(self.max_flow, flow_rate))
-            
-            return int(flow_rate)
+        # Handle very small dt values to prevent division by zero
+        if dt < 0.001:
+            dt = 0.001
         
-        # Default if dt is zero
-        return self.min_flow
+        # Calculate PID terms
+        p_term = self.pid.kp * error
+        
+        # Update integral term with anti-windup
+        self.pid.integral += error * dt
+        # Clamp integral to prevent excessive buildup
+        self.pid.integral = max(-5.0, min(5.0, self.pid.integral))
+        i_term = self.pid.ki * self.pid.integral
+        
+        # Calculate derivative term with safety for division
+        d_term = self.pid.kd * (error - self.pid.last_error) / dt
+        
+        # Combine terms
+        output = p_term + i_term + d_term
+        
+        # Update last values
+        self.pid.last_error = error
+        self.pid.last_time = current_time
+        
+        # Scale output to flow rate range and clamp
+        # Use safer calculation to avoid potential issues
+        flow_rate = self.min_flow
+        
+        if error > 0:  # Only increase flow rate if turbidity is above target
+            # Map the output range to flow rate range
+            flow_range = self.max_flow - self.min_flow
+            # Clamp output to 0-1 for scaling purposes
+            clamped_output = max(0.0, min(1.0, abs(output)))
+            flow_rate = self.min_flow + (clamped_output * flow_range)
+        
+        # Ensure within limits
+        flow_rate = max(self.min_flow, min(self.max_flow, flow_rate))
+        
+        logger.debug(f"PID calculation: error={error:.3f}, P={p_term:.2f}, I={i_term:.2f}, D={d_term:.2f}, output={output:.2f}, flow={flow_rate:.1f}")
+        
+        return int(flow_rate)
     
     def _auto_dose(self):
         """Perform automatic dosing."""
@@ -407,4 +418,102 @@ class AdvancedDosingController:
             'pump_status': self.pump.is_running(),
             'pump_flow_rate': self.pump.get_flow_rate(),
             'time': time.time()
+        }
+    
+    def update(self):
+        """Update method for compatibility with old controller API."""
+        # This is a no-op as the control loop handles updates
+        # But we keep it for API compatibility
+        pass
+
+    def set_parameters(self, params):
+        """Update controller parameters."""
+        if not params:
+            return False
+        
+        changes = []
+        
+        if 'high_threshold_ntu' in params:
+            self.high_threshold = float(params['high_threshold_ntu'])
+            changes.append(f"high threshold: {self.high_threshold}")
+        
+        if 'low_threshold_ntu' in params:
+            self.low_threshold = float(params['low_threshold_ntu'])
+            changes.append(f"low threshold: {self.low_threshold}")
+        
+        if 'target_ntu' in params:
+            self.target_ntu = float(params['target_ntu'])
+            changes.append(f"target: {self.target_ntu}")
+        
+        if 'min_dose_interval_sec' in params:
+            self.min_dose_interval = int(params['min_dose_interval_sec'])
+            changes.append(f"dose interval: {self.min_dose_interval}s")
+        
+        if 'dose_duration_sec' in params:
+            self.dose_duration = int(params['dose_duration_sec'])
+            changes.append(f"dose duration: {self.dose_duration}s")
+        
+        if 'pac_min_flow' in params:
+            self.min_flow = float(params['pac_min_flow'])
+            changes.append(f"min flow: {self.min_flow} ml/h")
+        
+        if 'pac_max_flow' in params:
+            self.max_flow = float(params['pac_max_flow'])
+            changes.append(f"max flow: {self.max_flow} ml/h")
+        
+        # PID parameters
+        if 'pid_kp' in params:
+            self.pid.kp = float(params['pid_kp'])
+            changes.append(f"PID Kp: {self.pid.kp}")
+        
+        if 'pid_ki' in params:
+            self.pid.ki = float(params['pid_ki'])
+            changes.append(f"PID Ki: {self.pid.ki}")
+        
+        if 'pid_kd' in params:
+            self.pid.kd = float(params['pid_kd'])
+            changes.append(f"PID Kd: {self.pid.kd}")
+        
+        if changes:
+            change_text = ", ".join(changes)
+            logger.info(f"Controller parameters updated: {change_text}")
+            
+            if self.event_logger:
+                self.event_logger('system', f'Dosing controller parameters updated: {change_text}')
+        
+        return True
+
+    def reset_pid(self):
+        """Reset the PID controller internal state."""
+        self.pid.integral = 0.0
+        self.pid.last_error = 0.0
+        self.pid.last_time = time.time()
+        logger.info("PID controller reset")
+        return True
+
+    def pause_control(self, paused=True):
+        """Pause or resume the controller."""
+        self.pause = paused
+        status = "paused" if paused else "resumed"
+        logger.info(f"Dosing controller {status}")
+        
+        if self.event_logger:
+            self.event_logger('system', f'Dosing controller {status}')
+        
+        return True
+
+    def get_config(self):
+        """Get the current controller configuration."""
+        return {
+            'high_threshold_ntu': self.high_threshold,
+            'low_threshold_ntu': self.low_threshold,
+            'target_ntu': self.target_ntu,
+            'min_dose_interval_sec': self.min_dose_interval,
+            'dose_duration_sec': self.dose_duration,
+            'moving_avg_samples': self.moving_avg_samples,
+            'pac_min_flow': self.min_flow,
+            'pac_max_flow': self.max_flow,
+            'pid_kp': self.pid.kp,
+            'pid_ki': self.pid.ki,
+            'pid_kd': self.pid.kd
         }

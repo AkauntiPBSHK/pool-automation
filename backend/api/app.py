@@ -18,10 +18,10 @@ from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 from dotenv import load_dotenv
 from backend.models.database import DatabaseHandler
-from backend.utils.simulator import SystemSimulator
+from backend.utils.enhanced_simulator import EnhancedPoolSimulator
 from backend.hardware.sensors.mock import MockTurbiditySensor
 from backend.hardware.actuators.mock import MockPump
-from backend.hardware.controllers.dosing import DosingController, DosingMode
+from backend.hardware.controllers.advanced_dosing import AdvancedDosingController, DosingMode
 
 # Load environment variables
 load_dotenv()
@@ -79,7 +79,7 @@ def load_config():
 
 config = load_config()
 # Create a global instance of the system simulator
-simulator = SystemSimulator(config.get('simulation', {}))
+simulator = EnhancedPoolSimulator(config.get('simulator', {}))
 
 # Create mock hardware using the simulator
 mock_turbidity_sensor = MockTurbiditySensor(config.get('hardware', {}).get('turbidity_sensor', {}), simulator)
@@ -99,6 +99,9 @@ def send_status_update():
     params = simulator.get_all_parameters()
     pump_states = simulator.get_pump_states()
     
+    # Get more detailed status information from the advanced controller
+    dosing_status = dosing_controller.get_status()
+    
     # Create a more comprehensive status update
     status_data = {
         "ph": round(params['ph'], 2),
@@ -111,12 +114,20 @@ def send_status_update():
         "clPumpRunning": pump_states.get('chlorine', False),
         "pacPumpRunning": pump_states.get('pac', False),
         "pacDosingRate": mock_pac_pump.get_flow_rate(),
-        "dosingMode": dosing_controller.mode.name,
+        "dosingMode": dosing_status['mode'],  # Use values from dosing_status
         "timestamp": time.time(),
         "turbidityLimits": {
-            "highThreshold": dosing_controller.high_threshold,
-            "lowThreshold": dosing_controller.low_threshold,
-            "target": dosing_controller.target_ntu
+            "highThreshold": dosing_status['high_threshold'],
+            "lowThreshold": dosing_status['low_threshold'],
+            "target": dosing_status['target']
+        },
+        # Include more detailed dosing controller status
+        "dosingController": {
+            "lastDoseTime": dosing_status['last_dose_time'],
+            "doseCounter": dosing_status['dose_counter'],
+            "pumpRunning": dosing_status['pump_status'],
+            "pidLastError": dosing_controller.pid.last_error if hasattr(dosing_controller, 'pid') else 0,
+            "pidIntegral": dosing_controller.pid.integral if hasattr(dosing_controller, 'pid') else 0
         }
     }
     
@@ -177,7 +188,7 @@ def start_background_tasks():
 start_background_tasks()
 
 # Initialize the dosing controller with the simulator components
-dosing_controller = DosingController(
+dosing_controller = AdvancedDosingController(
     mock_turbidity_sensor, 
     mock_pac_pump,
     config.get('dosing', {
@@ -185,7 +196,11 @@ dosing_controller = DosingController(
         'low_threshold_ntu': 0.12,
         'target_ntu': 0.15,
         'min_dose_interval_sec': 300,
-        'dose_duration_sec': 30
+        'dose_duration_sec': 30,
+        # Add PID controller settings
+        'pid_kp': 1.0,
+        'pid_ki': 0.1,
+        'pid_kd': 0.05
     }),
     log_dosing_event
 )
@@ -518,6 +533,15 @@ def manual_dosing():
             "message": "Manual dosing failed. Controller must be in MANUAL mode."
         }), 400
     
+@app.route('/api/dosing/reset-pid', methods=['POST'])
+def reset_pid():
+    """Reset the PID controller."""
+    if dosing_controller:
+        success = dosing_controller.reset_pid()
+        emit_system_event('pid_reset', "PID controller reset")
+        return jsonify({"success": success})
+    return jsonify({"error": "Dosing controller not initialized"}), 500
+
 # Add a simpler debugging route without version references
 @app.route('/socket-debug')
 def socket_debug():
@@ -694,6 +718,46 @@ def send_notification(email, subject, message):
         server.starttls()
         server.login(smtp_user, smtp_pass)
         server.send_message(msg)
+
+@app.route('/api/simulator/events', methods=['GET'])
+def get_simulator_events():
+    """Get recent simulator events."""
+    if simulator:
+        events = simulator.get_recent_events(10)
+        return jsonify(events)
+    return jsonify({"error": "Simulator not initialized"}), 500
+
+@app.route('/api/simulator/trigger-event', methods=['POST'])
+def trigger_simulator_event():
+    """Manually trigger a simulator event."""
+    data = request.json or {}
+    event_type = data.get('type')
+    
+    if simulator:
+        success = simulator.trigger_event(event_type)
+        return jsonify({"success": success})
+    return jsonify({"error": "Simulator not initialized"}), 500
+
+@app.route('/api/dosing/schedule', methods=['POST'])
+def schedule_dose():
+    """Schedule a future dose."""
+    data = request.json or {}
+    timestamp = data.get('timestamp')
+    duration = data.get('duration')
+    flow_rate = data.get('flow_rate')
+    
+    if dosing_controller:
+        success = dosing_controller.schedule_dose(timestamp, duration, flow_rate)
+        return jsonify({"success": success})
+    return jsonify({"error": "Dosing controller not initialized"}), 500
+
+@app.route('/api/dosing/scheduled', methods=['GET'])
+def get_scheduled_doses():
+    """Get scheduled doses."""
+    if dosing_controller:
+        scheduled = dosing_controller.get_scheduled_doses()
+        return jsonify(scheduled)
+    return jsonify({"error": "Dosing controller not initialized"}), 500
 
 # WebSocket events
 @socketio.on('connect')
