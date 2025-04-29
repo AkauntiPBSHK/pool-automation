@@ -23,8 +23,12 @@ const mockData = {
     pacDosingRate: 75 // Default value in ml/h
 };
 
-// Connect to Socket.IO
-const socket = io();
+// Updated code with transport configuration
+const socket = io('http://127.0.0.1:5000', {
+    transports: ['polling'],
+    forceNew: true,
+    reconnectionAttempts: 5
+});
 window.mockData = mockData;
 
 // Global variables for charts

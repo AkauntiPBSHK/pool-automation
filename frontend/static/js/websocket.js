@@ -58,11 +58,6 @@ function initializeWebSocket() {
         handleSystemEvent(data);
     });
 
-    // Add to the initializeWebSocket function
-    wsSocket.on('connect_error', function(error) {
-        handleSocketError(error);
-    });
-
     wsSocket.on('error', function(error) {
         handleSocketError(error, 'danger');
     });
