@@ -79,52 +79,52 @@ class SystemSimulator:
         logger.info("System simulator initialized")
     
     # Add to SystemSimulator class in simulator.py
-def apply_daily_patterns(self):
-    """Apply time-of-day patterns to parameters."""
-    # Get current hour (0-23)
-    current_hour = datetime.datetime.now().hour
-    
-    # Calculate day/night factor (sinusoidal pattern)
-    # Peak at 2PM (hour 14), lowest at 2AM (hour 2)
-    hour_normalized = (current_hour - 2) / 24
-    day_factor = math.sin(hour_normalized * 2 * math.pi)
-    
-    # pH rises slightly during daytime due to photosynthesis and CO2 consumption
-    self.parameters['ph'] += day_factor * 0.02 * self.time_scale
-    
-    # ORP rises during day with increased oxygen/sunlight
-    self.parameters['orp'] += day_factor * 5 * self.time_scale
-    
-    # Chlorine decreases faster during day due to UV degradation
-    self.parameters['free_chlorine'] -= max(0, day_factor) * 0.01 * self.time_scale
-    
-    # Temperature rises during day, peaks in afternoon
-    temp_hour_offset = (current_hour - 14) / 24  # Peak at 2PM
-    temp_factor = math.sin(temp_hour_offset * 2 * math.pi)
-    self.parameters['temperature'] += temp_factor * 0.05 * self.time_scale
-    
-    # Apply constraints after changes
-    self._apply_constraints()
+    def apply_daily_patterns(self):
+        """Apply time-of-day patterns to parameters."""
+        # Get current hour (0-23)
+        current_hour = datetime.datetime.now().hour
+        
+        # Calculate day/night factor (sinusoidal pattern)
+        # Peak at 2PM (hour 14), lowest at 2AM (hour 2)
+        hour_normalized = (current_hour - 2) / 24
+        day_factor = math.sin(hour_normalized * 2 * math.pi)
+        
+        # pH rises slightly during daytime due to photosynthesis and CO2 consumption
+        self.parameters['ph'] += day_factor * 0.02 * self.time_scale
+        
+        # ORP rises during day with increased oxygen/sunlight
+        self.parameters['orp'] += day_factor * 5 * self.time_scale
+        
+        # Chlorine decreases faster during day due to UV degradation
+        self.parameters['free_chlorine'] -= max(0, day_factor) * 0.01 * self.time_scale
+        
+        # Temperature rises during day, peaks in afternoon
+        temp_hour_offset = (current_hour - 14) / 24  # Peak at 2PM
+        temp_factor = math.sin(temp_hour_offset * 2 * math.pi)
+        self.parameters['temperature'] += temp_factor * 0.05 * self.time_scale
+        
+        # Apply constraints after changes
+        self._apply_constraints()
 
     # Add to SystemSimulator class
-def apply_chemical_interactions(self):
-    """Apply interactions between different water parameters."""
-    # pH affects chlorine efficiency - higher pH reduces effectiveness
-    ph_chlorine_factor = max(0, (7.5 - self.parameters['ph']) / 1.5)
-    
-    # If pH is high, free chlorine is less effective (HOCl → OCl⁻ shift)
-    if self.parameters['ph'] > 7.5:
-        self.parameters['free_chlorine'] -= 0.005 * self.time_scale
+    def apply_chemical_interactions(self):
+        """Apply interactions between different water parameters."""
+        # pH affects chlorine efficiency - higher pH reduces effectiveness
+        ph_chlorine_factor = max(0, (7.5 - self.parameters['ph']) / 1.5)
         
-    # ORP is affected by free chlorine and pH
-    orp_change = (self.parameters['free_chlorine'] * 100 * ph_chlorine_factor) - 5
-    self.parameters['orp'] += orp_change * 0.02 * self.time_scale
-    
-    # Combined chlorine increases slowly unless free chlorine is high
-    if self.parameters['free_chlorine'] > 1.5:
-        self.parameters['combined_chlorine'] -= 0.002 * self.time_scale
-    else:
-        self.parameters['combined_chlorine'] += 0.001 * self.time_scale
+        # If pH is high, free chlorine is less effective (HOCl → OCl⁻ shift)
+        if self.parameters['ph'] > 7.5:
+            self.parameters['free_chlorine'] -= 0.005 * self.time_scale
+            
+        # ORP is affected by free chlorine and pH
+        orp_change = (self.parameters['free_chlorine'] * 100 * ph_chlorine_factor) - 5
+        self.parameters['orp'] += orp_change * 0.02 * self.time_scale
+        
+        # Combined chlorine increases slowly unless free chlorine is high
+        if self.parameters['free_chlorine'] > 1.5:
+            self.parameters['combined_chlorine'] -= 0.002 * self.time_scale
+        else:
+            self.parameters['combined_chlorine'] += 0.001 * self.time_scale
     
     def _simulation_loop(self):
         """Main simulation loop that updates parameters based on time and actions."""

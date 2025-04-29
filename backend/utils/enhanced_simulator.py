@@ -4,6 +4,7 @@ import time
 import math
 import random
 import logging
+import threading
 from datetime import datetime
 
 logger = logging.getLogger('enhanced_simulator')
@@ -56,7 +57,28 @@ class EnhancedPoolSimulator:
         self.bather_schedule = self._generate_bather_schedule()
         
         logger.info("Enhanced pool simulator initialized")
+
+        # Add threading functionality from original
+        self.running = True
+        self.simulation_thread = threading.Thread(target=self._simulation_loop, daemon=True)
+        self.simulation_thread.start()
+        
+        logger.info("Enhanced pool simulator initialized with background thread")
+
+    def _simulation_loop(self):
+        """Main simulation loop that updates parameters automatically."""
+        while self.running:
+            try:
+                self.update()
+                time.sleep(0.1)  # Short sleep to prevent CPU overuse
+            except Exception as e:
+                logger.error(f"Error in simulation loop: {e}")
+                time.sleep(1)
     
+    def get_parameter(self, name):
+        """Get a single parameter value - for compatibility with original API."""
+        return self.parameters.get(name)
+
     def _generate_bather_schedule(self):
         """Generate a typical daily swimming schedule."""
         schedule = {}
@@ -363,12 +385,24 @@ class EnhancedPoolSimulator:
         """Get all pump states."""
         return self.pump_states.copy()
     
-    def set_pump_state(self, pump_name, state):
-        """Set the state of a pump."""
+    def set_pump_state(self, pump_name, state, flow_rate=None):
+        """Set the state of a pump, with optional flow rate for PAC pump."""
         if pump_name in self.pump_states:
             self.pump_states[pump_name] = bool(state)
+            
+            # Store flow rate for PAC pump (like in original)
+            if pump_name == 'pac' and flow_rate is not None:
+                self.pac_flow_rate = float(flow_rate)
+                
             return True
         return False
+    
+    def stop(self):
+        """Stop the simulation thread."""
+        self.running = False
+        if self.simulation_thread.is_alive():
+            self.simulation_thread.join(timeout=1.0)
+        logger.info("Enhanced simulator stopped")
     
     def get_recent_events(self, count=10):
         """Get recent simulated events."""
