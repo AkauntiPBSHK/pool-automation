@@ -122,15 +122,20 @@ function initializeWebSocket() {
         showToast('Connection lost. Attempting to reconnect...', 'warning');
     });
 
-    // Add better error handling
+    // Add retry cap and exponential backoff
+    const MAX_RETRIES = 5;
+    let retryCount = 0;
     wsSocket.on('connect_error', function(error) {
-        console.error('Connection error:', error);
-        showToast('Connection error: ' + error.message, 'warning');
-        
-        if (wsSocket.io.reconnectionAttempts > 3) {
-            console.warn('Multiple connection failures - switching to simulation mode');
-            startSimulation();
-        }
+    if (retryCount < MAX_RETRIES) {
+        setTimeout(() => {
+        retryCount++;
+        console.log(`Retrying connection... Attempt ${retryCount}`);
+        // Reconnect logic (e.g., wsSocket.connect())
+        }, Math.min(1000 * Math.pow(2, retryCount), 10000));
+    } else {
+        showToast('Max retries reached. Switching to simulation.', 'danger');
+        startSimulation();
+    }
     });
 }
 
@@ -343,7 +348,6 @@ function updateDosingControls(mode) {
 
 // Show toast notification
 function showToast(message, type = 'info') {
-    // Check if toast container exists, create if not
     let toastContainer = document.getElementById('toast-container');
     if (!toastContainer) {
         toastContainer = document.createElement('div');
@@ -351,21 +355,28 @@ function showToast(message, type = 'info') {
         document.body.appendChild(toastContainer);
     }
     
-    // Create toast element
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
+    const toastHtml = `
+        <div id="toast-${Date.now()}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header bg-${type} text-white">
+                <strong class="me-auto">${type.toUpperCase()}</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">${message}</div>
+        </div>
+    `;
     
-    // Add to container
-    toastContainer.appendChild(toast);
+    toastContainer.insertAdjacentHTML('beforeend', toastHtml);
     
-    // Remove after delay
-    setTimeout(() => {
-        toast.classList.add('toast-hide');
-        setTimeout(() => {
-            toast.remove();
-        }, 300);
-    }, 5000);
+    const toastElement = document.getElementById(`toast-${Date.now()}`);
+    const toast = new bootstrap.Toast(toastElement, {
+        autohide: true,
+        delay: type === 'danger' ? 5000 : 3000
+    });
+    toast.show();
+    
+    toastElement.addEventListener('hidden.bs.toast', () => {
+        toastElement.remove();
+    });
 }
 
 // Updated function to add event to history

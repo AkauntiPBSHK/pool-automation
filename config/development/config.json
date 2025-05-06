@@ -9,7 +9,10 @@
     "target_ntu": 0.15,
     "min_dose_interval_sec": 300,
     "dose_duration_sec": 30,
-    "auto_start": true
+    "auto_start": true,
+    "pid_kp": 1.5,
+    "pid_ki": 0.05,
+    "pid_kd": 0.1
   },
   "hardware": {
     "turbidity_sensor": {
@@ -29,5 +32,12 @@
   "simulation": {
     "time_scale": 1.0,
     "noise_level": 1.0
+  },
+  "notifications": {
+    "smtp_server": "smtp.gmail.com",
+    "smtp_port": 587,
+    "smtp_username": "pierin.nauni@gmail.com",
+    "smtp_password": "your-secure-password",
+    "smtp_recipient": "pierin.nauni@gmail.com"
   }
 }

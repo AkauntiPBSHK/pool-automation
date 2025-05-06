@@ -82,7 +82,6 @@ class DatabaseHandler:
             return False
     
     def log_dosing_event(self, event_type, duration, flow_rate, turbidity):
-        """Log a dosing event to the database."""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
@@ -127,7 +126,6 @@ class DatabaseHandler:
             return False
     
     def get_turbidity_history(self, hours=24):
-        """Get turbidity history for the specified time period."""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 conn.row_factory = sqlite3.Row
@@ -143,7 +141,6 @@ class DatabaseHandler:
             return []
     
     def get_dosing_events(self, hours=24, limit=50):
-        """Get recent dosing events."""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 conn.row_factory = sqlite3.Row
@@ -159,7 +156,6 @@ class DatabaseHandler:
             return []
     
     def get_steiel_history(self, hours=24):
-        """Get Steiel controller readings history."""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 conn.row_factory = sqlite3.Row
