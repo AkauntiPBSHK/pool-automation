@@ -7,25 +7,21 @@ Pool Automation System - Main API Application
 
 import os
 import json
+import logging
 import random
 import time
 import math
 import threading
-import smtplib
 from flask import Flask, jsonify, render_template, request
 from flask_socketio import SocketIO
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 from dotenv import load_dotenv
-from email_validator import validate_email, EmailNotValidError
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 from backend.models.database import DatabaseHandler
 from backend.utils.enhanced_simulator import EnhancedPoolSimulator
 from backend.hardware.sensors.mock import MockTurbiditySensor
 from backend.hardware.actuators.mock import MockPump
 from backend.hardware.controllers.advanced_dosing import AdvancedDosingController, DosingMode
-import logging
 
 # Load environment variables
 load_dotenv()
@@ -697,81 +693,60 @@ def test_notification():
     """Send a test notification."""
     if not request.is_json:
         return jsonify({"error": "Invalid request format"}), 400
-
-    data = request.json
-    email = data.get("email")
-
-    try:
-        success = send_notification(
-            email=email,
-            subject="Pool Automation - Test Notification",
-            message="This is a test notification from your Pool Automation System."
-        )
-        if success:
-            return jsonify({"success": True, "message": "Test notification sent"})
-        else:
-            return jsonify({"success": False, "message": "Failed to send notification"}), 500
-    except Exception as e:
-        logger.error(f"Failed to send test notification: {e}")
-        return jsonify({"success": False, "message": f"Failed to send notification: {str(e)}"}), 500
     
-def is_valid_email(email):
-    """Validate email format and domain existence."""
-    try:
-        valid = validate_email(email)
-        return valid.email
-    except EmailNotValidError as e:
-        logger.warning(f"Invalid email: {email} - {str(e)}")
-        return False
-
-def sanitize_email_input(email):
-    """Sanitize email input to prevent header injection."""
+    data = request.json
+    email = data.get('email')
+    
     if not email:
-        return ""
-    return email.replace("\r", "").replace("\n", "")
+        return jsonify({"error": "Email address required"}), 400
+    
+    # Send test notification
+    try:
+        send_notification(
+            email, 
+            "Pool Automation System - Test Notification", 
+            "This is a test notification from your Pool Automation System."
+        )
+        
+        return jsonify({
+            "success": True,
+            "message": "Test notification sent"
+        })
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"Failed to send notification: {str(e)}"
+        }), 500
 
 def send_notification(email, subject, message):
-    """Send an email notification with security checks."""
-    try:
-        # Validate inputs
-        sanitized_email = sanitize_email_input(email)
-        validated_email = is_valid_email(sanitized_email)
-        
-        if not validated_email:
-            raise ValueError("Invalid email address")
-
-        # Get SMTP settings from config
-        smtp_config = config.get("notifications", {})
-        smtp_server = smtp_config.get("smtp_server")
-        smtp_port = smtp_config.get("smtp_port", 587)
-        smtp_user = smtp_config.get("smtp_username")
-        smtp_pass = smtp_config.get("smtp_password")
-
-        if not all([smtp_server, smtp_user, smtp_pass]):
-            raise ValueError("SMTP configuration incomplete")
-
-        # Sanitize message content
-        sanitized_subject = subject.replace("\r", "").replace("\n", "")
-        sanitized_message = message.replace("\r\n", "\n").replace("\r", "\n")
-
-        # Create message
-        msg = MIMEMultipart()
-        msg["From"] = smtp_user
-        msg["To"] = validated_email
-        msg["Subject"] = sanitized_subject
-        msg.attach(MIMEText(sanitized_message, "plain"))
-
-        # Send email
-        with smtplib.SMTP(smtp_server, smtp_port, timeout=10) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_pass)
-            server.sendmail(smtp_user, [validated_email], msg.as_string())
-            return True
-    except smtplib.SMTPException as e:
-        logger.error(f"SMTP error while sending notification: {e}")
-    except Exception as e:
-        logger.error(f"Failed to send notification: {e}")
-    return False
+    """Send an email notification."""
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+    
+    # Get email settings from config
+    smtp_server = config.get('notifications', {}).get('smtp_server', '')
+    smtp_port = config.get('notifications', {}).get('smtp_port', 587)
+    smtp_user = config.get('notifications', {}).get('smtp_username', '')
+    smtp_pass = config.get('notifications', {}).get('smtp_password', '')
+    
+    if not smtp_server or not smtp_user or not smtp_pass:
+        raise ValueError("SMTP settings not configured")
+    
+    # Create message
+    msg = MIMEMultipart()
+    msg['From'] = smtp_user
+    msg['To'] = email
+    msg['Subject'] = subject
+    
+    # Add body
+    msg.attach(MIMEText(message, 'plain'))
+    
+    # Send email
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(smtp_user, smtp_pass)
+        server.send_message(msg)
 
 @app.route('/api/simulator/events', methods=['GET'])
 def get_simulator_events():

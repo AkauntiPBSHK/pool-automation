@@ -3,84 +3,16 @@ import time
 import logging
 import enum
 import threading
-import numpy as np
 from datetime import datetime
-from enum import Enum
 
 logger = logging.getLogger('advanced_dosing')
 
-class DosingMode(Enum):
+class DosingMode(enum.Enum):
+    """Dosing controller operating modes."""
     OFF = 0
     MANUAL = 1
     AUTOMATIC = 2
 
-class PIDSettings:
-    """PID controller settings."""
-    def __init__(self, kp=1.0, ki=0.1, kd=0.0):
-        self.kp = kp  # Proportional gain
-        self.ki = ki  # Integral gain
-        self.kd = kd  # Derivative gain
-        self.last_error = 0.0
-        self.integral = 0.0
-        self.last_time = time.time()
-
-class PID:
-    def __init__(self, kp=1.0, ki=0.1, kd=0.05, output_limits=(0, 100)):
-        """
-        Initialize a PID controller.
-        
-        Args:
-            kp (float): Proportional gain
-            ki (float): Integral gain
-            kd (float): Derivative gain
-            output_limits (tuple): Min/max output values (e.g., flow rate range)
-        """
-        self.kp = kp
-        self.ki = ki
-        self.kd = kd
-        self.output_limits = output_limits
-        
-        self.last_error = 0.0
-        self.integral = 0.0
-        self.last_time = time.time()
-    
-    def compute(self, setpoint, measured_value):
-        """
-        Compute the PID output.
-        
-        Args:
-            setpoint (float): Target value (e.g., 0.15 NTU)
-            measured_value (float): Current sensor reading
-        Returns:
-            float: Control output (e.g., flow rate in mL/h)
-        """
-        error = setpoint - measured_value
-        current_time = time.time()
-        delta_time = current_time - self.last_time
-        
-        # Proportional term
-        p_term = self.kp * error
-        
-        # Integral term (with anti-windup)
-        self.integral += error * delta_time
-        self.integral = np.clip(self.integral, *self.output_limits)  # Clamp to prevent windup
-        
-        # Derivative term
-        derivative = (error - self.last_error) / delta_time
-        d_term = self.kd * derivative
-        
-        # Compute total output
-        output = p_term + (self.ki * self.integral) + d_term
-        
-        # Clamp output to safe limits
-        output = np.clip(output, *self.output_limits)
-        
-        # Update state for next iteration
-        self.last_error = error
-        self.last_time = current_time
-        
-        return output
-    
 class PIDSettings:
     """PID controller settings."""
     def __init__(self, kp=1.0, ki=0.1, kd=0.0):
@@ -100,15 +32,6 @@ class AdvancedDosingController:
         self.pump = pump
         self.config = config
         self.event_logger = event_logger
-
-        # Load PID settings from config.json
-        dosing_config = config.get("dosing", {})
-        self.pid = PID(
-            kp=dosing_config.get("pid_kp", 1.0),
-            ki=dosing_config.get("pid_ki", 0.1),
-            kd=dosing_config.get("pid_kd", 0.05),
-            output_limits=(sensor.config.get("pac_min_flow", 60), sensor.config.get("pac_max_flow", 150))
-        )
         
         # Operating state
         self.mode = DosingMode.OFF
@@ -145,58 +68,6 @@ class AdvancedDosingController:
         self.stop_event = threading.Event()
         
         logger.info("Advanced dosing controller initialized")
-
-        # Load PID settings from config
-        self.pid = PID(
-            kp=config.get('pid_kp', 1.0),
-            ki=config.get('pid_ki', 0.1),
-            kd=config.get('pid_kd', 0.05),
-            output_limits=(self.min_flow, self.max_flow)  # Flow rate limits
-        )
-        
-        # Target turbidity (setpoint)
-        self.target_ntu = config.get('target_ntu', 0.15)
-    
-    def _auto_dose(self):
-        """
-        Calculate flow rate using PID and trigger PAC dosing.
-        """
-        current_turbidity = self.sensor.get_reading()
-        if current_turbidity is None:
-            logger.error("Failed to read turbidity for auto-dosing")
-            return False
-        
-        # Skip dosing if turbidity is below low threshold
-        if current_turbidity < self.low_threshold:
-            logger.info(f"Turbidity below low threshold: {current_turbidity:.3f} < {self.low_threshold:.3f}")
-            return False
-        
-        # Compute flow rate using PID
-        flow_rate = self.pid.compute(self.target_ntu, current_turbidity)
-        
-        # Clamp flow rate to hardware limits
-        flow_rate = max(self.min_flow, min(flow_rate, self.max_flow))
-        
-        # Trigger dosing
-        logger.info(f"Auto-dosing: Turbidity={current_turbidity:.3f} NTU, Flow Rate={flow_rate:.1f} mL/h")
-        success = self._start_pump(self.dose_duration, flow_rate)
-        
-        if success:
-            self.last_dose_time = time.time()
-            self.dose_counter += 1
-            self._log_dosing_event(current_turbidity, flow_rate)
-        
-        return success
-    
-    def _start_pump(self, duration, flow_rate):
-        # Example implementation
-        logger.info(f"Starting PAC pump for {duration}s at {flow_rate} mL/h")
-        self.pump.start(duration)
-        return True
-    
-    def _log_dosing_event(self, turbidity, flow_rate):
-        # Example implementation
-        logger.info(f"Dosing event logged: {turbidity} NTU, {flow_rate} mL/h")
     
     def start(self, mode=DosingMode.AUTOMATIC):
         """Start the dosing controller."""

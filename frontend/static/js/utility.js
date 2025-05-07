@@ -101,9 +101,24 @@ function apiCall(url, options = {}, onSuccess, onError, retryOptions = { maxRetr
  * @param {string|Element} selector - CSS selector or DOM element
  */
 function showLoading(selector) {
-    document.querySelectorAll(selector).forEach(el => {
-        el.classList.add('loading');
-        el.innerHTML += '<div class="spinner-border spinner-border-sm" role="status"></div>';
+    if (!selector) return;
+    
+    let elements = [];
+    
+    if (typeof selector === 'string') {
+        // It's a CSS selector string
+        elements = document.querySelectorAll(selector);
+    } else if (selector instanceof Element) {
+        // It's a DOM element
+        elements = [selector];
+    } else if (selector.length) {
+        // It might be a NodeList or array of elements
+        elements = selector;
+    }
+    
+    // Add loading class to all elements
+    Array.from(elements).forEach(element => {
+        element.classList.add('loading');
     });
 }
 
@@ -112,9 +127,24 @@ function showLoading(selector) {
  * @param {string|Element} selector - CSS selector or DOM element
  */
 function hideLoading(selector) {
-    document.querySelectorAll(selector).forEach(el => {
-        el.classList.remove('loading');
-        el.querySelector('.spinner-border')?.remove();
+    if (!selector) return;
+    
+    let elements = [];
+    
+    if (typeof selector === 'string') {
+        // It's a CSS selector string
+        elements = document.querySelectorAll(selector);
+    } else if (selector instanceof Element) {
+        // It's a DOM element
+        elements = [selector];
+    } else if (selector.length) {
+        // It might be a NodeList or array of elements
+        elements = selector;
+    }
+    
+    // Remove loading class from all elements
+    Array.from(elements).forEach(element => {
+        element.classList.remove('loading');
     });
 }
 
@@ -173,14 +203,16 @@ function enhanceSidebarAccessibility() {
  * Add ARIA attributes to all parameter cards
  */
 function enhanceParameterCardsAccessibility() {
+    // Add descriptive labels to parameter cards
     const parameterDescriptions = {
-        ph: 'pH level measured on a scale from 0 to 14',
-        orp: 'Oxidation Reduction Potential in millivolts',
-        freeChlorine: 'Free chlorine concentration in mg/L',
-        turbidity: 'Water clarity measured in NTU units',
-        temperature: 'Water temperature in degrees Celsius'
+        'ph': 'pH measures the acidity or alkalinity of the water. The optimal range for pool water is typically between 7.2 and 7.6.',
+        'orp': 'ORP (Oxidation-Reduction Potential) measures the sanitizing power of the water. Higher values indicate better sanitization.',
+        'freeChlorine': 'Free chlorine is the active sanitizing form of chlorine in the water. The optimal range is typically between 1.0 and 3.0 mg/L.',
+        'turbidity': 'Turbidity measures water clarity. Lower values indicate clearer water.',
+        'temp': 'Water temperature affects swimmer comfort and chemical reactions in the pool.'
     };
-
+    
+    // Add descriptions to each parameter card
     Object.keys(parameterDescriptions).forEach(param => {
         const valueElement = document.getElementById(`${param}Value`);
         if (valueElement) {
@@ -188,6 +220,24 @@ function enhanceParameterCardsAccessibility() {
             if (card) {
                 card.setAttribute('aria-label', parameterDescriptions[param]);
                 card.setAttribute('tabindex', '0');
+            }
+        }
+    });
+    
+    // Make parameter cards focusable and add keyboard events
+    document.querySelectorAll('.card').forEach(card => {
+        if (!card.getAttribute('tabindex')) {
+            card.setAttribute('tabindex', '0');
+        }
+        
+        // Add descriptive help text that's visually hidden but accessible to screen readers
+        if (!card.querySelector('.sr-only-description')) {
+            const paramType = card.querySelector('.card-title')?.textContent.toLowerCase();
+            if (paramType && parameterDescriptions[paramType]) {
+                const description = document.createElement('div');
+                description.className = 'sr-only';
+                description.textContent = parameterDescriptions[paramType];
+                card.appendChild(description);
             }
         }
     });
