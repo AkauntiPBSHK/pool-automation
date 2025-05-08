@@ -51,6 +51,7 @@ window.mockData = mockData;
 
 // Global variables for charts
 let chemistryChart = null;
+window.historyChart = null
 
 if (typeof window.historyChart === 'undefined') {
     window.historyChart = null;
@@ -89,12 +90,18 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('Stage 1: Initializing UI and controls');
     initializeNavigation();
 
+    // Ensure consistent global reference to the chart
+    if (typeof historyChart !== 'undefined' && historyChart !== null) {
+        window.historyChart = historyChart;
+    }
+
     document.querySelectorAll('.tab-content').forEach(tab => {
         tab.style.display = tab.id === 'overview-tab' ? 'block' : 'none';
     });
 
     // Setup event listeners
     setupEventListeners();
+    setupEnhancedChartControls();
     
     // Add accessibility features
     enhanceSidebarAccessibility();
@@ -2521,31 +2528,62 @@ function updateAxisVisibility() {
 }
 
 /**
- * Update chart type
+ * Update chart type with better error handling
  */
 function updateHistoryChartType(type) {
-    if (!historyChart) return;
-    
-    // Change chart type
-    historyChart.config.type = type;
-    
-    // Adjust point sizes for different chart types
-    if (type === 'scatter') {
-        historyChart.data.datasets.forEach(dataset => {
-            if (dataset.label !== 'Dosing Events') {
-                dataset.pointRadius = 3;
-            }
-        });
-    } else {
-        historyChart.data.datasets.forEach(dataset => {
-            if (dataset.label !== 'Dosing Events') {
-                dataset.pointRadius = type === 'line' ? undefined : 0;
-            }
-        });
+    if (!window.historyChart) {
+        console.warn("Cannot update chart type - chart not initialized");
+        return;
     }
     
-    // Update chart
-    historyChart.update();
+    try {
+        console.log(`Changing chart type to ${type}`);
+        
+        // Make sure we have a valid type
+        if (!['line', 'bar', 'scatter'].includes(type)) {
+            console.warn(`Invalid chart type: ${type}`);
+            return;
+        }
+        
+        // Change chart type
+        window.historyChart.config.type = type;
+        
+        // Adjust point sizes for different chart types
+        if (type === 'scatter') {
+            window.historyChart.data.datasets.forEach(dataset => {
+                if (dataset.label !== 'Dosing Events') {
+                    dataset.pointRadius = 3;
+                }
+            });
+        } else {
+            window.historyChart.data.datasets.forEach(dataset => {
+                if (dataset.label !== 'Dosing Events') {
+                    dataset.pointRadius = type === 'line' ? undefined : 0;
+                }
+            });
+        }
+        
+        // Preserve the dosing events as triangles
+        const dosingEventsDataset = window.historyChart.data.datasets.find(ds => ds.label === 'Dosing Events');
+        if (dosingEventsDataset) {
+            dosingEventsDataset.type = 'scatter';
+            dosingEventsDataset.pointStyle = 'triangle';
+            dosingEventsDataset.pointRadius = 12;
+        }
+        
+        // Update chart
+        window.historyChart.update();
+        
+        // Update visualization type selector to match
+        const visualizationSelect = document.getElementById('visualizationType');
+        if (visualizationSelect && visualizationSelect.value !== type) {
+            visualizationSelect.value = type;
+        }
+        
+        console.log("Chart type updated successfully");
+    } catch (error) {
+        console.error("Error updating chart type:", error);
+    }
 }
 
 /**
@@ -2641,12 +2679,17 @@ function generateSampleEvents(hours, count) {
 }
 
 /**
- * Format date for display
+ * Format date/time with appropriate precision based on resolution
  */
-function formatDateTime(date) {
-    return `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')} ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+function formatDateTime(date, resolution = 'hour') {
+    if (resolution === 'day') {
+        return date.toLocaleDateString();
+    } else if (resolution === 'hour') {
+        return `${date.toLocaleDateString()} ${date.getHours()}:00`;
+    } else {
+        return date.toLocaleString();
+    }
 }
-
 /**
  * Format date for datetime-local input
  */
@@ -5015,18 +5058,41 @@ function generateHistoryData(baseValue, variation, count) {
 }
 
 /**
- * Generate time labels for history chart
+ * Generate time labels with appropriate resolution
  * @param {number} hours - Number of hours to generate labels for
- * @returns {Array} - Array of formatted time labels
+ * @param {string} resolution - Data resolution (raw, minute, hour, day)
+ * @returns {Array} Array of formatted date/time labels
  */
-function generateTimeLabels(hours) {
+function generateTimeLabels(hours, resolution = 'hour') {
     const labels = [];
     const now = new Date();
+    let interval;
     
-    for (let i = hours - 1; i >= 0; i--) {
+    // Set interval based on resolution
+    switch (resolution) {
+        case 'raw':
+            interval = 15 * 60 * 1000; // 15 minutes in ms
+            break;
+        case 'minute':
+            interval = 60 * 1000; // 1 minute in ms
+            break;
+        case 'hour':
+            interval = 60 * 60 * 1000; // 1 hour in ms
+            break;
+        case 'day':
+            interval = 24 * 60 * 60 * 1000; // 1 day in ms
+            break;
+        default:
+            interval = 60 * 60 * 1000; // Default to hourly
+    }
+    
+    // Calculate number of points based on hours and interval
+    const points = Math.ceil((hours * 60 * 60 * 1000) / interval);
+    
+    for (let i = points - 1; i >= 0; i--) {
         const date = new Date(now);
-        date.setHours(date.getHours() - i);
-        labels.push(formatDateTime(date));
+        date.setTime(date.getTime() - (i * interval));
+        labels.push(formatDateTime(date, resolution));
     }
     
     return labels;
@@ -5182,53 +5248,99 @@ function updateChartAriaLabel(chartId, hours, chart) {
 }
 
 /**
- * Update history chart with new data for a time period
+ * Enhanced update history chart with support for resolution and visualization type
  * @param {number} hours - Number of hours to display
+ * @param {string} resolution - Data resolution (raw, minute, hour, day)
+ * @param {string} visualizationType - Chart type (line, bar, scatter)
  */
-function updateHistoryChart(hours) {
-    if (!historyChart) return;
+function updateHistoryChart(hours, resolution, visualizationType) {
+    if (!window.historyChart) {
+        console.warn("Cannot update history chart - chart not initialized");
+        return;
+    }
     
-    // Show loading state
-    showLoading('#historyChart');
-    
-    // Generate sample data
-    const labels = generateTimeLabels(hours);
-    
-    // Generate data for each parameter
-    const phData = generateHistoryData(7.4, 0.2, hours);
-    const orpData = generateHistoryData(720, 30, hours);
-    const freeChlorineData = generateHistoryData(1.2, 0.3, hours);
-    const combinedChlorineData = generateHistoryData(0.2, 0.1, hours);
-    const turbidityData = generateHistoryData(0.15, 0.05, hours);
-    const temperatureData = generateHistoryData(28, 1, hours);
-    
-    // Generate dosing events
-    const dosingEvents = generateSampleEvents(hours, Math.max(5, Math.floor(hours / 12)));
-    
-    // Update chart data
-    historyChart.data.labels = labels;
-    historyChart.data.datasets[0].data = phData;
-    historyChart.data.datasets[1].data = orpData;
-    historyChart.data.datasets[2].data = freeChlorineData;
-    historyChart.data.datasets[3].data = combinedChlorineData;
-    historyChart.data.datasets[4].data = turbidityData;
-    historyChart.data.datasets[5].data = temperatureData;
-    historyChart.data.datasets[6].data = dosingEvents;
-    
-    // Configure chart options based on time range
-    configureChartTimeAxis(historyChart, hours);
-    
-    // Update ARIA label
-    updateChartAriaLabel('historyChart', hours);
-    
-    // Update table data
-    updateTableDataForPage('historyDataTable', 1);
-    
-    // Update chart
-    historyChart.update();
-    
-    // Hide loading state
-    hideLoading('#historyChart');
+    try {
+        // Show loading state
+        showLoading('#historyChart');
+        
+        console.log(`Updating history chart - Range: ${hours}h, Resolution: ${resolution || 'default'}, Type: ${visualizationType || 'default'}`);
+        
+        // Get current resolution if not provided
+        if (!resolution) {
+            resolution = document.getElementById('dataResolution')?.value || 'hour';
+        }
+        
+        // Determine data point density based on resolution
+        let dataPointsPerHour = 1; // Default: hourly
+        switch (resolution) {
+            case 'raw':
+                dataPointsPerHour = 4; // 15 minutes
+                break;
+            case 'minute':
+                dataPointsPerHour = 60; // 1 minute
+                break;
+            case 'hour':
+                dataPointsPerHour = 1; // 1 hour
+                break;
+            case 'day':
+                dataPointsPerHour = 1/24; // 1 day (1/24 points per hour)
+                break;
+        }
+        
+        // Calculate total data points
+        const totalPoints = Math.ceil(hours * dataPointsPerHour);
+        
+        // Generate time labels based on resolution
+        const labels = generateTimeLabels(hours, resolution);
+        
+        // Generate data for each parameter with appropriate granularity
+        const phData = generateHistoryData(7.4, 0.2, totalPoints);
+        const orpData = generateHistoryData(720, 30, totalPoints);
+        const freeChlorineData = generateHistoryData(1.2, 0.3, totalPoints);
+        const combinedChlorineData = generateHistoryData(0.2, 0.1, totalPoints);
+        const turbidityData = generateHistoryData(0.15, 0.05, totalPoints);
+        const temperatureData = generateHistoryData(28, 1, totalPoints);
+        
+        // Generate dosing events
+        const dosingEvents = generateSampleEvents(hours, Math.max(5, Math.floor(hours / 12)));
+        
+        // Update chart data
+        window.historyChart.data.labels = labels;
+        window.historyChart.data.datasets[0].data = phData;
+        window.historyChart.data.datasets[1].data = orpData;
+        window.historyChart.data.datasets[2].data = freeChlorineData;
+        window.historyChart.data.datasets[3].data = combinedChlorineData;
+        window.historyChart.data.datasets[4].data = turbidityData;
+        window.historyChart.data.datasets[5].data = temperatureData;
+        window.historyChart.data.datasets[6].data = dosingEvents;
+        
+        // Configure chart options based on time range
+        configureChartTimeAxis(window.historyChart, hours);
+        
+        // Update chart type if specified
+        if (visualizationType && window.historyChart.config.type !== visualizationType) {
+            updateHistoryChartType(visualizationType);
+        }
+        
+        // Update ARIA label
+        updateChartAriaLabel('historyChart', hours);
+        
+        // Update table data
+        updateTableDataForPage('historyDataTable', 1);
+        
+        // Sync UI controls with current state
+        syncUIControlsWithState(hours, resolution, visualizationType);
+        
+        // Update chart
+        window.historyChart.update();
+        
+        console.log("History chart updated successfully");
+    } catch (error) {
+        console.error("Error updating history chart:", error);
+    } finally {
+        // Always hide loading state, even if there was an error
+        hideLoading('#historyChart');
+    }
 }
 
 /**
@@ -5882,4 +5994,119 @@ function enhanceHistoryChartInit() {
             }
         }, 200); // Slightly longer delay to ensure chart is fully ready
     };
+}
+
+/**
+ * Synchronize UI controls with current chart state
+ */
+function syncUIControlsWithState(hours, resolution, visualizationType) {
+    // Sync time range selector
+    const timeRangeSelect = document.getElementById('historyPresetRange');
+    if (timeRangeSelect) {
+        // Find the matching preset if possible, otherwise leave as is
+        const commonPresets = [24, 48, 168, 720]; // Common hour values in the dropdown
+        if (commonPresets.includes(hours) && timeRangeSelect.value !== hours.toString()) {
+            timeRangeSelect.value = hours.toString();
+        }
+    }
+    
+    // Sync resolution selector
+    const resolutionSelect = document.getElementById('dataResolution');
+    if (resolutionSelect && resolution && resolutionSelect.value !== resolution) {
+        // Only set if a valid option
+        const validResolutions = Array.from(resolutionSelect.options).map(opt => opt.value);
+        if (validResolutions.includes(resolution)) {
+            resolutionSelect.value = resolution;
+        }
+    }
+    
+    // Sync visualization type
+    const visualTypeSelect = document.getElementById('visualizationType');
+    if (visualTypeSelect && visualizationType && visualTypeSelect.value !== visualizationType) {
+        // Only set if a valid option
+        const validTypes = Array.from(visualTypeSelect.options).map(opt => opt.value);
+        if (validTypes.includes(visualizationType)) {
+            visualTypeSelect.value = visualizationType;
+        }
+    }
+}
+
+/**
+ * Set up enhanced event listeners for chart controls
+ */
+function setupEnhancedChartControls() {
+    // Time range selection
+    const historyPresetRange = document.getElementById('historyPresetRange');
+    if (historyPresetRange) {
+        // Add enhanced listener (keep existing one)
+        historyPresetRange.addEventListener('change', function() {
+            if (this.value !== 'custom') {
+                // Get current state for other parameters
+                const resolution = document.getElementById('dataResolution').value;
+                const visualType = document.getElementById('visualizationType').value;
+                
+                // Update chart with all parameters
+                updateHistoryChart(parseInt(this.value), resolution, visualType);
+            }
+        });
+    }
+    
+    // Data resolution
+    const dataResolution = document.getElementById('dataResolution');
+    if (dataResolution) {
+        // Add enhanced listener (keep existing one)
+        dataResolution.addEventListener('change', function() {
+            // Get current range 
+            const rangeSelect = document.getElementById('historyPresetRange');
+            const rangeValue = rangeSelect.value === 'custom' 
+                ? getCustomRangeHours() 
+                : parseInt(rangeSelect.value);
+            
+            // Get current visualization type
+            const visualType = document.getElementById('visualizationType').value;
+            
+            // Update chart with all parameters
+            updateHistoryChart(rangeValue, this.value, visualType);
+        });
+    }
+    
+    // Visualization type
+    const visualizationType = document.getElementById('visualizationType');
+    if (visualizationType) {
+        // Add enhanced listener (keep existing one)
+        visualizationType.addEventListener('change', function() {
+            // Get current range and resolution
+            const rangeSelect = document.getElementById('historyPresetRange');
+            const rangeValue = rangeSelect.value === 'custom' 
+                ? getCustomRangeHours() 
+                : parseInt(rangeSelect.value);
+            
+            const resolution = document.getElementById('dataResolution').value;
+            
+            // Update chart with all parameters
+            updateHistoryChart(rangeValue, resolution, this.value);
+        });
+    }
+    
+    // Refresh button - already properly handled in your code
+}
+
+/**
+ * Get the number of hours in the custom date range
+ */
+function getCustomRangeHours() {
+    try {
+        const startDate = new Date(document.getElementById('historyStartDate').value);
+        const endDate = new Date(document.getElementById('historyEndDate').value);
+        
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+            return 168; // Default to 7 days if dates are invalid
+        }
+        
+        // Calculate hours between dates
+        return Math.ceil((endDate - startDate) / (1000 * 60 * 60));
+    } catch (error) {
+        console.error("Error calculating custom range hours:", error);
+        return 168; // Default to 7 days on error
+    }
 }
