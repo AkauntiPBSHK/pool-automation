@@ -105,6 +105,8 @@ document.addEventListener('DOMContentLoaded', function() {
     enhanceChartInitialization();
     setupDosingEventsToggle();
     enhanceSyncParameterSelection();
+    enhanceHistoryChartInit();
+    fixDosingEventsToggle();
 
     // Stage 2: Initialize panel controls (without charts yet)
     console.log('Stage 2: Initializing panel controls');
@@ -5575,7 +5577,7 @@ function setupLiveChartUpdates() {
 }
 
 /**
- * Updated function to safely toggle dosing events visibility
+ * Improved toggle dosing events function with better error handling
  */
 function toggleDosingEvents(checked) {
     if (!window.historyChart || !window.historyChart.data || !window.historyChart.data.datasets) {
@@ -5585,19 +5587,26 @@ function toggleDosingEvents(checked) {
     
     try {
         // Find the dosing events dataset
-        const dosingEventsIndex = 6; // Index based on your chart initialization
+        const dosingEventsIndex = 6;
         const dosingDataset = window.historyChart.data.datasets[dosingEventsIndex];
         
         if (!dosingDataset) {
-            console.warn("Dosing events dataset not found");
+            console.warn("Dosing events dataset not found at index 6");
             return false;
         }
         
-        // Update visibility directly (more compatible than setDatasetVisibility)
+        console.log(`Setting dosing events visibility to ${checked ? 'visible' : 'hidden'}`);
+        
+        // Set visibility directly
         dosingDataset.hidden = !checked;
         
-        // Synchronize the UI with the new state
-        syncParameterSelection('chart', dosingEventsIndex.toString(), checked);
+        // Update the chart
+        window.historyChart.update('none');
+        
+        // If axis visibility update function exists, call it
+        if (typeof updateAllAxisVisibility === 'function') {
+            updateAllAxisVisibility();
+        }
         
         return true;
     } catch (error) {
@@ -5787,4 +5796,90 @@ function syncUIWithChartState(visibilityState) {
     } catch (error) {
         console.error("Error syncing UI with chart state:", error);
     }
+}
+
+/**
+ * Improved dosing events toggle handler with retry mechanism
+ */
+function fixDosingEventsToggle() {
+    const checkbox = document.getElementById('showDosingEvents');
+    if (!checkbox) {
+        console.warn("Dosing events checkbox not found");
+        return;
+    }
+    
+    // Remove any existing listeners by cloning
+    const newCheckbox = checkbox.cloneNode(true);
+    checkbox.parentNode.replaceChild(newCheckbox, checkbox);
+    
+    // Add enhanced handler with retry mechanism
+    newCheckbox.addEventListener('change', function() {
+        // Store the checked state for reference
+        const isChecked = this.checked;
+        
+        // Try to toggle dosing events with retry
+        const success = toggleDosingEventsWithRetry(isChecked);
+        
+        // If unsuccessful after retries, revert checkbox to match chart state
+        if (!success && window.historyChart) {
+            // Find dosing events dataset (index 6)
+            const dosingDataset = window.historyChart.data.datasets[6];
+            if (dosingDataset) {
+                // Get actual visibility from chart
+                const isActuallyVisible = !dosingDataset.hidden;
+                // Update checkbox only if it doesn't match
+                if (isChecked !== isActuallyVisible) {
+                    this.checked = isActuallyVisible;
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Toggle dosing events visibility with retry mechanism
+ */
+function toggleDosingEventsWithRetry(checked, retries = 3, delay = 100) {
+    console.log(`Attempting to toggle dosing events to ${checked ? 'visible' : 'hidden'}`);
+    
+    // Try to toggle immediately first
+    if (toggleDosingEvents(checked)) {
+        return true;
+    }
+    
+    // If immediate toggle failed and we have retries left, try again after delay
+    if (retries > 0) {
+        console.log(`Retrying dosing events toggle... ${retries} attempts left`);
+        setTimeout(() => {
+            toggleDosingEventsWithRetry(checked, retries - 1, delay);
+        }, delay);
+    } else {
+        console.warn("Failed to toggle dosing events after multiple attempts");
+        return false;
+    }
+}
+
+/**
+ * Enhanced chart initialization to ensure dosing events toggle works
+ */
+function enhanceHistoryChartInit() {
+    // Get original chart initialization function
+    const originalInit = window.initializeHistoryChart;
+    
+    // Replace with enhanced version
+    window.initializeHistoryChart = function() {
+        // Call original initialization
+        originalInit.apply(this, arguments);
+        
+        // Setup dosing events toggle after chart is initialized
+        setTimeout(() => {
+            fixDosingEventsToggle();
+            
+            // Also ensure dosing events visibility matches UI on init
+            const checkbox = document.getElementById('showDosingEvents');
+            if (checkbox && window.historyChart) {
+                toggleDosingEvents(checkbox.checked);
+            }
+        }, 200); // Slightly longer delay to ensure chart is fully ready
+    };
 }
