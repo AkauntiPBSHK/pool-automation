@@ -110,6 +110,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadSavedSettings();
     updateUIFromSettings();
     updateParameterDisplays(mockData);
+    setupDosingEventsToggle();
 
     // Stage 4: Initialize charts after a short delay
     console.log('Stage 4: Initializing charts (with delay)');
@@ -2053,6 +2054,7 @@ function initializeHistoryChart() {
         // Link parameter checkboxes to chart visibility
         linkCheckboxesToChart();
         syncCheckboxesWithChart();
+        setupDosingEventsToggle();
         
         // Initialize parameter buttons
         initializeParameterButtons();
@@ -5531,6 +5533,63 @@ function setupLiveChartUpdates() {
                     window.turbidityChart.update('none');
                 }, 5000);
             }
+        }
+    });
+}
+
+/**
+ * Function to safely toggle dosing events visibility
+ */
+function toggleDosingEvents(checked) {
+    if (!window.historyChart || !window.historyChart.data || !window.historyChart.data.datasets) {
+        console.warn("Chart not available for dosing events toggle");
+        return false;
+    }
+    
+    try {
+        // Find the dosing events dataset (based on your current code, it's at index 6)
+        const dosingEventsIndex = 6; // This is the index in the datasets array from your initialization
+        const dosingDataset = window.historyChart.data.datasets[dosingEventsIndex];
+        
+        if (!dosingDataset) {
+            console.warn("Dosing events dataset not found");
+            return false;
+        }
+        
+        // Update the visibility
+        dosingDataset.hidden = !checked;
+        
+        // Update the chart with minimal animation
+        window.historyChart.update('none');
+        return true;
+    } catch (error) {
+        console.error("Error toggling dosing events:", error);
+        return false;
+    }
+}
+
+/**
+ * Modified function to fix dosing events toggle handler
+ */
+function setupDosingEventsToggle() {
+    const dosingEventsCheckbox = document.getElementById('showDosingEvents');
+    if (!dosingEventsCheckbox) {
+        console.warn("Dosing events checkbox not found");
+        return;
+    }
+    
+    // Remove any existing event listeners by cloning the element
+    const newCheckbox = dosingEventsCheckbox.cloneNode(true);
+    dosingEventsCheckbox.parentNode.replaceChild(newCheckbox, dosingEventsCheckbox);
+    
+    // Add our new failsafe handler
+    newCheckbox.addEventListener('change', function() {
+        const success = toggleDosingEvents(this.checked);
+        if (!success) {
+            // Prevent UI from getting out of sync if operation failed
+            console.warn("Failed to toggle dosing events, reverting checkbox state");
+            // Don't revert the checkbox state automatically, as it might lead to a confusing UX
+            // The chart will update properly next time it's available
         }
     });
 }
