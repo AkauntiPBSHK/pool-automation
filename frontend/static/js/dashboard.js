@@ -101,6 +101,10 @@ document.addEventListener('DOMContentLoaded', function() {
     enhanceParameterCardsAccessibility();
     enhanceControlsAccessibility();
     updateAllRangeAriaAttributes();
+    enhanceInitializeHistoryChart();
+    enhanceChartInitialization();
+    setupDosingEventsToggle();
+    enhanceSyncParameterSelection();
 
     // Stage 2: Initialize panel controls (without charts yet)
     console.log('Stage 2: Initializing panel controls');
@@ -115,7 +119,6 @@ document.addEventListener('DOMContentLoaded', function() {
     updateUIFromSettings();
     updateParameterDisplays(mockData);
     setupDosingEventsToggle();
-    enhanceInitializeHistoryChart();
 
     // Stage 4: Initialize charts after a short delay
     console.log('Stage 4: Initializing charts (with delay)');
@@ -5600,23 +5603,22 @@ function setupDosingEventsToggle() {
 }
 
 /**
- * Update all axis visibility based on dataset visibility
- * This function ensures that only axes corresponding to visible datasets are shown
+ * Updated function to safely handle axis visibility updates
  */
-
 function updateAllAxisVisibility() {
     try {
-        if (!historyChart || !historyChart.options || !historyChart.options.scales) {
+        // Make sure we use the global reference to ensure consistency
+        if (!window.historyChart || !window.historyChart.options || !window.historyChart.options.scales) {
             console.warn("Cannot update axis visibility - chart not ready");
             return;
         }
         
         // First, set all axes to hidden
-        Object.keys(historyChart.options.scales).forEach(scaleId => {
+        Object.keys(window.historyChart.options.scales).forEach(scaleId => {
             if (scaleId.startsWith('y-')) {
-                historyChart.options.scales[scaleId].display = false;
-                if (historyChart.options.scales[scaleId].title) {
-                    historyChart.options.scales[scaleId].title.display = false;
+                window.historyChart.options.scales[scaleId].display = false;
+                if (window.historyChart.options.scales[scaleId].title) {
+                    window.historyChart.options.scales[scaleId].title.display = false;
                 }
             }
         });
@@ -5633,23 +5635,77 @@ function updateAllAxisVisibility() {
         };
         
         // For each dataset, check if it's visible and update its axis
-        for (let i = 0; i < historyChart.data.datasets.length; i++) {
+        for (let i = 0; i < window.historyChart.data.datasets.length; i++) {
             // Check visibility directly using hidden property
-            const isVisible = !historyChart.data.datasets[i].hidden;
+            const isVisible = !window.historyChart.data.datasets[i].hidden;
             
             if (isVisible) {
                 const axisId = datasetToAxisMap[i];
-                if (axisId && historyChart.options.scales[axisId]) {
-                    historyChart.options.scales[axisId].display = true;
+                if (axisId && window.historyChart.options.scales[axisId]) {
+                    window.historyChart.options.scales[axisId].display = true;
                     
                     // Also ensure axis title is visible
-                    if (historyChart.options.scales[axisId].title) {
-                        historyChart.options.scales[axisId].title.display = true;
+                    if (window.historyChart.options.scales[axisId].title) {
+                        window.historyChart.options.scales[axisId].title.display = true;
                     }
                 }
             }
         }
+        
+        // Make sure to update the chart with the new axis visibility
+        window.historyChart.update('none');
+        
+        console.log("Axis visibility updated successfully");
     } catch (error) {
         console.error("Error updating axis visibility:", error);
     }
+}
+
+/**
+ * Ensure axis visibility is properly updated after chart initialization
+ */
+function enhanceChartInitialization() {
+    // Store reference to original initialization function
+    const originalInitFunction = window.initializeHistoryChart;
+    
+    // Replace with enhanced version
+    window.initializeHistoryChart = function() {
+        try {
+            // Call original function
+            originalInitFunction.apply(this, arguments);
+            
+            // Give the chart time to fully render before updating axes
+            setTimeout(() => {
+                console.log("Delayed axis visibility update");
+                if (window.historyChart) {
+                    updateAllAxisVisibility();
+                }
+            }, 200);
+        } catch (error) {
+            console.error("Error in enhanced chart initialization:", error);
+        }
+    };
+}
+
+/**
+ * Modify syncParameterSelection to use a delayed axis update
+ */
+function enhanceSyncParameterSelection() {
+    // Store reference to original sync function
+    const originalSyncFunction = window.syncParameterSelection;
+    
+    // Replace with enhanced version
+    window.syncParameterSelection = function(source, id, isVisible) {
+        try {
+            // Call original function but remove its axis update call
+            originalSyncFunction.call(this, source, id, isVisible);
+            
+            // Perform axis update with a short delay to ensure chart is ready
+            setTimeout(() => {
+                updateAllAxisVisibility();
+            }, 50);
+        } catch (error) {
+            console.error("Error in enhanced parameter sync:", error);
+        }
+    };
 }
