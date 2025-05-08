@@ -2074,11 +2074,11 @@ function initializeHistoryChart() {
 }
 
 /**
- * Update the initializeHistoryChart function to ensure dosingEvents toggle works
+ * Improved history chart initialization with correct initial visibility
  */
 function enhanceInitializeHistoryChart() {
     // Store reference to original function
-    const originalInitFunction = initializeHistoryChart;
+    const originalInitFunction = window.initializeHistoryChart;
     
     // Replace with enhanced version
     window.initializeHistoryChart = function() {
@@ -2086,19 +2086,40 @@ function enhanceInitializeHistoryChart() {
             // Call original function
             originalInitFunction.apply(this, arguments);
             
-            // Setup dosing events toggle after chart is initialized
-            setTimeout(setupDosingEventsToggle, 50);
+            if (!window.historyChart) {
+                console.warn("Chart not initialized properly");
+                return;
+            }
             
-            // Ensure initial state of parameters matches UI
-            setTimeout(() => {
-                const dosingEventsCheckbox = document.getElementById('showDosingEvents');
-                if (dosingEventsCheckbox && window.historyChart) {
-                    // Make sure chart visibility matches checkbox
-                    toggleDosingEvents(dosingEventsCheckbox.checked);
-                }
-            }, 100);
+            // Set initial dataset visibility - only show pH and Free Chlorine
+            const initialVisibility = {
+                0: true,  // pH - visible
+                1: false, // ORP - hidden
+                2: true,  // Free Chlorine - visible
+                3: false, // Combined Chlorine - hidden
+                4: false, // Turbidity - hidden
+                5: false, // Temperature - hidden
+                6: true   // Dosing Events - visible
+            };
+            
+            // Apply initial visibility to chart
+            Object.keys(initialVisibility).forEach(datasetIndex => {
+                const isVisible = initialVisibility[datasetIndex];
+                window.historyChart.data.datasets[datasetIndex].hidden = !isVisible;
+            });
+            
+            // Update UI to match chart state
+            syncUIWithChartState(initialVisibility);
+            
+            // Update axis visibility
+            setTimeout(updateAllAxisVisibility, 50);
+            
+            // Update chart
+            window.historyChart.update('none');
+            
+            console.log("Chart initialized with custom visibility settings");
         } catch (error) {
-            console.error("Error in enhanced initializeHistoryChart:", error);
+            console.error("Error in enhanced history chart initialization:", error);
         }
     };
 }
@@ -5708,4 +5729,62 @@ function enhanceSyncParameterSelection() {
             console.error("Error in enhanced parameter sync:", error);
         }
     };
+}
+
+/**
+ * Sync UI elements with chart state
+ */
+function syncUIWithChartState(visibilityState) {
+    try {
+        // Map dataset indices to checkbox IDs
+        const datasetToCheckbox = {
+            0: 'showPh',
+            1: 'showOrp',
+            2: 'showFreeChlorine',
+            3: 'showCombinedChlorine',
+            4: 'showTurbidity',
+            5: 'showTemp',
+            6: 'showDosingEvents'
+        };
+        
+        // Map dataset indices to button labels
+        const datasetToButton = {
+            0: 'pH',
+            1: 'ORP',
+            2: 'Free Chlorine',
+            3: 'Combined Cl',
+            4: 'Turbidity',
+            5: 'Temperature'
+        };
+        
+        // Update checkboxes
+        Object.keys(datasetToCheckbox).forEach(datasetIndex => {
+            const checkboxId = datasetToCheckbox[datasetIndex];
+            const checkbox = document.getElementById(checkboxId);
+            if (checkbox) {
+                const isVisible = visibilityState[datasetIndex];
+                checkbox.checked = isVisible;
+            }
+        });
+        
+        // Update buttons
+        Object.keys(datasetToButton).forEach(datasetIndex => {
+            const buttonText = datasetToButton[datasetIndex];
+            if (buttonText) {
+                const buttons = document.querySelectorAll('.btn-group .btn');
+                buttons.forEach(button => {
+                    if (button.textContent.trim() === buttonText) {
+                        const isVisible = visibilityState[datasetIndex];
+                        button.classList.toggle('active', isVisible);
+                        button.classList.toggle('btn-primary', isVisible);
+                        button.classList.toggle('btn-outline-secondary', !isVisible);
+                    }
+                });
+            }
+        });
+        
+        console.log("UI synchronized with chart state");
+    } catch (error) {
+        console.error("Error syncing UI with chart state:", error);
+    }
 }
