@@ -52,6 +52,10 @@ window.mockData = mockData;
 // Global variables for charts
 let chemistryChart = null;
 
+if (typeof window.historyChart === 'undefined') {
+    window.historyChart = null;
+}
+
 // Make it globally accessible by attaching to window
 window.updatePumpStatus = function(id, running) {
     // Check if element exists before updating
@@ -111,6 +115,7 @@ document.addEventListener('DOMContentLoaded', function() {
     updateUIFromSettings();
     updateParameterDisplays(mockData);
     setupDosingEventsToggle();
+    enhanceInitializeHistoryChart();
 
     // Stage 4: Initialize charts after a short delay
     console.log('Stage 4: Initializing charts (with delay)');
@@ -2063,6 +2068,36 @@ function initializeHistoryChart() {
     } catch (error) {
         console.error('Error initializing history chart:', error);
     }
+}
+
+/**
+ * Update the initializeHistoryChart function to ensure dosingEvents toggle works
+ */
+function enhanceInitializeHistoryChart() {
+    // Store reference to original function
+    const originalInitFunction = initializeHistoryChart;
+    
+    // Replace with enhanced version
+    window.initializeHistoryChart = function() {
+        try {
+            // Call original function
+            originalInitFunction.apply(this, arguments);
+            
+            // Setup dosing events toggle after chart is initialized
+            setTimeout(setupDosingEventsToggle, 50);
+            
+            // Ensure initial state of parameters matches UI
+            setTimeout(() => {
+                const dosingEventsCheckbox = document.getElementById('showDosingEvents');
+                if (dosingEventsCheckbox && window.historyChart) {
+                    // Make sure chart visibility matches checkbox
+                    toggleDosingEvents(dosingEventsCheckbox.checked);
+                }
+            }, 100);
+        } catch (error) {
+            console.error("Error in enhanced initializeHistoryChart:", error);
+        }
+    };
 }
 
 /**
@@ -4678,12 +4713,16 @@ function formatParameterValue(value, paramType) {
  * @param {string} source - Source of the update ('checkbox', 'button', or 'chart')
  * @param {string} id - ID of the element that triggered the update
  * @param {boolean} isVisible - Whether the parameter should be visible
+ * Enhanced version of your syncParameterSelection with better error handling
  */
 function syncParameterSelection(source, id, isVisible) {
-    if (!historyChart) return;
+    // Validate chart existence first
+    if (!window.historyChart || !window.historyChart.data || !window.historyChart.data.datasets) {
+        console.warn("Chart not fully initialized for parameter sync");
+        return;
+    }
     
-    // Maps for relating different UI elements
-
+    // Make sure these mappings exist
     const checkboxToDataset = {
         'showPh': 0,
         'showOrp': 1,
@@ -4704,78 +4743,106 @@ function syncParameterSelection(source, id, isVisible) {
         6: 'showDosingEvents'
     };
     
-    if (source === 'checkbox') {
-        // Update from checkbox - find corresponding dataset
-        const datasetIndex = checkboxToDataset[id];
-        if (datasetIndex === undefined) return;
-        
-        // Update chart visibility
-        historyChart.setDatasetVisibility(datasetIndex, isVisible);
-        
-        // Update button state if exists
-        const buttonText = datasetToButton[datasetIndex];
-        if (buttonText) {
-            const buttons = document.querySelectorAll('.btn-group .btn');
-            buttons.forEach(button => {
-                if (button.textContent.trim() === buttonText) {
-                    button.classList.toggle('active', isVisible);
-                    button.classList.toggle('btn-primary', isVisible);
-                    button.classList.toggle('btn-outline-secondary', !isVisible);
+    // Define buttonToDataset if it doesn't exist
+    const buttonToDataset = {
+        'pH': 0,
+        'ORP': 1,
+        'Free Chlorine': 2,
+        'Combined Cl': 3,
+        'Turbidity': 4,
+        'Temperature': 5
+    };
+    
+    // Define datasetToButton if it doesn't exist
+    const datasetToButton = {
+        0: 'pH',
+        1: 'ORP',
+        2: 'Free Chlorine',
+        3: 'Combined Cl',
+        4: 'Turbidity',
+        5: 'Temperature'
+    };
+    
+    try {
+        if (source === 'checkbox') {
+            // Update from checkbox - find corresponding dataset
+            const datasetIndex = checkboxToDataset[id];
+            if (datasetIndex === undefined) return;
+            
+            // Update chart visibility - use direct property setting instead of method
+            window.historyChart.data.datasets[datasetIndex].hidden = !isVisible;
+            
+            // Update button state if exists
+            const buttonText = datasetToButton[datasetIndex];
+            if (buttonText) {
+                const buttons = document.querySelectorAll('.btn-group .btn');
+                buttons.forEach(button => {
+                    if (button.textContent.trim() === buttonText) {
+                        button.classList.toggle('active', isVisible);
+                        button.classList.toggle('btn-primary', isVisible);
+                        button.classList.toggle('btn-outline-secondary', !isVisible);
+                    }
+                });
+            }
+        } else if (source === 'button') {
+            // Update from button - find corresponding dataset
+            const datasetIndex = buttonToDataset[id];
+            if (datasetIndex === undefined) return;
+            
+            // Update chart visibility
+            window.historyChart.data.datasets[datasetIndex].hidden = !isVisible;
+            
+            // Update checkbox state
+            const checkboxId = datasetToCheckbox[datasetIndex];
+            if (checkboxId) {
+                const checkbox = document.getElementById(checkboxId);
+                if (checkbox) {
+                    checkbox.checked = isVisible;
                 }
-            });
-        }
-    } else if (source === 'button') {
-        // Update from button - find corresponding dataset
-        const datasetIndex = buttonToDataset[id];
-        if (datasetIndex === undefined) return;
-        
-        // Update chart visibility
-        historyChart.setDatasetVisibility(datasetIndex, isVisible);
-        
-        // Update checkbox state
-        const checkboxId = datasetToCheckbox[datasetIndex];
-        if (checkboxId) {
-            const checkbox = document.getElementById(checkboxId);
-            if (checkbox) {
-                checkbox.checked = isVisible;
+            }
+        } else if (source === 'chart') {
+            // Update from chart legend - sync both buttons and checkboxes
+            const datasetIndex = parseInt(id);
+            if (isNaN(datasetIndex)) return;
+            
+            // Update checkbox state
+            const checkboxId = datasetToCheckbox[datasetIndex];
+            if (checkboxId) {
+                const checkbox = document.getElementById(checkboxId);
+                if (checkbox) {
+                    checkbox.checked = isVisible;
+                }
+            }
+            
+            // Update button state
+            const buttonText = datasetToButton[datasetIndex];
+            if (buttonText) {
+                const buttons = document.querySelectorAll('.btn-group .btn');
+                buttons.forEach(button => {
+                    if (button.textContent.trim() === buttonText) {
+                        button.classList.toggle('active', isVisible);
+                        button.classList.toggle('btn-primary', isVisible);
+                        button.classList.toggle('btn-outline-secondary', !isVisible);
+                    }
+                });
             }
         }
-    } else if (source === 'chart') {
-        // Update from chart legend - sync both buttons and checkboxes
-        const datasetIndex = parseInt(id);
-        if (isNaN(datasetIndex)) return;
         
-        // Update checkbox state
-        const checkboxId = datasetToCheckbox[datasetIndex];
-        if (checkboxId) {
-            const checkbox = document.getElementById(checkboxId);
-            if (checkbox) {
-                checkbox.checked = isVisible;
-            }
+        // Always update axis visibility after any change
+        if (typeof updateAllAxisVisibility === 'function') {
+            updateAllAxisVisibility();
         }
         
-        // Update button state
-        const buttonText = datasetToButton[datasetIndex];
-        if (buttonText) {
-            const buttons = document.querySelectorAll('.btn-group .btn');
-            buttons.forEach(button => {
-                if (button.textContent.trim() === buttonText) {
-                    button.classList.toggle('active', isVisible);
-                    button.classList.toggle('btn-primary', isVisible);
-                    button.classList.toggle('btn-outline-secondary', !isVisible);
-                }
-            });
+        // Update chart with minimal animation
+        window.historyChart.update('none');
+        
+        // Update ARIA label with current visible parameters
+        if (typeof updateChartAriaLabel === 'function') {
+            updateChartAriaLabel();
         }
+    } catch (error) {
+        console.error("Error in syncParameterSelection:", error);
     }
-    
-    // Always update axis visibility after any change
-    updateAllAxisVisibility();
-    
-    // Update chart
-    historyChart.update();
-    
-    // Update ARIA label with current visible parameters
-    updateChartAriaLabel();
 }
 
 /**
@@ -5538,7 +5605,7 @@ function setupLiveChartUpdates() {
 }
 
 /**
- * Function to safely toggle dosing events visibility
+ * Updated function to safely toggle dosing events visibility
  */
 function toggleDosingEvents(checked) {
     if (!window.historyChart || !window.historyChart.data || !window.historyChart.data.datasets) {
@@ -5547,8 +5614,8 @@ function toggleDosingEvents(checked) {
     }
     
     try {
-        // Find the dosing events dataset (based on your current code, it's at index 6)
-        const dosingEventsIndex = 6; // This is the index in the datasets array from your initialization
+        // Find the dosing events dataset
+        const dosingEventsIndex = 6; // Index based on your chart initialization
         const dosingDataset = window.historyChart.data.datasets[dosingEventsIndex];
         
         if (!dosingDataset) {
@@ -5556,11 +5623,12 @@ function toggleDosingEvents(checked) {
             return false;
         }
         
-        // Update the visibility
+        // Update visibility directly (more compatible than setDatasetVisibility)
         dosingDataset.hidden = !checked;
         
-        // Update the chart with minimal animation
-        window.historyChart.update('none');
+        // Synchronize the UI with the new state
+        syncParameterSelection('chart', dosingEventsIndex.toString(), checked);
+        
         return true;
     } catch (error) {
         console.error("Error toggling dosing events:", error);
@@ -5569,27 +5637,18 @@ function toggleDosingEvents(checked) {
 }
 
 /**
- * Modified function to fix dosing events toggle handler
+ * Fix initialization of event listeners for the dosing events toggle
  */
 function setupDosingEventsToggle() {
-    const dosingEventsCheckbox = document.getElementById('showDosingEvents');
-    if (!dosingEventsCheckbox) {
-        console.warn("Dosing events checkbox not found");
-        return;
-    }
+    const checkbox = document.getElementById('showDosingEvents');
+    if (!checkbox) return;
     
-    // Remove any existing event listeners by cloning the element
-    const newCheckbox = dosingEventsCheckbox.cloneNode(true);
-    dosingEventsCheckbox.parentNode.replaceChild(newCheckbox, dosingEventsCheckbox);
+    // Remove existing listeners
+    const newCheckbox = checkbox.cloneNode(true);
+    checkbox.parentNode.replaceChild(newCheckbox, checkbox);
     
-    // Add our new failsafe handler
+    // Add new handler with proper error handling
     newCheckbox.addEventListener('change', function() {
-        const success = toggleDosingEvents(this.checked);
-        if (!success) {
-            // Prevent UI from getting out of sync if operation failed
-            console.warn("Failed to toggle dosing events, reverting checkbox state");
-            // Don't revert the checkbox state automatically, as it might lead to a confusing UX
-            // The chart will update properly next time it's available
-        }
+        toggleDosingEvents(this.checked);
     });
 }
