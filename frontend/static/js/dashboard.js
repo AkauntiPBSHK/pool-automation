@@ -2996,60 +2996,6 @@ function updateActivePageNumberStyle(paginationContainer) {
         }
     });
 }
-/**
- * Update all axis visibility based on dataset visibility
- * This function ensures that only axes corresponding to visible datasets are shown
- */
-
-function updateAllAxisVisibility() {
-    try {
-        if (!historyChart || !historyChart.options || !historyChart.options.scales) {
-            console.warn("Cannot update axis visibility - chart not ready");
-            return;
-        }
-        
-        // First, set all axes to hidden
-        Object.keys(historyChart.options.scales).forEach(scaleId => {
-            if (scaleId.startsWith('y-')) {
-                historyChart.options.scales[scaleId].display = false;
-                if (historyChart.options.scales[scaleId].title) {
-                    historyChart.options.scales[scaleId].title.display = false;
-                }
-            }
-        });
-        
-        // Map datasets to their corresponding axes
-        const datasetToAxisMap = {
-            0: 'y-ph',          // pH
-            1: 'y-orp',         // ORP
-            2: 'y-chlorine',    // Free Chlorine
-            3: 'y-chlorine',    // Combined Chlorine (shares axis with Free Chlorine)
-            4: 'y-turbidity',   // Turbidity
-            5: 'y-temp',        // Temperature
-            6: 'y-ph'           // Dosing Events (shown on pH axis)
-        };
-        
-        // For each dataset, check if it's visible and update its axis
-        for (let i = 0; i < historyChart.data.datasets.length; i++) {
-            // Check visibility directly using hidden property
-            const isVisible = !historyChart.data.datasets[i].hidden;
-            
-            if (isVisible) {
-                const axisId = datasetToAxisMap[i];
-                if (axisId && historyChart.options.scales[axisId]) {
-                    historyChart.options.scales[axisId].display = true;
-                    
-                    // Also ensure axis title is visible
-                    if (historyChart.options.scales[axisId].title) {
-                        historyChart.options.scales[axisId].title.display = true;
-                    }
-                }
-            }
-        }
-    } catch (error) {
-        console.error("Error updating axis visibility:", error);
-    }
-}
 
 /**
  * Initialize settings tab functionality
@@ -5651,4 +5597,59 @@ function setupDosingEventsToggle() {
     newCheckbox.addEventListener('change', function() {
         toggleDosingEvents(this.checked);
     });
+}
+
+/**
+ * Update all axis visibility based on dataset visibility
+ * This function ensures that only axes corresponding to visible datasets are shown
+ */
+
+function updateAllAxisVisibility() {
+    try {
+        if (!historyChart || !historyChart.options || !historyChart.options.scales) {
+            console.warn("Cannot update axis visibility - chart not ready");
+            return;
+        }
+        
+        // First, set all axes to hidden
+        Object.keys(historyChart.options.scales).forEach(scaleId => {
+            if (scaleId.startsWith('y-')) {
+                historyChart.options.scales[scaleId].display = false;
+                if (historyChart.options.scales[scaleId].title) {
+                    historyChart.options.scales[scaleId].title.display = false;
+                }
+            }
+        });
+        
+        // Map datasets to their corresponding axes
+        const datasetToAxisMap = {
+            0: 'y-ph',          // pH
+            1: 'y-orp',         // ORP
+            2: 'y-chlorine',    // Free Chlorine
+            3: 'y-chlorine',    // Combined Chlorine (shares axis with Free Chlorine)
+            4: 'y-turbidity',   // Turbidity
+            5: 'y-temp',        // Temperature
+            6: 'y-ph'           // Dosing Events (shown on pH axis)
+        };
+        
+        // For each dataset, check if it's visible and update its axis
+        for (let i = 0; i < historyChart.data.datasets.length; i++) {
+            // Check visibility directly using hidden property
+            const isVisible = !historyChart.data.datasets[i].hidden;
+            
+            if (isVisible) {
+                const axisId = datasetToAxisMap[i];
+                if (axisId && historyChart.options.scales[axisId]) {
+                    historyChart.options.scales[axisId].display = true;
+                    
+                    // Also ensure axis title is visible
+                    if (historyChart.options.scales[axisId].title) {
+                        historyChart.options.scales[axisId].title.display = true;
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        console.error("Error updating axis visibility:", error);
+    }
 }
