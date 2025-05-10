@@ -1285,21 +1285,3 @@ if __name__ == '__main__':
             )
         ''')
         conn.commit()
-
-# User loader callback
-@login_manager.user_loader
-def load_user(user_id):
-    with sqlite3.connect('pool_automation.db') as conn:
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
-        user_data = cursor.fetchone()
-        
-    if user_data:
-        return User(
-            id=user_data['id'],
-            email=user_data['email'],
-            password_hash=user_data['password_hash'],
-            name=user_data.get('name')
-        )
-    return None
