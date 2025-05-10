@@ -356,34 +356,6 @@ def send_status_update(pool_id=None):
     
     except Exception as e:
         logger.error(f"Error in send_status_update: {e}")
-    """Send pool-specific updates to clients in the pool's room."""
-    if not simulator:
-        return
-    
-    params = simulator.get_all_parameters(pool_id)
-    pump_states = simulator.get_pump_states(pool_id)
-    
-    # Get more detailed status information from the advanced controller
-    dosing_status = dosing_controller.get_status(pool_id)
-    
-    # Create a more comprehensive status update
-    status_data = {
-        "pool_id": pool_id,
-        "ph": round(params['ph'], 2),
-        "orp": round(params['orp']),
-        "freeChlorine": round(params['free_chlorine'], 2),
-        "combinedChlorine": round(params['combined_chlorine'], 2),
-        "turbidity": round(params['turbidity'], 3),
-        "temperature": round(params['temperature'], 1),
-        "phPumpRunning": pump_states.get('acid', False),
-        "clPumpRunning": pump_states.get('chlorine', False),
-        "pacPumpRunning": pump_states.get('pac', False),
-        "pacDosingRate": mock_pac_pump.get_flow_rate(pool_id),
-        "dosingMode": dosing_status['mode'],
-        "timestamp": time.time()
-    }
-    
-    socketio.emit('parameter_update', status_data, room=pool_id)
 
 # Add these functions for emitting dosing and system events
 def emit_dosing_update(event_type, details=None):
@@ -1271,17 +1243,3 @@ def handle_system_state_request():
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
     socketio.run(app, host='0.0.0.0', port=port, debug=True)
-    with sqlite3.connect('pool_automation.db') as conn:
-        cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS pools (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                owner_id TEXT NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                location TEXT,
-                volume_m3 REAL,
-                FOREIGN KEY (owner_id) REFERENCES users (id)
-            )
-        ''')
-        conn.commit()
