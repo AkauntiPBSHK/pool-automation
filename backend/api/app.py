@@ -12,10 +12,13 @@ import random
 import time
 import math
 import threading
-from flask import Flask, jsonify, render_template, request
-from flask_socketio import SocketIO
+import sqlite3
+import uuid
+from flask import Flask, jsonify, render_template, request, redirect, url_for, session, flash
+from flask_socketio import SocketIO, emit, join_room, leave_room, rooms
 from flask_cors import CORS
-from flask_socketio import SocketIO, emit
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 from backend.models.database import DatabaseHandler
 from backend.utils.enhanced_simulator import EnhancedPoolSimulator
@@ -40,6 +43,141 @@ app = Flask(__name__,
 )
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-key')
 CORS(app)  # Enable CORS for all routes
+
+# Initialize Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+# User model for Flask-Login
+class User(UserMixin):
+    def __init__(self, id, email, password_hash, name=None):
+        self.id = id
+        self.email = email
+        self.password_hash = password_hash
+        self.name = name
+
+# Create user-related tables
+def create_auth_tables():
+    """Create tables for user authentication."""
+    with sqlite3.connect('pool_automation.db') as conn:
+        cursor = conn.cursor()
+        
+        # Create users table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id TEXT PRIMARY KEY,
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                name TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        # Create pools table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS pools (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                owner_id TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                location TEXT,
+                volume_m3 REAL,
+                FOREIGN KEY (owner_id) REFERENCES users (id)
+            )
+        ''')
+        
+        # Create devices table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS devices (
+                device_id TEXT PRIMARY KEY,
+                pool_id TEXT,
+                status TEXT DEFAULT 'inactive',
+                last_seen DATETIME,
+                FOREIGN KEY (pool_id) REFERENCES pools (id)
+            )
+        ''')
+        
+        conn.commit()
+        logger.info("Authentication tables created successfully")
+
+# User loader callback for Flask-Login
+@login_manager.user_loader
+def load_user(user_id):
+    """Load a user by ID for Flask-Login."""
+    try:
+        with sqlite3.connect('pool_automation.db') as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+            user_data = cursor.fetchone()
+            
+            if user_data:
+                return User(
+                    id=user_data['id'],
+                    email=user_data['email'],
+                    password_hash=user_data['password_hash'],
+                    name=user_data.get('name')
+                )
+    except Exception as e:
+        logger.error(f"Error loading user: {e}")
+    
+    return None
+
+# Helper functions for pool operations
+def get_user_pools(user_id):
+    """Get all pools owned by a user."""
+    try:
+        with sqlite3.connect('pool_automation.db') as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM pools WHERE owner_id = ?", (user_id,))
+            return [dict(row) for row in cursor.fetchall()]
+    except Exception as e:
+        logger.error(f"Error getting user pools: {e}")
+        return []
+
+def get_pool(pool_id, user_id=None):
+    """Get a specific pool, optionally checking ownership."""
+    try:
+        with sqlite3.connect('pool_automation.db') as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            if user_id:
+                # Check ownership
+                cursor.execute(
+                    "SELECT * FROM pools WHERE id = ? AND owner_id = ?", 
+                    (pool_id, user_id)
+                )
+            else:
+                # Just get the pool
+                cursor.execute("SELECT * FROM pools WHERE id = ?", (pool_id,))
+            
+            pool = cursor.fetchone()
+            return dict(pool) if pool else None
+    except Exception as e:
+        logger.error(f"Error getting pool: {e}")
+        return None
+
+def get_last_reading(pool_id):
+    """Get the last sensor readings for a pool."""
+    # In a real implementation, this would query the database
+    # For now, return simulated values
+    return {
+        "temperature": round(random.uniform(26, 29), 1),
+        "ph": round(random.uniform(7.2, 7.6), 1),
+        "orp": round(random.uniform(680, 750)),
+        "turbidity": round(random.uniform(0.12, 0.18), 3),
+        "free_chlorine": round(random.uniform(1.0, 1.4), 2),
+        "combined_chlorine": round(random.uniform(0.1, 0.3), 2)
+    }
+
+def get_pool_status(pool_id):
+    """Get the current status of a pool."""
+    # In a real implementation, this would check sensor values against thresholds
+    # For now, randomly return 'ok' or 'alert'
+    return random.choice(['ok', 'ok', 'ok', 'alert'])  # 75% chance of 'ok'
 
 async_mode = None  # Let Flask-SocketIO choose the best async mode
 
@@ -121,19 +259,116 @@ def event_logger_adapter(*args, **kwargs):
     # Log with whatever we have
     log_dosing_event(event_type, duration, flow_rate, turbidity)
 
-def send_status_update():
-    """Send current system status to all connected clients."""
+def send_status_update(pool_id=None):
+    """Send parameter updates to clients.
+    
+    Args:
+        pool_id (str, optional): The specific pool ID to send updates for.
+            If None, sends general updates to all connected clients.
+    """
+    if not simulator:
+        logger.warning("Simulator not initialized, skipping status update")
+        return
+    
+    try:
+        # If no pool_id provided, send general updates to all clients
+        if pool_id is None:
+            # Get general parameters from simulator
+            params = simulator.get_all_parameters()
+            pump_states = simulator.get_pump_states()
+            
+            # Get status from dosing controller
+            dosing_status = dosing_controller.get_status()
+            
+            # Create status update
+            status_data = {
+                "ph": round(params['ph'], 2),
+                "orp": round(params['orp']),
+                "freeChlorine": round(params['free_chlorine'], 2),
+                "combinedChlorine": round(params['combined_chlorine'], 2),
+                "turbidity": round(params['turbidity'], 3),
+                "temperature": round(params['temperature'], 1),
+                "phPumpRunning": pump_states.get('acid', False),
+                "clPumpRunning": pump_states.get('chlorine', False),
+                "pacPumpRunning": pump_states.get('pac', False),
+                "pacDosingRate": mock_pac_pump.get_flow_rate(),
+                "dosingMode": dosing_status['mode'],
+                "timestamp": time.time(),
+                "turbidityLimits": {
+                    "highThreshold": dosing_status['high_threshold'],
+                    "lowThreshold": dosing_status['low_threshold'],
+                    "target": dosing_status['target']
+                },
+                "dosingController": {
+                    "lastDoseTime": dosing_status['last_dose_time'],
+                    "doseCounter": dosing_status['dose_counter'],
+                    "pumpRunning": dosing_status['pump_status'],
+                    "pidLastError": dosing_controller.pid.last_error if hasattr(dosing_controller, 'pid') else 0,
+                    "pidIntegral": dosing_controller.pid.integral if hasattr(dosing_controller, 'pid') else 0
+                }
+            }
+            
+            # Send to all connected clients
+            socketio.emit('parameter_update', status_data)
+            
+        else:
+            # For pool-specific updates, send to the pool's room
+            try:
+                # Get parameters for this specific pool (if simulator supports this)
+                try:
+                    params = simulator.get_all_parameters(pool_id)
+                    pump_states = simulator.get_pump_states(pool_id)
+                    dosing_status = dosing_controller.get_status(pool_id)
+                except TypeError:
+                    # Fall back to general parameters if pool-specific methods aren't implemented
+                    logger.warning(f"Pool-specific simulator methods not available, using general data for pool {pool_id}")
+                    params = simulator.get_all_parameters()
+                    pump_states = simulator.get_pump_states()
+                    dosing_status = dosing_controller.get_status()
+                
+                # Create a pool-specific status update
+                status_data = {
+                    "pool_id": pool_id,
+                    "ph": round(params['ph'], 2),
+                    "orp": round(params['orp']),
+                    "freeChlorine": round(params['free_chlorine'], 2),
+                    "combinedChlorine": round(params['combined_chlorine'], 2),
+                    "turbidity": round(params['turbidity'], 3),
+                    "temperature": round(params['temperature'], 1),
+                    "phPumpRunning": pump_states.get('acid', False),
+                    "clPumpRunning": pump_states.get('chlorine', False),
+                    "pacPumpRunning": pump_states.get('pac', False),
+                    "pacDosingRate": mock_pac_pump.get_flow_rate(),
+                    "dosingMode": dosing_status['mode'],
+                    "timestamp": time.time(),
+                    "turbidityLimits": {
+                        "highThreshold": dosing_status['high_threshold'],
+                        "lowThreshold": dosing_status['low_threshold'],
+                        "target": dosing_status['target']
+                    }
+                }
+                
+                # Send update to the specific pool's room
+                socketio.emit('parameter_update', status_data, room=pool_id)
+                
+            except Exception as e:
+                logger.error(f"Error sending pool-specific update for pool {pool_id}: {e}")
+    
+    except Exception as e:
+        logger.error(f"Error in send_status_update: {e}")
+    """Send pool-specific updates to clients in the pool's room."""
     if not simulator:
         return
     
-    params = simulator.get_all_parameters()
-    pump_states = simulator.get_pump_states()
+    params = simulator.get_all_parameters(pool_id)
+    pump_states = simulator.get_pump_states(pool_id)
     
     # Get more detailed status information from the advanced controller
-    dosing_status = dosing_controller.get_status()
+    dosing_status = dosing_controller.get_status(pool_id)
     
     # Create a more comprehensive status update
     status_data = {
+        "pool_id": pool_id,
         "ph": round(params['ph'], 2),
         "orp": round(params['orp']),
         "freeChlorine": round(params['free_chlorine'], 2),
@@ -143,25 +378,12 @@ def send_status_update():
         "phPumpRunning": pump_states.get('acid', False),
         "clPumpRunning": pump_states.get('chlorine', False),
         "pacPumpRunning": pump_states.get('pac', False),
-        "pacDosingRate": mock_pac_pump.get_flow_rate(),
-        "dosingMode": dosing_status['mode'],  # Use values from dosing_status
-        "timestamp": time.time(),
-        "turbidityLimits": {
-            "highThreshold": dosing_status['high_threshold'],
-            "lowThreshold": dosing_status['low_threshold'],
-            "target": dosing_status['target']
-        },
-        # Include more detailed dosing controller status
-        "dosingController": {
-            "lastDoseTime": dosing_status['last_dose_time'],
-            "doseCounter": dosing_status['dose_counter'],
-            "pumpRunning": dosing_status['pump_status'],
-            "pidLastError": dosing_controller.pid.last_error if hasattr(dosing_controller, 'pid') else 0,
-            "pidIntegral": dosing_controller.pid.integral if hasattr(dosing_controller, 'pid') else 0
-        }
+        "pacDosingRate": mock_pac_pump.get_flow_rate(pool_id),
+        "dosingMode": dosing_status['mode'],
+        "timestamp": time.time()
     }
     
-    socketio.emit('parameter_update', status_data)
+    socketio.emit('parameter_update', status_data, room=pool_id)
 
 # Add these functions for emitting dosing and system events
 def emit_dosing_update(event_type, details=None):
@@ -214,6 +436,9 @@ def start_background_tasks():
     thread.start()
     logger.info("Background tasks started")
 
+# Create authentication tables
+create_auth_tables()
+
 # Initialize the dosing controller with the simulator components
 dosing_controller = AdvancedDosingController(
     mock_turbidity_sensor, 
@@ -262,10 +487,169 @@ def get_simulated_data():
     }
 
 # Routes
+# Authentication routes
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """Handle user login."""
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        
+        try:
+            with sqlite3.connect('pool_automation.db') as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
+                user_data = cursor.fetchone()
+                
+                if user_data and check_password_hash(user_data['password_hash'], password):
+                    user = User(
+                        id=user_data['id'],
+                        email=user_data['email'],
+                        password_hash=user_data['password_hash'],
+                        name=user_data.get('name')
+                    )
+                    login_user(user)
+                    return redirect(url_for('pools'))
+        except Exception as e:
+            logger.error(f"Error during login: {e}")
+        
+        flash("Invalid email or password", "error")
+        return render_template('login.html', error="Invalid email or password")
+    
+    return render_template('login.html')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    """Handle user registration."""
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        name = request.form.get('name')
+        
+        try:
+            with sqlite3.connect('pool_automation.db') as conn:
+                cursor = conn.cursor()
+                
+                # Check if email already exists
+                cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
+                existing_user = cursor.fetchone()
+                
+                if existing_user:
+                    flash("Email already registered", "error")
+                    return render_template('register.html', error="Email already registered")
+                
+                # Create new user
+                user_id = str(uuid.uuid4())
+                password_hash = generate_password_hash(password)
+                
+                cursor.execute(
+                    "INSERT INTO users (id, email, password_hash, name) VALUES (?, ?, ?, ?)",
+                    (user_id, email, password_hash, name)
+                )
+                conn.commit()
+                
+                # Log in the new user
+                user = User(id=user_id, email=email, password_hash=password_hash, name=name)
+                login_user(user)
+                
+                flash("Account created successfully", "success")
+                return redirect(url_for('pools'))
+        except Exception as e:
+            logger.error(f"Error during registration: {e}")
+            flash("An error occurred during registration", "error")
+            return render_template('register.html', error="Registration failed")
+    
+    return render_template('register.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    """Handle user logout."""
+    logout_user()
+    flash("Logged out successfully", "success")
+    return redirect(url_for('login'))
+
+@app.route('/pools')
+@login_required
+def pools():
+    """Show list of user's pools."""
+    user_pools = get_user_pools(current_user.id)
+    return render_template('pools.html', pools=user_pools)
+
+@app.route('/pools/add', methods=['GET', 'POST'])
+@login_required
+def add_pool():
+    """Add a new pool."""
+    if request.method == 'POST':
+        name = request.form.get('name')
+        location = request.form.get('location')
+        volume = request.form.get('volume')
+        device_id = request.form.get('device_id')
+        
+        try:
+            with sqlite3.connect('pool_automation.db') as conn:
+                cursor = conn.cursor()
+                
+                # Create new pool
+                pool_id = str(uuid.uuid4())
+                
+                cursor.execute(
+                    "INSERT INTO pools (id, name, owner_id, location, volume_m3) VALUES (?, ?, ?, ?, ?)",
+                    (pool_id, name, current_user.id, location, volume)
+                )
+                
+                # Associate device with pool if provided
+                if device_id:
+                    cursor.execute(
+                        "INSERT INTO devices (device_id, pool_id, status) VALUES (?, ?, 'active')",
+                        (device_id, pool_id)
+                    )
+                
+                conn.commit()
+                
+                flash("Pool added successfully", "success")
+                return redirect(url_for('pools'))
+        except Exception as e:
+            logger.error(f"Error adding pool: {e}")
+            flash("An error occurred while adding the pool", "error")
+    
+    return render_template('add_pool.html')
+
+@app.route('/pool/<pool_id>')
+@login_required
+def pool_dashboard(pool_id):
+    """Show dashboard for a specific pool."""
+    # Verify user has access to this pool
+    pool = get_pool(pool_id, current_user.id)
+    
+    if not pool:
+        flash("You don't have access to this pool", "error")
+        return redirect(url_for('pools'))
+    
+    # Set the current pool ID in session for API calls
+    session['current_pool_id'] = pool_id
+    
+    # Render the main dashboard for this pool
+    return render_template('index.html', pool=pool)
+
 @app.route('/')
 def index():
-    """Render the main dashboard page."""
-    return render_template('index.html')
+    """Render the main dashboard page or redirect to login."""
+    if not current_user.is_authenticated:
+        return redirect(url_for('login'))
+    
+    # If user is logged in but no pool is selected, show pool selection
+    if not session.get('current_pool_id'):
+        return redirect(url_for('pools'))
+    
+    # Verify user still has access to the selected pool
+    pool = get_pool(session['current_pool_id'], current_user.id)
+    if not pool:
+        del session['current_pool_id']
+        return redirect(url_for('pools'))
+    
+    return render_template('index.html', pool=pool)
 
 @app.route('/api/status')
 def status():
@@ -287,12 +671,30 @@ def socket_status():
 
 # Add these API endpoints
 @app.route('/api/dashboard')
+@login_required
 def dashboard_data():
-    """Get all dashboard data for the frontend."""
+    """Get all dashboard data for the current pool."""
+    pool_id = session.get('current_pool_id')
+    
+    if not pool_id:
+        return jsonify({"error": "No pool selected"}), 400
+    
+    # Check if user has access to this pool
+    with sqlite3.connect('pool_automation.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id FROM pools WHERE id = ? AND owner_id = ?", 
+            (pool_id, current_user.id)
+        )
+        pool = cursor.fetchone()
+        
+        if not pool:
+            return jsonify({"error": "Access denied"}), 403
+
     if simulator:
         # Get data from the simulator
-        params = simulator.get_all_parameters()
-        pump_states = simulator.get_pump_states()
+        params = simulator.get_all_parameters(pool_id)
+        pump_states = simulator.get_pump_states(pool_id)
         
         return jsonify({
             "ph": round(params['ph'], 1),
@@ -788,6 +1190,31 @@ def get_scheduled_doses():
         return jsonify(scheduled)
     return jsonify({"error": "Dosing controller not initialized"}), 500
 
+# WebSocket room management
+@socketio.on('join')
+def on_join(data):
+    """Join a room for a specific pool."""
+    pool_id = data.get('pool_id')
+    
+    if not pool_id:
+        return
+    
+    # Verify user has access to this pool
+    with sqlite3.connect('pool_automation.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id FROM pools WHERE id = ? AND owner_id = ?", 
+            (pool_id, current_user.id)
+        )
+        pool = cursor.fetchone()
+        
+        if not pool:
+            return
+    
+    # Join the room for this pool
+    join_room(pool_id)
+    emit('room_joined', {'pool_id': pool_id, 'status': 'connected'})
+
 # WebSocket events
 @socketio.on('connect')
 def handle_connect():
@@ -844,3 +1271,35 @@ def handle_system_state_request():
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
     socketio.run(app, host='0.0.0.0', port=port, debug=True)
+    with sqlite3.connect('pool_automation.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS pools (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                owner_id TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                location TEXT,
+                volume_m3 REAL,
+                FOREIGN KEY (owner_id) REFERENCES users (id)
+            )
+        ''')
+        conn.commit()
+
+# User loader callback
+@login_manager.user_loader
+def load_user(user_id):
+    with sqlite3.connect('pool_automation.db') as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+        user_data = cursor.fetchone()
+        
+    if user_data:
+        return User(
+            id=user_data['id'],
+            email=user_data['email'],
+            password_hash=user_data['password_hash'],
+            name=user_data.get('name')
+        )
+    return None

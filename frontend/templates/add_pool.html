@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add New Pool - BioPool Dashboard</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body {
+            background-color: #e6f2f5;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .main-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #009688;
+            margin-bottom: 10px;
+        }
+        .form-card {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .form-card:before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 5px;
+            background: linear-gradient(90deg, #009688, #00bfa5);
+        }
+        .btn-primary {
+            background: linear-gradient(90deg, #009688, #00bfa5);
+            border: none;
+            padding: 10px 25px;
+            border-radius: 50px;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .btn-primary:hover {
+            background: linear-gradient(90deg, #00796b, #009688);
+            transform: translateY(-2px);
+        }
+        .btn-outline-secondary {
+            border-color: #009688;
+            color: #009688;
+            border-radius: 50px;
+        }
+        .btn-outline-secondary:hover {
+            background-color: rgba(0, 150, 136, 0.1);
+            border-color: #00796b;
+            color: #00796b;
+        }
+        .nav-links {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .nav-links a {
+            color: #009688;
+            text-decoration: none;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+        .section-title {
+            color: #009688;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .device-section {
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="nav-links">
+            <a href="{{ url_for('pools') }}">
+                <i class="bi bi-arrow-left"></i> Back to My Pools
+            </a>
+        </div>
+        
+        <div class="header">
+            <h1>Add New Pool</h1>
+            <p>Enter the details for your new pool</p>
+        </div>
+        
+        {% if error %}
+        <div class="alert alert-danger" role="alert">
+            {{ error }}
+        </div>
+        {% endif %}
+        
+        <div class="form-card">
+            <form method="POST" action="{{ url_for('add_pool') }}">
+                <h3 class="section-title">Pool Details</h3>
+                
+                <div class="mb-3">
+                    <label for="name" class="form-label">Pool Name*</label>
+                    <input type="text" class="form-control" id="name" name="name" required 
+                           placeholder="e.g., Backyard Pool, Beach House Pool">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="location" class="form-label">Location</label>
+                    <input type="text" class="form-control" id="location" name="location" 
+                           placeholder="e.g., Miami, FL or Home Address">
+                </div>
+                
+                <div class="mb-3">
+                    <label for="volume" class="form-label">Pool Volume (m³)*</label>
+                    <input type="number" class="form-control" id="volume" name="volume" required min="1" max="2000" 
+                           placeholder="e.g., 300">
+                    <div class="form-text">Enter the approximate volume of your pool in cubic meters.</div>
+                </div>
+                
+                <div class="device-section">
+                    <h3 class="section-title">Device Information</h3>
+                    <p>If you have a BioPool controller device, enter its ID below to connect it to this pool.</p>
+                    
+                    <div class="mb-3">
+                        <label for="device_id" class="form-label">Device ID</label>
+                        <input type="text" class="form-control" id="device_id" name="device_id" 
+                               placeholder="e.g., 1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p">
+                        <div class="form-text">You can find the Device ID on the label of your BioPool controller or in its documentation.</div>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="addLater">
+                        <label class="form-check-label" for="addLater">
+                            I'll add my device later
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="{{ url_for('pools') }}" class="btn btn-outline-secondary">
+                        Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-plus-circle me-2"></i>Add Pool
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        // Toggle device ID field based on checkbox
+        document.getElementById('addLater').addEventListener('change', function() {
+            const deviceIdField = document.getElementById('device_id');
+            deviceIdField.disabled = this.checked;
+            if (this.checked) {
+                deviceIdField.value = '';
+            }
+        });
+    </script>
+</body>
+</html>
