@@ -16,8 +16,12 @@ function initializeWebSocket() {
 
     console.log('Initializing connection with polling transport only...');
     
+    // Get base URL and pool ID if available
+    const baseUrl = window.location.origin;
+    const poolId = document.getElementById('poolId')?.value;
+    
     // Force polling only - no WebSocket upgrade
-    wsSocket = io('http://127.0.0.1:5000', {
+    wsSocket = io(baseUrl, {
         transports: ['polling'],     // ONLY use polling
         forceNew: true,
         reconnectionAttempts: 5,
@@ -32,11 +36,30 @@ function initializeWebSocket() {
         console.log('Connected to server using:', wsSocket.io.engine.transport.name);
         showToast('Connected to server', 'success');
         updateConnectionStatus(true);
+        
+        // Join pool room if we have a pool ID
+        if (poolId) {
+            console.log(`Attempting to join pool room: ${poolId}`);
+            wsSocket.emit('join', { pool_id: poolId });
+        }
     });
 
     // Connection confirmation
     wsSocket.on('connection_confirmed', function(data) {
         console.log('Connection confirmed by server:', data);
+    });
+
+    // Room joined confirmation
+    wsSocket.on('room_joined', function(data) {
+        console.log('Joined room:', data);
+        showToast(`Connected to pool: ${data.pool_id}`, 'success');
+        
+        // Update room status indicator if it exists
+        const roomStatus = document.getElementById('poolRoomStatus');
+        if (roomStatus) {
+            roomStatus.textContent = `Pool: ${data.pool_id}`;
+            roomStatus.classList.remove('d-none');
+        }
     });
 
     // Parameter updates with safer implementation

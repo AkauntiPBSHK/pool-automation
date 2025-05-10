@@ -1,0 +1,13 @@
+[Unit]
+Description=Pool Automation System
+After=network.target postgresql.service
+
+[Service]
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/var/www/pool-automation
+Environment="PATH=/var/www/pool-automation/venv/bin"
+ExecStart=/var/www/pool-automation/venv/bin/gunicorn --worker-class eventlet -w 1 --bind 127.0.0.1:5000 wsgi:app
+
+[Install]
+WantedBy=multi-user.target
