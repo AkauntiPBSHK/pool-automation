@@ -14,8 +14,9 @@ import math
 import threading
 import sqlite3
 import uuid
+import traceback
 from flask import Flask, jsonify, render_template, request, redirect, url_for, session, flash
-from flask_socketio import SocketIO, emit, join_room, leave_room, rooms
+from flask_socketio import SocketIO, emit, join_room, leave_room, rooms, disconnect
 from flask_cors import CORS
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -41,13 +42,128 @@ app = Flask(__name__,
     static_folder='../../frontend/static',
     template_folder='../../frontend/templates'
 )
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-key')
+
+# Configuration class
+class Config:
+    """Base configuration."""
+    SECRET_KEY = os.getenv('SECRET_KEY', 'dev-key-CHANGE-IN-PRODUCTION')
+    FLASK_ENV = os.getenv('FLASK_ENV', 'development')
+    DEBUG = False
+    TESTING = False
+    
+    # Database
+    DATABASE_PATH = os.path.join(os.getcwd(), 'pool_automation.db')
+    
+    # System
+    SIMULATION_MODE = True
+    
+    # Socket.IO
+    SOCKETIO_PING_TIMEOUT = 60
+    SOCKETIO_PING_INTERVAL = 25
+    
+    # Hardware
+    HARDWARE = {
+        'turbidity_sensor': {},
+        'pac_pump': {}
+    }
+    
+    # Simulator
+    SIMULATOR = {}
+    
+    # Notifications
+    SMTP_SERVER = os.getenv('SMTP_SERVER', '')
+    SMTP_PORT = int(os.getenv('SMTP_PORT', 587))
+    SMTP_USERNAME = os.getenv('SMTP_USERNAME', '')
+    SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', '')
+    
+    # Dosing
+    DOSING_HIGH_THRESHOLD = 0.25
+    DOSING_LOW_THRESHOLD = 0.12
+    DOSING_TARGET = 0.15
+    DOSING_MIN_INTERVAL = 300
+    DOSING_DURATION = 30
+    DOSING_PID_KP = 1.0
+    DOSING_PID_KI = 0.1
+    DOSING_PID_KD = 0.05
+    
+    # Logger settings
+    LOG_LEVEL = 'INFO'
+
+class DevelopmentConfig(Config):
+    """Development configuration."""
+    DEBUG = True
+    LOG_LEVEL = 'DEBUG'
+
+class TestingConfig(Config):
+    """Testing configuration."""
+    TESTING = True
+    DEBUG = True
+    DATABASE_PATH = os.path.join(os.getcwd(), 'test_pool_automation.db')
+
+class ProductionConfig(Config):
+    """Production configuration."""
+    SECRET_KEY = os.getenv('SECRET_KEY')  # Must be set in production
+    SIMULATION_MODE = False
+    LOG_LEVEL = 'WARNING'
+    
+    # In production, set an absolute path
+    DATABASE_PATH = os.getenv('DATABASE_PATH', '/var/www/pool-automation/pool_automation.db')
+    
+    # For PostgreSQL (if used)
+    DB_USER = os.getenv('DB_USER', '')
+    DB_PASSWORD = os.getenv('DB_PASSWORD', '')
+    DB_HOST = os.getenv('DB_HOST', 'localhost')
+    DB_PORT = os.getenv('DB_PORT', '5432')
+    DB_NAME = os.getenv('DB_NAME', 'pool_automation')
+    
+    def __init__(self):
+        if not self.SECRET_KEY:
+            logger.warning("No SECRET_KEY set for production environment - using fallback")
+
+# Get configuration based on environment
+def get_config():
+    env = os.getenv('FLASK_ENV', 'development')
+    config_dict = {
+        'development': DevelopmentConfig,
+        'testing': TestingConfig,
+        'production': ProductionConfig,
+        'default': DevelopmentConfig
+    }
+    return config_dict.get(env, config_dict['default'])()
+
+# Load application configuration
+app_config = get_config()
+app.config.from_object(app_config)
+
+# Set secret key
+app.config['SECRET_KEY'] = app_config.SECRET_KEY
+logger.info(f"Configuration loaded for environment: {app.config['FLASK_ENV']}")
+
 CORS(app)  # Enable CORS for all routes
 
 # Initialize Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+# Consistent exception handling function
+def handle_exception(e, operation_name, log_error=True, reraise=False):
+    """Handle exceptions consistently throughout the application."""
+    error_message = f"Error during {operation_name}: {str(e)}"
+    error_details = {
+        "error": str(e),
+        "type": type(e).__name__,
+        "operation": operation_name
+    }
+    
+    if log_error:
+        logger.error(error_message)
+        logger.debug(traceback.format_exc())
+    
+    if reraise:
+        raise e
+    
+    return error_details
 
 # User model for Flask-Login
 class User(UserMixin):
@@ -60,53 +176,56 @@ class User(UserMixin):
 # Create user-related tables
 def create_auth_tables():
     """Create tables for user authentication."""
-    with sqlite3.connect('pool_automation.db') as conn:
-        cursor = conn.cursor()
-        
-        # Create users table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS users (
-                id TEXT PRIMARY KEY,
-                email TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                name TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        
-        # Create pools table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS pools (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                owner_id TEXT NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                location TEXT,
-                volume_m3 REAL,
-                FOREIGN KEY (owner_id) REFERENCES users (id)
-            )
-        ''')
-        
-        # Create devices table
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS devices (
-                device_id TEXT PRIMARY KEY,
-                pool_id TEXT,
-                status TEXT DEFAULT 'inactive',
-                last_seen DATETIME,
-                FOREIGN KEY (pool_id) REFERENCES pools (id)
-            )
-        ''')
-        
-        conn.commit()
-        logger.info("Authentication tables created successfully")
+    try:
+        with sqlite3.connect(app.config['DATABASE_PATH']) as conn:
+            cursor = conn.cursor()
+            
+            # Create users table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id TEXT PRIMARY KEY,
+                    email TEXT UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    name TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # Create pools table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS pools (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    owner_id TEXT NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    location TEXT,
+                    volume_m3 REAL,
+                    FOREIGN KEY (owner_id) REFERENCES users (id)
+                )
+            ''')
+            
+            # Create devices table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS devices (
+                    device_id TEXT PRIMARY KEY,
+                    pool_id TEXT,
+                    status TEXT DEFAULT 'inactive',
+                    last_seen DATETIME,
+                    FOREIGN KEY (pool_id) REFERENCES pools (id)
+                )
+            ''')
+            
+            conn.commit()
+            logger.info("Authentication tables created successfully")
+    except Exception as e:
+        handle_exception(e, "creating authentication tables")
 
 # User loader callback for Flask-Login
 @login_manager.user_loader
 def load_user(user_id):
     """Load a user by ID for Flask-Login."""
     try:
-        with sqlite3.connect('pool_automation.db') as conn:
+        with sqlite3.connect(app.config['DATABASE_PATH']) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
@@ -120,7 +239,7 @@ def load_user(user_id):
                     name=user_data.get('name')
                 )
     except Exception as e:
-        logger.error(f"Error loading user: {e}")
+        handle_exception(e, "loading user")
     
     return None
 
@@ -128,19 +247,19 @@ def load_user(user_id):
 def get_user_pools(user_id):
     """Get all pools owned by a user."""
     try:
-        with sqlite3.connect('pool_automation.db') as conn:
+        with sqlite3.connect(app.config['DATABASE_PATH']) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM pools WHERE owner_id = ?", (user_id,))
             return [dict(row) for row in cursor.fetchall()]
     except Exception as e:
-        logger.error(f"Error getting user pools: {e}")
+        handle_exception(e, "getting user pools")
         return []
 
 def get_pool(pool_id, user_id=None):
     """Get a specific pool, optionally checking ownership."""
     try:
-        with sqlite3.connect('pool_automation.db') as conn:
+        with sqlite3.connect(app.config['DATABASE_PATH']) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             
@@ -157,7 +276,7 @@ def get_pool(pool_id, user_id=None):
             pool = cursor.fetchone()
             return dict(pool) if pool else None
     except Exception as e:
-        logger.error(f"Error getting pool: {e}")
+        handle_exception(e, "getting pool details")
         return None
 
 def get_last_reading(pool_id):
@@ -187,77 +306,59 @@ socketio = SocketIO(
     cors_allowed_origins="*",
     logger=True,
     engineio_logger=True,
-    ping_timeout=60,
-    ping_interval=25,
+    ping_timeout=app.config['SOCKETIO_PING_TIMEOUT'],
+    ping_interval=app.config['SOCKETIO_PING_INTERVAL'],
     transports=["polling"]    # Only allow polling transport
 )
 
-# Load configuration
-def load_config():
-    env = os.getenv('FLASK_ENV', 'development')
-
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
-    config_path = os.path.join(project_root, 'config', env, 'config.json')
-
-    try:
-        with open(config_path, 'r') as f:
-            logger.info(f"Loading configuration from {config_path}")
-            return json.load(f)
-    except Exception as e:
-        logger.error(f"Error loading configuration: {e}")
-        # Return default configuration
-        return {
-            "system": {"simulation_mode": True},
-            "dosing": {
-                "high_threshold_ntu": 0.25,
-                "low_threshold_ntu": 0.12,
-                "target_ntu": 0.15
-            }
-        }
-
-config = load_config()
 # Create a global instance of the system simulator
-simulator = EnhancedPoolSimulator(config.get('simulator', {}))
+simulator = EnhancedPoolSimulator(app.config.get('SIMULATOR', {}))
 
 # Create mock hardware using the simulator
-mock_turbidity_sensor = MockTurbiditySensor(config.get('hardware', {}).get('turbidity_sensor', {}), simulator)
-mock_pac_pump = MockPump({'type': 'pac', **config.get('hardware', {}).get('pac_pump', {})}, simulator)
+mock_turbidity_sensor = MockTurbiditySensor(app.config.get('HARDWARE', {}).get('turbidity_sensor', {}), simulator)
+mock_pac_pump = MockPump({'type': 'pac', **app.config.get('HARDWARE', {}).get('pac_pump', {})}, simulator)
 
 # Create an event logger function
 def log_dosing_event(event_type, duration, flow_rate, turbidity):
-    db = DatabaseHandler()
-    db.log_dosing_event(event_type, duration, flow_rate, turbidity)
-    logger.info(f"Dosing event logged: {event_type}, {duration}s, {flow_rate}ml/h, {turbidity}NTU")
+    try:
+        db = DatabaseHandler()
+        db.log_dosing_event(event_type, duration, flow_rate, turbidity)
+        logger.info(f"Dosing event logged: {event_type}, {duration}s, {flow_rate}ml/h, {turbidity}NTU")
+    except Exception as e:
+        handle_exception(e, "logging dosing event")
 
 # Add your new adapter function right here, after log_dosing_event
 def event_logger_adapter(*args, **kwargs):
     """Adapter function to handle different event logger formats."""
-    # Handle system events (just logging, no database entry)
-    if len(args) >= 1 and args[0] == 'system':
-        message = args[1] if len(args) > 1 else "System event"
-        logger.info(f"System event: {message}")
-        return
-    
-    # For dosing events
-    if len(args) >= 2 and args[0] == 'dosing':
-        # Second argument is event subtype
-        event_subtype = args[1]
-        duration = kwargs.get('duration', 0)
-        flow_rate = kwargs.get('flow_rate', 0)
-        turbidity = kwargs.get('turbidity', 0)
+    try:
+        # Handle system events (just logging, no database entry)
+        if len(args) >= 1 and args[0] == 'system':
+            message = args[1] if len(args) > 1 else "System event"
+            logger.info(f"System event: {message}")
+            return
         
-        # Call original logger with combined event type
-        log_dosing_event(f"PAC-{event_subtype}", duration, flow_rate, turbidity)
-        return
-    
-    # Handle basic calls with minimal arguments (fallback)
-    event_type = args[0] if args else "unknown"
-    duration = args[1] if len(args) > 1 else 0
-    flow_rate = args[2] if len(args) > 2 else 0
-    turbidity = args[3] if len(args) > 3 else 0
-    
-    # Log with whatever we have
-    log_dosing_event(event_type, duration, flow_rate, turbidity)
+        # For dosing events
+        if len(args) >= 2 and args[0] == 'dosing':
+            # Second argument is event subtype
+            event_subtype = args[1]
+            duration = kwargs.get('duration', 0)
+            flow_rate = kwargs.get('flow_rate', 0)
+            turbidity = kwargs.get('turbidity', 0)
+            
+            # Call original logger with combined event type
+            log_dosing_event(f"PAC-{event_subtype}", duration, flow_rate, turbidity)
+            return
+        
+        # Handle basic calls with minimal arguments (fallback)
+        event_type = args[0] if args else "unknown"
+        duration = args[1] if len(args) > 1 else 0
+        flow_rate = args[2] if len(args) > 2 else 0
+        turbidity = args[3] if len(args) > 3 else 0
+        
+        # Log with whatever we have
+        log_dosing_event(event_type, duration, flow_rate, turbidity)
+    except Exception as e:
+        handle_exception(e, "adapting event logger")
 
 def send_status_update(pool_id=None):
     """Send parameter updates to clients.
@@ -352,45 +453,51 @@ def send_status_update(pool_id=None):
                 socketio.emit('parameter_update', status_data, room=pool_id)
                 
             except Exception as e:
-                logger.error(f"Error sending pool-specific update for pool {pool_id}: {e}")
+                handle_exception(e, f"sending pool-specific update for pool {pool_id}")
     
     except Exception as e:
-        logger.error(f"Error in send_status_update: {e}")
+        handle_exception(e, "send_status_update")
 
 # Add these functions for emitting dosing and system events
 def emit_dosing_update(event_type, details=None):
     """Emit dosing controller update to all clients."""
-    if not dosing_controller:
-        return
-    
-    status = dosing_controller.get_status()
-    
-    data = {
-        'event': event_type,
-        'mode': dosing_controller.mode.name,
-        'status': status
-    }
-    
-    if details:
-        data.update(details)
-    
-    socketio.emit('dosing_update', data)
+    try:
+        if not dosing_controller:
+            return
+        
+        status = dosing_controller.get_status()
+        
+        data = {
+            'event': event_type,
+            'mode': dosing_controller.mode.name,
+            'status': status
+        }
+        
+        if details:
+            data.update(details)
+        
+        socketio.emit('dosing_update', data)
+    except Exception as e:
+        handle_exception(e, "emitting dosing update")
 
 def emit_system_event(event_type, description, parameter=None, value=None):
     """Emit system event to all clients."""
-    data = {
-        'event': event_type,
-        'description': description,
-        'timestamp': time.time()
-    }
-    
-    if parameter:
-        data['parameter'] = parameter
-    
-    if value:
-        data['value'] = value
-    
-    socketio.emit('system_event', data)
+    try:
+        data = {
+            'event': event_type,
+            'description': description,
+            'timestamp': time.time()
+        }
+        
+        if parameter:
+            data['parameter'] = parameter
+        
+        if value:
+            data['value'] = value
+        
+        socketio.emit('system_event', data)
+    except Exception as e:
+        handle_exception(e, "emitting system event")
 
 # Modify your start_background_tasks function
 def start_background_tasks():
@@ -401,7 +508,7 @@ def start_background_tasks():
                 send_status_update()
                 time.sleep(2)  # Update every 2 seconds
             except Exception as e:
-                logger.error(f"Error in update task: {e}")
+                handle_exception(e, "background update task")
                 time.sleep(5)  # Delay on error
     
     thread = threading.Thread(target=send_updates, daemon=True)
@@ -415,16 +522,16 @@ create_auth_tables()
 dosing_controller = AdvancedDosingController(
     mock_turbidity_sensor, 
     mock_pac_pump,
-    config.get('dosing', {
-        'high_threshold_ntu': 0.25,
-        'low_threshold_ntu': 0.12,
-        'target_ntu': 0.15,
-        'min_dose_interval_sec': 300,
-        'dose_duration_sec': 30,
-        'pid_kp': 1.0,
-        'pid_ki': 0.1,
-        'pid_kd': 0.05
-    }),
+    {
+        'high_threshold_ntu': app.config.get('DOSING_HIGH_THRESHOLD', 0.25),
+        'low_threshold_ntu': app.config.get('DOSING_LOW_THRESHOLD', 0.12),
+        'target_ntu': app.config.get('DOSING_TARGET', 0.15),
+        'min_dose_interval_sec': app.config.get('DOSING_MIN_INTERVAL', 300),
+        'dose_duration_sec': app.config.get('DOSING_DURATION', 30),
+        'pid_kp': app.config.get('DOSING_PID_KP', 1.0),
+        'pid_ki': app.config.get('DOSING_PID_KI', 0.1),
+        'pid_kd': app.config.get('DOSING_PID_KD', 0.05)
+    },
     event_logger_adapter  # Use the adapter here
 )
 
@@ -441,9 +548,9 @@ def get_simulated_data():
         "turbidity": {
             "current": round(random.uniform(0.05, 0.35), 3),
             "average": round(random.uniform(0.10, 0.25), 3),
-            "highThreshold": 0.25,
-            "lowThreshold": 0.12,
-            "target": 0.15,
+            "highThreshold": app.config.get('DOSING_HIGH_THRESHOLD', 0.25),
+            "lowThreshold": app.config.get('DOSING_LOW_THRESHOLD', 0.12),
+            "target": app.config.get('DOSING_TARGET', 0.15),
             "pumpStatus": "stopped"
         },
         "ph": round(random.uniform(7.0, 7.4), 1),
@@ -453,7 +560,7 @@ def get_simulated_data():
         "temperature": round(random.uniform(26.0, 29.0), 1),
         "systemStatus": {
             "running": True,
-            "simulation": True,
+            "simulation": app.config.get('SIMULATION_MODE', True),
             "lastUpdate": time.time()
         }
     }
@@ -468,7 +575,7 @@ def login():
         password = request.form.get('password')
         
         try:
-            with sqlite3.connect('pool_automation.db') as conn:
+            with sqlite3.connect(app.config['DATABASE_PATH']) as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
                 cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
@@ -484,7 +591,7 @@ def login():
                     login_user(user)
                     return redirect(url_for('pools'))
         except Exception as e:
-            logger.error(f"Error during login: {e}")
+            handle_exception(e, "user login")
         
         flash("Invalid email or password", "error")
         return render_template('login.html', error="Invalid email or password")
@@ -500,7 +607,7 @@ def register():
         name = request.form.get('name')
         
         try:
-            with sqlite3.connect('pool_automation.db') as conn:
+            with sqlite3.connect(app.config['DATABASE_PATH']) as conn:
                 cursor = conn.cursor()
                 
                 # Check if email already exists
@@ -528,7 +635,7 @@ def register():
                 flash("Account created successfully", "success")
                 return redirect(url_for('pools'))
         except Exception as e:
-            logger.error(f"Error during registration: {e}")
+            handle_exception(e, "user registration")
             flash("An error occurred during registration", "error")
             return render_template('register.html', error="Registration failed")
     
@@ -560,7 +667,7 @@ def add_pool():
         device_id = request.form.get('device_id')
         
         try:
-            with sqlite3.connect('pool_automation.db') as conn:
+            with sqlite3.connect(app.config['DATABASE_PATH']) as conn:
                 cursor = conn.cursor()
                 
                 # Create new pool
@@ -583,7 +690,7 @@ def add_pool():
                 flash("Pool added successfully", "success")
                 return redirect(url_for('pools'))
         except Exception as e:
-            logger.error(f"Error adding pool: {e}")
+            handle_exception(e, "adding pool")
             flash("An error occurred while adding the pool", "error")
     
     return render_template('add_pool.html')
@@ -626,11 +733,12 @@ def index():
 @app.route('/api/status')
 def status():
     """Get the current system status."""
-    simulation_mode = config.get('system', {}).get('simulation_mode', True)
+    simulation_mode = app.config.get('SIMULATION_MODE', True)
     return jsonify({
         "status": "ok",
         "simulation_mode": simulation_mode,
-        "version": "0.1.0"
+        "version": "0.1.0",
+        "environment": app.config.get('FLASK_ENV')
     })
 
 @app.route('/socket-status')
@@ -652,7 +760,7 @@ def dashboard_data():
         return jsonify({"error": "No pool selected"}), 400
     
     # Check if user has access to this pool
-    with sqlite3.connect('pool_automation.db') as conn:
+    with sqlite3.connect(app.config['DATABASE_PATH']) as conn:
         cursor = conn.cursor()
         cursor.execute(
             "SELECT id FROM pools WHERE id = ? AND owner_id = ?", 
@@ -707,52 +815,56 @@ def control_pac_pump():
     data = request.json
     command = data.get('command')
     
-    if command == 'start':
-        duration = data.get('duration', 30)
-        flow_rate = data.get('flow_rate')
+    try:
+        if command == 'start':
+            duration = data.get('duration', 30)
+            flow_rate = data.get('flow_rate')
+            
+            if flow_rate:
+                mock_pac_pump.set_flow_rate(flow_rate)
+            
+            success = mock_pac_pump.start(duration=duration)
+            
+            # Emit system event
+            emit_system_event('pac_pump_started', 
+                            f"PAC pump started manually for {duration}s at {mock_pac_pump.get_flow_rate()} mL/h")
+            
+            return jsonify({
+                "success": success,
+                "message": f"PAC pump started for {duration} seconds at {mock_pac_pump.get_flow_rate()} ml/h"
+            })
         
-        if flow_rate:
-            mock_pac_pump.set_flow_rate(flow_rate)
+        elif command == 'stop':
+            success = mock_pac_pump.stop()
+            
+            # Emit system event
+            emit_system_event('pac_pump_stopped', "PAC pump stopped manually")
+            
+            return jsonify({
+                "success": success,
+                "message": "PAC pump stopped"
+            })
         
-        success = mock_pac_pump.start(duration=duration)
+        elif command == 'set_rate':
+            flow_rate = data.get('flow_rate')
+            if not flow_rate:
+                return jsonify({"error": "Missing flow_rate parameter"}), 400
+            
+            success = mock_pac_pump.set_flow_rate(flow_rate)
+            
+            # Emit system event
+            emit_system_event('pac_flow_rate_changed', f"PAC pump flow rate set to {flow_rate} mL/h")
+            
+            return jsonify({
+                "success": success,
+                "message": f"PAC pump flow rate set to {flow_rate} ml/h"
+            })
         
-        # Emit system event
-        emit_system_event('pac_pump_started', 
-                         f"PAC pump started manually for {duration}s at {mock_pac_pump.get_flow_rate()} mL/h")
-        
-        return jsonify({
-            "success": success,
-            "message": f"PAC pump started for {duration} seconds at {mock_pac_pump.get_flow_rate()} ml/h"
-        })
-    
-    elif command == 'stop':
-        success = mock_pac_pump.stop()
-        
-        # Emit system event
-        emit_system_event('pac_pump_stopped', "PAC pump stopped manually")
-        
-        return jsonify({
-            "success": success,
-            "message": "PAC pump stopped"
-        })
-    
-    elif command == 'set_rate':
-        flow_rate = data.get('flow_rate')
-        if not flow_rate:
-            return jsonify({"error": "Missing flow_rate parameter"}), 400
-        
-        success = mock_pac_pump.set_flow_rate(flow_rate)
-        
-        # Emit system event
-        emit_system_event('pac_flow_rate_changed', f"PAC pump flow rate set to {flow_rate} mL/h")
-        
-        return jsonify({
-            "success": success,
-            "message": f"PAC pump flow rate set to {flow_rate} ml/h"
-        })
-    
-    else:
-        return jsonify({"error": "Invalid command"}), 400
+        else:
+            return jsonify({"error": "Invalid command"}), 400
+    except Exception as e:
+        error_details = handle_exception(e, "controlling PAC pump")
+        return jsonify({"error": error_details["error"]}), 500
     
 @app.route('/api/simulator/control', methods=['POST'])
 def control_simulator():
@@ -763,110 +875,132 @@ def control_simulator():
     data = request.json
     command = data.get('command')
     
-    if command == 'set_parameter':
-        param = data.get('parameter')
-        value = data.get('value')
+    try:
+        if command == 'set_parameter':
+            param = data.get('parameter')
+            value = data.get('value')
+            
+            if not param or value is None:
+                return jsonify({"error": "Missing parameter or value"}), 400
+            
+            # Update the parameter in the simulator
+            simulator.parameters[param] = float(value)
+            
+            return jsonify({
+                "success": True,
+                "message": f"Parameter {param} set to {value}"
+            })
         
-        if not param or value is None:
-            return jsonify({"error": "Missing parameter or value"}), 400
+        elif command == 'set_time_scale':
+            time_scale = data.get('time_scale')
+            
+            if not time_scale:
+                return jsonify({"error": "Missing time_scale parameter"}), 400
+            
+            simulator.time_scale = float(time_scale)
+            
+            return jsonify({
+                "success": True,
+                "message": f"Time scale set to {time_scale}x"
+            })
         
-        # Update the parameter in the simulator
-        simulator.parameters[param] = float(value)
-        
-        return jsonify({
-            "success": True,
-            "message": f"Parameter {param} set to {value}"
-        })
-    
-    elif command == 'set_time_scale':
-        time_scale = data.get('time_scale')
-        
-        if not time_scale:
-            return jsonify({"error": "Missing time_scale parameter"}), 400
-        
-        simulator.time_scale = float(time_scale)
-        
-        return jsonify({
-            "success": True,
-            "message": f"Time scale set to {time_scale}x"
-        })
-    
-    else:
-        return jsonify({"error": "Invalid command"}), 400
+        else:
+            return jsonify({"error": "Invalid command"}), 400
+    except Exception as e:
+        error_details = handle_exception(e, "controlling simulator")
+        return jsonify({"error": error_details["error"]}), 500
 
 @app.route('/api/history/turbidity')
 def turbidity_history():
     """Get historical turbidity data for charts."""
-    hours = request.args.get('hours', default=24, type=int)
-    db = DatabaseHandler()
-    data = db.get_turbidity_history(hours)
-    
-    # Format for frontend charts
-    timestamps = [entry['timestamp'] for entry in data]
-    values = [entry['value'] for entry in data]
-    moving_avg = [entry['moving_avg'] for entry in data if entry['moving_avg'] is not None]
-    
-    return jsonify({
-        "timestamps": timestamps,
-        "values": values,
-        "moving_avg": moving_avg
-    })
+    try:
+        hours = request.args.get('hours', default=24, type=int)
+        db = DatabaseHandler()
+        data = db.get_turbidity_history(hours)
+        
+        # Format for frontend charts
+        timestamps = [entry['timestamp'] for entry in data]
+        values = [entry['value'] for entry in data]
+        moving_avg = [entry['moving_avg'] for entry in data if entry['moving_avg'] is not None]
+        
+        return jsonify({
+            "timestamps": timestamps,
+            "values": values,
+            "moving_avg": moving_avg
+        })
+    except Exception as e:
+        error_details = handle_exception(e, "retrieving turbidity history")
+        return jsonify({"error": error_details["error"]}), 500
 
 @app.route('/api/history/parameters')
 def parameter_history():
     """Get historical data for multiple parameters."""
-    hours = request.args.get('hours', default=24, type=int)
-    db = DatabaseHandler()
-    
-    # Get Steiel data (pH, ORP, chlorine)
-    steiel_data = db.get_steiel_history(hours)
-    
-    # Format for frontend charts
-    timestamps = [entry['timestamp'] for entry in steiel_data]
-    
-    ph_values = [entry['ph'] for entry in steiel_data]
-    orp_values = [entry['orp'] for entry in steiel_data]
-    free_cl_values = [entry['free_cl'] for entry in steiel_data]
-    comb_cl_values = [entry['comb_cl'] for entry in steiel_data]
-    
-    return jsonify({
-        "timestamps": timestamps,
-        "parameters": {
-            "ph": ph_values,
-            "orp": orp_values,
-            "freeChlorine": free_cl_values,
-            "combinedChlorine": comb_cl_values
-        }
-    })
+    try:
+        hours = request.args.get('hours', default=24, type=int)
+        db = DatabaseHandler()
+        
+        # Get Steiel data (pH, ORP, chlorine)
+        steiel_data = db.get_steiel_history(hours)
+        
+        # Format for frontend charts
+        timestamps = [entry['timestamp'] for entry in steiel_data]
+        
+        ph_values = [entry['ph'] for entry in steiel_data]
+        orp_values = [entry['orp'] for entry in steiel_data]
+        free_cl_values = [entry['free_cl'] for entry in steiel_data]
+        comb_cl_values = [entry['comb_cl'] for entry in steiel_data]
+        
+        return jsonify({
+            "timestamps": timestamps,
+            "parameters": {
+                "ph": ph_values,
+                "orp": orp_values,
+                "freeChlorine": free_cl_values,
+                "combinedChlorine": comb_cl_values
+            }
+        })
+    except Exception as e:
+        error_details = handle_exception(e, "retrieving parameter history")
+        return jsonify({"error": error_details["error"]}), 500
 
 @app.route('/api/history/events')
 def events_history():
     """Get system and dosing events history."""
-    hours = request.args.get('hours', default=24, type=int)
-    event_type = request.args.get('type', default=None)
-    db = DatabaseHandler()
-    
-    # Get dosing events
-    dosing_events = db.get_dosing_events(hours)
-    
-    # Format events for frontend
-    events = []
-    for event in dosing_events:
-        formatted_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(event['timestamp']))
-        events.append({
-            "timestamp": formatted_time,
-            "type": "Dosing",
-            "description": f"{event['event_type']} dosing",
-            "parameter": "Turbidity",
-            "value": f"{event['turbidity']:.3f} NTU"
-        })
-    
-    return jsonify(events)
+    try:
+        hours = request.args.get('hours', default=24, type=int)
+        event_type = request.args.get('type', default=None)
+        db = DatabaseHandler()
+        
+        # Get dosing events
+        dosing_events = db.get_dosing_events(hours)
+        
+        # Format events for frontend
+        events = []
+        for event in dosing_events:
+            formatted_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(event['timestamp']))
+            events.append({
+                "timestamp": formatted_time,
+                "type": "Dosing",
+                "description": f"{event['event_type']} dosing",
+                "parameter": "Turbidity",
+                "value": f"{event['turbidity']:.3f} NTU"
+            })
+        
+        return jsonify(events)
+    except Exception as e:
+        error_details = handle_exception(e, "retrieving events history")
+        return jsonify({"error": error_details["error"]}), 500
 
 @app.route('/api/dosing/status')
 def dosing_status():
     """Get the current status of the dosing controller."""
-    return jsonify(dosing_controller.get_status())
+    try:
+        if not dosing_controller:
+            return jsonify({"error": "Dosing controller not initialized"}), 500
+        return jsonify(dosing_controller.get_status())
+    except Exception as e:
+        error_details = handle_exception(e, "getting dosing status")
+        return jsonify({"error": error_details["error"]}), 500
 
 # Update your set_dosing_mode endpoint to use the emit_dosing_update function
 @app.route('/api/dosing/mode', methods=['POST'])
@@ -883,15 +1017,19 @@ def set_dosing_mode():
     except (KeyError, ValueError):
         return jsonify({"error": f"Invalid mode: {mode_str}"}), 400
     
-    dosing_controller.set_mode(mode)
-    
-    # Use the new emit function instead of direct socketio.emit
-    emit_dosing_update('mode_changed')
-    
-    # Log the event
-    emit_system_event('dosing_mode_changed', f"Dosing mode changed to {mode_str}")
-    
-    return jsonify({"success": True, "mode": mode_str})
+    try:
+        dosing_controller.set_mode(mode)
+        
+        # Use the new emit function instead of direct socketio.emit
+        emit_dosing_update('mode_changed')
+        
+        # Log the event
+        emit_system_event('dosing_mode_changed', f"Dosing mode changed to {mode_str}")
+        
+        return jsonify({"success": True, "mode": mode_str})
+    except Exception as e:
+        error_details = handle_exception(e, "setting dosing mode")
+        return jsonify({"error": error_details["error"]}), 500
 
 # Add health check route for Socket.IO
 @app.route('/socket.io-test')
@@ -910,40 +1048,48 @@ def manual_dosing():
     duration = data.get('duration', 30)  # Default to 30 seconds if not specified
     flow_rate = data.get('flow_rate')
     
-    success = dosing_controller.manual_dose(duration, flow_rate)
-    
-    if success:
-        # Get current turbidity for the event
-        current_turbidity = mock_turbidity_sensor.get_reading()
+    try:
+        success = dosing_controller.manual_dose(duration, flow_rate)
         
-        # Emit dosing update
-        emit_dosing_update('manual_dose_started', {
-            'duration': duration,
-            'flow_rate': mock_pac_pump.get_flow_rate()
-        })
-        
-        # Emit system event
-        event_desc = f"Manual dosing started (duration: {duration}s, flow rate: {mock_pac_pump.get_flow_rate()} mL/h)"
-        emit_system_event('manual_dose_started', event_desc, 'turbidity', str(current_turbidity))
-        
-        return jsonify({
-            "success": True, 
-            "message": f"Manual dosing started for {duration} seconds"
-        })
-    else:
-        return jsonify({
-            "success": False, 
-            "message": "Manual dosing failed. Controller must be in MANUAL mode."
-        }), 400
+        if success:
+            # Get current turbidity for the event
+            current_turbidity = mock_turbidity_sensor.get_reading()
+            
+            # Emit dosing update
+            emit_dosing_update('manual_dose_started', {
+                'duration': duration,
+                'flow_rate': mock_pac_pump.get_flow_rate()
+            })
+            
+            # Emit system event
+            event_desc = f"Manual dosing started (duration: {duration}s, flow rate: {mock_pac_pump.get_flow_rate()} mL/h)"
+            emit_system_event('manual_dose_started', event_desc, 'turbidity', str(current_turbidity))
+            
+            return jsonify({
+                "success": True, 
+                "message": f"Manual dosing started for {duration} seconds"
+            })
+        else:
+            return jsonify({
+                "success": False, 
+                "message": "Manual dosing failed. Controller must be in MANUAL mode."
+            }), 400
+    except Exception as e:
+        error_details = handle_exception(e, "triggering manual dosing")
+        return jsonify({"error": error_details["error"]}), 500
     
 @app.route('/api/dosing/reset-pid', methods=['POST'])
 def reset_pid():
     """Reset the PID controller."""
-    if dosing_controller:
-        success = dosing_controller.reset_pid()
-        emit_system_event('pid_reset', "PID controller reset")
-        return jsonify({"success": success})
-    return jsonify({"error": "Dosing controller not initialized"}), 500
+    try:
+        if dosing_controller:
+            success = dosing_controller.reset_pid()
+            emit_system_event('pid_reset', "PID controller reset")
+            return jsonify({"success": success})
+        return jsonify({"error": "Dosing controller not initialized"}), 500
+    except Exception as e:
+        error_details = handle_exception(e, "resetting PID controller")
+        return jsonify({"error": error_details["error"]}), 500
 
 # Add a simpler debugging route without version references
 @app.route('/socket-debug')
@@ -1037,8 +1183,8 @@ def initialize_database():
         
         return jsonify({"success": True, "message": f"Database initialized with {days} days of sample data"})
     except Exception as e:
-        logger.error(f"Error initializing database: {e}")
-        return jsonify({"success": False, "message": str(e)}), 500
+        error_details = handle_exception(e, "initializing database")
+        return jsonify({"success": False, "message": error_details["error"]}), 500
     
 # Add to app.py
 @app.route('/api/notifications/settings', methods=['POST'])
@@ -1049,18 +1195,22 @@ def update_notification_settings():
     
     data = request.json
     
-    # Save notification settings
-    email = data.get('email')
-    alert_types = data.get('alertTypes', [])
-    
-    # Update the database
-    db = DatabaseHandler()
-    db.save_notification_settings(email, alert_types)
-    
-    return jsonify({
-        "success": True,
-        "message": "Notification settings updated"
-    })
+    try:
+        # Save notification settings
+        email = data.get('email')
+        alert_types = data.get('alertTypes', [])
+        
+        # Update the database
+        db = DatabaseHandler()
+        db.save_notification_settings(email, alert_types)
+        
+        return jsonify({
+            "success": True,
+            "message": "Notification settings updated"
+        })
+    except Exception as e:
+        error_details = handle_exception(e, "updating notification settings")
+        return jsonify({"error": error_details["error"]}), 500
 
 @app.route('/api/notifications/test', methods=['POST'])
 def test_notification():
@@ -1087,9 +1237,10 @@ def test_notification():
             "message": "Test notification sent"
         })
     except Exception as e:
+        error_details = handle_exception(e, "sending test notification")
         return jsonify({
             "success": False,
-            "message": f"Failed to send notification: {str(e)}"
+            "message": error_details["error"]
         }), 500
 
 def send_notification(email, subject, message):
@@ -1099,10 +1250,10 @@ def send_notification(email, subject, message):
     from email.mime.multipart import MIMEMultipart
     
     # Get email settings from config
-    smtp_server = config.get('notifications', {}).get('smtp_server', '')
-    smtp_port = config.get('notifications', {}).get('smtp_port', 587)
-    smtp_user = config.get('notifications', {}).get('smtp_username', '')
-    smtp_pass = config.get('notifications', {}).get('smtp_password', '')
+    smtp_server = app.config.get('SMTP_SERVER', '')
+    smtp_port = app.config.get('SMTP_PORT', 587)
+    smtp_user = app.config.get('SMTP_USERNAME', '')
+    smtp_pass = app.config.get('SMTP_PASSWORD', '')
     
     if not smtp_server or not smtp_user or not smtp_pass:
         raise ValueError("SMTP settings not configured")
@@ -1125,77 +1276,104 @@ def send_notification(email, subject, message):
 @app.route('/api/simulator/events', methods=['GET'])
 def get_simulator_events():
     """Get recent simulator events."""
-    if simulator:
-        events = simulator.get_recent_events(10)
-        return jsonify(events)
-    return jsonify({"error": "Simulator not initialized"}), 500
+    try:
+        if simulator:
+            events = simulator.get_recent_events(10)
+            return jsonify(events)
+        return jsonify({"error": "Simulator not initialized"}), 500
+    except Exception as e:
+        error_details = handle_exception(e, "getting simulator events")
+        return jsonify({"error": error_details["error"]}), 500
 
 @app.route('/api/simulator/trigger-event', methods=['POST'])
 def trigger_simulator_event():
     """Manually trigger a simulator event."""
-    data = request.json or {}
-    event_type = data.get('type')
-    
-    if simulator:
-        success = simulator.trigger_event(event_type)
-        return jsonify({"success": success})
-    return jsonify({"error": "Simulator not initialized"}), 500
+    try:
+        data = request.json or {}
+        event_type = data.get('type')
+        
+        if simulator:
+            success = simulator.trigger_event(event_type)
+            return jsonify({"success": success})
+        return jsonify({"error": "Simulator not initialized"}), 500
+    except Exception as e:
+        error_details = handle_exception(e, "triggering simulator event")
+        return jsonify({"error": error_details["error"]}), 500
 
 @app.route('/api/dosing/schedule', methods=['POST'])
 def schedule_dose():
     """Schedule a future dose."""
-    data = request.json or {}
-    timestamp = data.get('timestamp')
-    duration = data.get('duration')
-    flow_rate = data.get('flow_rate')
-    
-    if dosing_controller:
-        success = dosing_controller.schedule_dose(timestamp, duration, flow_rate)
-        return jsonify({"success": success})
-    return jsonify({"error": "Dosing controller not initialized"}), 500
+    try:
+        data = request.json or {}
+        timestamp = data.get('timestamp')
+        duration = data.get('duration')
+        flow_rate = data.get('flow_rate')
+        
+        if dosing_controller:
+            success = dosing_controller.schedule_dose(timestamp, duration, flow_rate)
+            return jsonify({"success": success})
+        return jsonify({"error": "Dosing controller not initialized"}), 500
+    except Exception as e:
+        error_details = handle_exception(e, "scheduling dose")
+        return jsonify({"error": error_details["error"]}), 500
 
 @app.route('/api/dosing/scheduled', methods=['GET'])
 def get_scheduled_doses():
     """Get scheduled doses."""
-    if dosing_controller:
-        scheduled = dosing_controller.get_scheduled_doses()
-        return jsonify(scheduled)
-    return jsonify({"error": "Dosing controller not initialized"}), 500
+    try:
+        if dosing_controller:
+            scheduled = dosing_controller.get_scheduled_doses()
+            return jsonify(scheduled)
+        return jsonify({"error": "Dosing controller not initialized"}), 500
+    except Exception as e:
+        error_details = handle_exception(e, "getting scheduled doses")
+        return jsonify({"error": error_details["error"]}), 500
 
 # WebSocket room management
 @socketio.on('join')
 def on_join(data):
     """Join a room for a specific pool."""
+    if not current_user.is_authenticated:
+        logger.warning(f"Unauthenticated client {request.sid} attempted to join a pool room")
+        return {'error': 'Authentication required', 'status': 'error'}
+    
     pool_id = data.get('pool_id')
     
     if not pool_id:
-        return
+        return {'error': 'Pool ID required', 'status': 'error'}
     
-    # Verify user has access to this pool
-    with sqlite3.connect('pool_automation.db') as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT id FROM pools WHERE id = ? AND owner_id = ?", 
-            (pool_id, current_user.id)
-        )
-        pool = cursor.fetchone()
+    try:
+        # Verify user has access to this pool
+        pool = get_pool(pool_id, current_user.id)
         
         if not pool:
-            return
-    
-    # Join the room for this pool
-    join_room(pool_id)
-    emit('room_joined', {'pool_id': pool_id, 'status': 'connected'})
+            logger.warning(f"User {current_user.id} attempted to access unauthorized pool {pool_id}")
+            return {'error': 'Access denied', 'status': 'error'}
+        
+        # Join the room for this pool
+        join_room(pool_id)
+        logger.info(f"User {current_user.id} joined room for pool {pool_id}")
+        emit('room_joined', {'pool_id': pool_id, 'status': 'connected'})
+    except Exception as e:
+        handle_exception(e, "joining room")
+        return {'error': 'Server error', 'status': 'error'}
 
 # WebSocket events
 @socketio.on('connect')
 def handle_connect():
-    logger.info(f"Client connected: {request.sid}")
+    """Handle Socket.IO connection with authentication."""
+    if not current_user.is_authenticated:
+        # Anonymous access allowed for now, but could be restricted
+        logger.info(f"Anonymous client connected: {request.sid}")
+    else:
+        logger.info(f"Authenticated client connected: {request.sid}, user: {current_user.id}")
+    
     # Send initial data upon connection
     socketio.emit('connection_confirmed', {
         'status': 'connected',
-        'clientId': request.sid
-    })
+        'clientId': request.sid,
+        'authenticated': current_user.is_authenticated
+    }, to=request.sid)
     
     # Send current parameters
     send_status_update()
@@ -1214,32 +1392,37 @@ def handle_system_state_request():
     """Handle client request for complete system state."""
     logger.info(f"System state requested by client: {request.sid}")
     
-    if simulator:
-        # Get all current parameters and pump states
-        params = simulator.get_all_parameters()
-        pump_states = simulator.get_pump_states()
-        
-        # Combine into a complete status update
-        complete_state = {
-            "ph": round(params['ph'], 2),
-            "orp": round(params['orp']),
-            "freeChlorine": round(params['free_chlorine'], 2),
-            "combinedChlorine": round(params['combined_chlorine'], 2),
-            "turbidity": round(params['turbidity'], 3),
-            "temperature": round(params['temperature'], 1),
-            "phPumpRunning": pump_states.get('acid', False),
-            "clPumpRunning": pump_states.get('chlorine', False),
-            "pacPumpRunning": pump_states.get('pac', False),
-            "pacDosingRate": mock_pac_pump.get_flow_rate(),
-            "dosingMode": dosing_controller.mode.name,
-            "timestamp": time.time(),
-            "systemStatus": "normal"
-        }
-        
-        # Send the complete state to the requesting client only
-        emit('complete_system_state', complete_state)
+    try:
+        if simulator:
+            # Get all current parameters and pump states
+            params = simulator.get_all_parameters()
+            pump_states = simulator.get_pump_states()
+            
+            # Combine into a complete status update
+            complete_state = {
+                "ph": round(params['ph'], 2),
+                "orp": round(params['orp']),
+                "freeChlorine": round(params['free_chlorine'], 2),
+                "combinedChlorine": round(params['combined_chlorine'], 2),
+                "turbidity": round(params['turbidity'], 3),
+                "temperature": round(params['temperature'], 1),
+                "phPumpRunning": pump_states.get('acid', False),
+                "clPumpRunning": pump_states.get('chlorine', False),
+                "pacPumpRunning": pump_states.get('pac', False),
+                "pacDosingRate": mock_pac_pump.get_flow_rate(),
+                "dosingMode": dosing_controller.mode.name,
+                "timestamp": time.time(),
+                "systemStatus": "normal"
+            }
+            
+            # Send the complete state to the requesting client only
+            emit('complete_system_state', complete_state)
+    except Exception as e:
+        handle_exception(e, "handling system state request")
 
 # Main entry point
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
-    socketio.run(app, host='0.0.0.0', port=port, debug=True)
+    debug_mode = app.config.get('DEBUG', False)
+    logger.info(f"Starting application on port {port} with debug={debug_mode}")
+    socketio.run(app, host='0.0.0.0', port=port, debug=debug_mode)
