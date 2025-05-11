@@ -611,32 +611,32 @@ def login():
                 
                 # Verify password
                 if check_password_hash(user_data['password_hash'], password):
-                    # Check if role column exists (for backward compatibility)
-                    role = user_data.get('role', 'customer')
+                    # Set default role to 'customer'
+                    role = 'customer'
+                    
+                    # Check if role column exists and has a value
+                    column_names = [column[0] for column in cursor.description]
+                    if 'role' in column_names and user_data['role']:
+                        role = user_data['role']
                     
                     user = User(
                         id=user_data['id'],
                         email=user_data['email'],
                         password_hash=user_data['password_hash'],
-                        name=user_data.get('name'),
+                        name=user_data['name'] if 'name' in column_names else None,
                         role=role
                     )
                     
                     login_user(user)
                     logger.info(f"Login successful: {email}")
-                    
-                    # Check for next parameter or redirect to pools
-                    next_page = request.args.get('next')
-                    if next_page and is_safe_url(next_page):
-                        return redirect(next_page)
                     return redirect(url_for('pools'))
                 else:
                     logger.warning(f"Login failed: Incorrect password - {email}")
                     flash("Invalid email or password", "error")
                     return render_template('login.html', error="Invalid email or password")
         except Exception as e:
-            error_details = handle_exception(e, "user login", log_error=True)
-            logger.error(f"Login error for {email}: {error_details}")
+            logger.error(f"Login error for {email}: {str(e)}")
+            logger.error(traceback.format_exc())
             flash("An error occurred during login. Please try again.", "error")
             return render_template('login.html', error="System error during login")
     
