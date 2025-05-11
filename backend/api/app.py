@@ -20,7 +20,9 @@ from flask_socketio import SocketIO, emit, join_room, leave_room, rooms, disconn
 from flask_cors import CORS
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime
 from dotenv import load_dotenv
+from urllib.parse import urlparse, urljoin
 from backend.models.database import DatabaseHandler
 from backend.utils.enhanced_simulator import EnhancedPoolSimulator
 from backend.hardware.sensors.mock import MockTurbiditySensor
@@ -167,11 +169,17 @@ def handle_exception(e, operation_name, log_error=True, reraise=False):
 
 # User model for Flask-Login
 class User(UserMixin):
-    def __init__(self, id, email, password_hash, name=None):
+    def __init__(self, id, email, password_hash, name=None, role='customer'):
         self.id = id
         self.email = email
         self.password_hash = password_hash
         self.name = name
+        self.role = role
+    
+    @property
+    def is_admin(self):
+        """Check if user has admin role."""
+        return self.role == 'admin'
 
 # Create user-related tables
 def create_auth_tables():
@@ -228,18 +236,31 @@ def load_user(user_id):
         with sqlite3.connect(app.config['DATABASE_PATH']) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
+            
+            # Log the database path for troubleshooting
+            logger.debug(f"Loading user from database: {app.config['DATABASE_PATH']}")
+            
             cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
             user_data = cursor.fetchone()
             
             if user_data:
+                # Check if role column exists (for backward compatibility)
+                role = user_data.get('role', 'customer')
+                
+                logger.debug(f"User found: {user_data['email']}, role: {role}")
+                
                 return User(
                     id=user_data['id'],
                     email=user_data['email'],
                     password_hash=user_data['password_hash'],
-                    name=user_data.get('name')
+                    name=user_data.get('name'),
+                    role=role
                 )
+            else:
+                logger.warning(f"No user found with ID: {user_id}")
     except Exception as e:
-        handle_exception(e, "loading user")
+        logger.error(f"Error loading user: {e}")
+        logger.error(traceback.format_exc())
     
     return None
 
@@ -574,6 +595,8 @@ def login():
         email = request.form.get('email')
         password = request.form.get('password')
         
+        logger.info(f"Login attempt for email: {email}")
+        
         try:
             with sqlite3.connect(app.config['DATABASE_PATH']) as conn:
                 conn.row_factory = sqlite3.Row
@@ -581,22 +604,221 @@ def login():
                 cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
                 user_data = cursor.fetchone()
                 
-                if user_data and check_password_hash(user_data['password_hash'], password):
+                if not user_data:
+                    logger.warning(f"Login failed: User not found - {email}")
+                    flash("Invalid email or password", "error")
+                    return render_template('login.html', error="Invalid email or password")
+                
+                # Verify password
+                if check_password_hash(user_data['password_hash'], password):
+                    # Check if role column exists (for backward compatibility)
+                    role = user_data.get('role', 'customer')
+                    
                     user = User(
                         id=user_data['id'],
                         email=user_data['email'],
                         password_hash=user_data['password_hash'],
-                        name=user_data.get('name')
+                        name=user_data.get('name'),
+                        role=role
                     )
+                    
                     login_user(user)
+                    logger.info(f"Login successful: {email}")
+                    
+                    # Check for next parameter or redirect to pools
+                    next_page = request.args.get('next')
+                    if next_page and is_safe_url(next_page):
+                        return redirect(next_page)
                     return redirect(url_for('pools'))
+                else:
+                    logger.warning(f"Login failed: Incorrect password - {email}")
+                    flash("Invalid email or password", "error")
+                    return render_template('login.html', error="Invalid email or password")
         except Exception as e:
-            handle_exception(e, "user login")
-        
-        flash("Invalid email or password", "error")
-        return render_template('login.html', error="Invalid email or password")
+            error_details = handle_exception(e, "user login", log_error=True)
+            logger.error(f"Login error for {email}: {error_details}")
+            flash("An error occurred during login. Please try again.", "error")
+            return render_template('login.html', error="System error during login")
     
     return render_template('login.html')
+
+# Admin dashboard route
+@app.route('/admin')
+@login_required
+def admin_dashboard():
+    """Admin dashboard view showing all pools and users."""
+    # Check if user is admin
+    if not getattr(current_user, 'is_admin', False):
+        flash("You don't have permission to access the admin dashboard", "error")
+        return redirect(url_for('pools'))
+    
+    try:
+        with sqlite3.connect(app.config['DATABASE_PATH']) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            # Get all pools with owner information
+            cursor.execute("""
+                SELECT p.*, u.email as owner_email, u.name as owner_name
+                FROM pools p
+                LEFT JOIN users u ON p.owner_id = u.id
+                ORDER BY p.created_at DESC
+            """)
+            pools = [dict(row) for row in cursor.fetchall()]
+            
+            # Get all users with pool count
+            cursor.execute("""
+                SELECT u.*, COUNT(p.id) as pool_count
+                FROM users u
+                LEFT JOIN pools p ON u.id = p.owner_id
+                GROUP BY u.id
+                ORDER BY u.created_at DESC
+            """)
+            users = [dict(row) for row in cursor.fetchall()]
+            
+            # Get all devices
+            cursor.execute("""
+                SELECT d.*, p.name as pool_name
+                FROM devices d
+                LEFT JOIN pools p ON d.pool_id = p.id
+                ORDER BY d.last_seen DESC
+            """)
+            devices = [dict(row) for row in cursor.fetchall()]
+            
+            # Get counts
+            cursor.execute("SELECT COUNT(*) as count FROM users")
+            user_count = cursor.fetchone()['count']
+            
+            cursor.execute("SELECT COUNT(*) as count FROM pools")
+            pool_count = cursor.fetchone()['count']
+            
+            cursor.execute("SELECT COUNT(*) as count FROM devices")
+            device_count = cursor.fetchone()['count']
+            
+            # Get total readings
+            reading_count = 0
+            try:
+                cursor.execute("SELECT COUNT(*) as count FROM turbidity_readings")
+                reading_count += cursor.fetchone()['count']
+                
+                cursor.execute("SELECT COUNT(*) as count FROM steiel_readings")
+                reading_count += cursor.fetchone()['count']
+            except:
+                # Table might not exist
+                pass
+            
+            return render_template(
+                'admin_dashboard.html',
+                pools=pools,
+                users=users,
+                devices=devices,
+                user_count=user_count,
+                pool_count=pool_count,
+                device_count=device_count,
+                reading_count=reading_count,
+                get_pool_status=get_pool_status
+            )
+    except Exception as e:
+        error_details = handle_exception(e, "loading admin dashboard")
+        flash("An error occurred loading the admin dashboard", "error")
+        return redirect(url_for('pools'))
+
+# Add impersonation functionality for admins
+@app.route('/admin/impersonate/<user_id>')
+@login_required
+def impersonate_user(user_id):
+    """Allow admin to impersonate another user."""
+    # Check if user is admin
+    if not getattr(current_user, 'is_admin', False):
+        flash("You don't have permission to impersonate users", "error")
+        return redirect(url_for('pools'))
+    
+    # Don't allow impersonating self
+    if user_id == current_user.id:
+        flash("You cannot impersonate yourself", "error")
+        return redirect(url_for('admin_dashboard'))
+    
+    try:
+        with sqlite3.connect(app.config['DATABASE_PATH']) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            # Get the user to impersonate
+            cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+            user_data = cursor.fetchone()
+            
+            if not user_data:
+                flash("User not found", "error")
+                return redirect(url_for('admin_dashboard'))
+            
+            # Store original admin user ID in session for returning
+            session['admin_user_id'] = current_user.id
+            
+            # Create user object for impersonated user
+            user = User(
+                id=user_data['id'],
+                email=user_data['email'],
+                password_hash=user_data['password_hash'],
+                name=user_data.get('name'),
+                role=user_data.get('role', 'customer')
+            )
+            
+            # Login as impersonated user
+            login_user(user)
+            
+            # Set impersonation flag in session
+            session['impersonating'] = True
+            
+            flash(f"You are now impersonating {user.email}", "info")
+            return redirect(url_for('pools'))
+    except Exception as e:
+        error_details = handle_exception(e, "impersonating user")
+        flash("An error occurred during impersonation", "error")
+        return redirect(url_for('admin_dashboard'))
+
+# Add route to stop impersonation
+@app.route('/admin/stop-impersonation')
+@login_required
+def stop_impersonation():
+    """Stop impersonating another user and return to admin account."""
+    if 'admin_user_id' not in session:
+        flash("You are not currently impersonating anyone", "error")
+        return redirect(url_for('pools'))
+    
+    admin_user_id = session.pop('admin_user_id')
+    session.pop('impersonating', None)
+    
+    try:
+        with sqlite3.connect(app.config['DATABASE_PATH']) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            # Get the admin user
+            cursor.execute("SELECT * FROM users WHERE id = ?", (admin_user_id,))
+            admin_data = cursor.fetchone()
+            
+            if not admin_data:
+                flash("Admin user not found. Logging out.", "error")
+                return redirect(url_for('logout'))
+            
+            # Create user object for admin
+            admin = User(
+                id=admin_data['id'],
+                email=admin_data['email'],
+                password_hash=admin_data['password_hash'],
+                name=admin_data.get('name'),
+                role=admin_data.get('role', 'admin')
+            )
+            
+            # Login as admin again
+            login_user(admin)
+            
+            flash("You are no longer impersonating a user", "success")
+            return redirect(url_for('admin_dashboard'))
+    except Exception as e:
+        error_details = handle_exception(e, "stopping impersonation")
+        flash("An error occurred. Logging out.", "error")
+        return redirect(url_for('logout'))
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -1328,6 +1550,8 @@ def get_scheduled_doses():
     except Exception as e:
         error_details = handle_exception(e, "getting scheduled doses")
         return jsonify({"error": error_details["error"]}), 500
+    
+
 
 # WebSocket room management
 @socketio.on('join')
@@ -1426,3 +1650,40 @@ if __name__ == '__main__':
     debug_mode = app.config.get('DEBUG', False)
     logger.info(f"Starting application on port {port} with debug={debug_mode}")
     socketio.run(app, host='0.0.0.0', port=port, debug=debug_mode)
+
+# Add this helper function for timestamp formatting
+def format_timestamp(timestamp):
+    """Format timestamp for display."""
+    if not timestamp:
+        return "Unknown"
+    
+    try:
+        # Check if timestamp is a Unix timestamp (number)
+        if isinstance(timestamp, (int, float)):
+            return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M')
+        # Otherwise, try to parse it as a string
+        else:
+            return datetime.strptime(str(timestamp), '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d %H:%M')
+    except:
+        return str(timestamp)
+
+# Add this helper function for number formatting
+def format_number(number):
+    """Format number with thousands separator."""
+    return "{:,}".format(number)
+
+# Register the functions as template filters
+app.jinja_env.filters['format_timestamp'] = format_timestamp
+app.jinja_env.filters['format_number'] = format_number
+
+def is_safe_url(target):
+    """Check if a URL is safe for redirection."""
+    if not target:
+        return False
+    
+    # Parse the URL
+    ref_url = urlparse(request.host_url)
+    test_url = urlparse(urljoin(request.host_url, target))
+    
+    # Make sure we're not redirected to a different host
+    return test_url.scheme in ('http', 'https') and ref_url.netloc == test_url.netloc
