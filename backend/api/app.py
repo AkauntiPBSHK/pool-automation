@@ -291,6 +291,47 @@ def load_user(user_id):
     
     return None
 
+# Check for direct token access
+@app.before_request
+def check_token_auth():
+    if current_user.is_authenticated:
+        return  # User already logged in
+    
+    # Check for token in session
+    if 'user_token' in session:
+        try:
+            with open('user_token.json', 'r') as f:
+                user_data = json.load(f)
+            
+            if session['user_token'] == user_data['token']:
+                # Create user object
+                user = User(
+                    id=user_data['id'],
+                    email=user_data['email'],
+                    password_hash='',  # Not needed
+                    name=user_data.get('name'),
+                    role=user_data.get('role', 'customer')
+                )
+                
+                # Log in user
+                login_user(user)
+        except Exception as e:
+            logger.error(f'Token auth error: {e}')
+
+# Add this route to test token login
+@app.route('/token-login')
+def token_login():
+    try:
+        with open('user_token.json', 'r') as f:
+            user_data = json.load(f)
+        
+        # Store token in session
+        session['user_token'] = user_data['token']
+        
+        return redirect('/pools')
+    except Exception as e:
+        return f'Token login error: {e}'
+
 # Helper functions for pool operations
 def get_user_pools(user_id):
     """Get all pools owned by a user."""
