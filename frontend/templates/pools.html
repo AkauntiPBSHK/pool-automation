@@ -181,23 +181,9 @@
             <a href="https://biopool.design/">
                 <i class="bi bi-arrow-left"></i> Back to BioPool Website
             </a>
-            <div>
-                {% if current_user.is_admin %}
-                <a href="{{ url_for('admin_dashboard') }}" class="admin-link">
-                    <i class="bi bi-shield-lock"></i> Admin Dashboard
-                </a>
-                {% endif %}
-                
-                {% if session.get('impersonating') %}
-                <a href="{{ url_for('stop_impersonation') }}" class="warning-link">
-                    <i class="bi bi-person-x"></i> Stop Impersonating
-                </a>
-                {% endif %}
-                
-                <a href="{{ url_for('logout') }}">
-                    Logout <i class="bi bi-box-arrow-right"></i>
-                </a>
-            </div>
+            <a href="{{ url_for('logout') }}">
+                Logout <i class="bi bi-box-arrow-right"></i>
+            </a>
         </div>
         
         <div class="header">
