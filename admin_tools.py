@@ -133,7 +133,9 @@ def list_users():
         print("-" * 80)
         
         for user in users:
-            print(f"{user['email']:<30} | {user.get('name', 'N/A'):<20} | {user.get('role', 'customer'):<10} | {user['id']}")
+            name = user['name'] if user['name'] is not None else 'N/A'
+            role = user['role'] if user['role'] is not None else 'customer'
+            print(f"{user['email']:<30} | {name:<20} | {role:<10} | {user['id']}")
         
         print("=" * 80)
         
