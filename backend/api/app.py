@@ -20,7 +20,7 @@ from flask_socketio import SocketIO, emit, join_room, leave_room, rooms, disconn
 from flask_cors import CORS
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from urllib.parse import urlparse, urljoin
 from backend.models.database import DatabaseHandler
@@ -137,6 +137,15 @@ def get_config():
 app_config = get_config()
 app.config.from_object(app_config)
 
+# Set permanent sessions
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SESSION_PERMANENT'] = True
+app.config['SESSION_USE_SIGNER'] = True
+app.config['SESSION_COOKIE_SECURE'] = False  # Set to True in production with HTTPS
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
 # Set secret key
 app.config['SECRET_KEY'] = app_config.SECRET_KEY
 logger.info(f"Configuration loaded for environment: {app.config['FLASK_ENV']}")
@@ -169,6 +178,8 @@ def handle_exception(e, operation_name, log_error=True, reraise=False):
 
 # User model for Flask-Login
 class User(UserMixin):
+    """User model for Flask-Login."""
+    
     def __init__(self, id, email, password_hash, name=None, role='customer'):
         self.id = id
         self.email = email
@@ -180,6 +191,22 @@ class User(UserMixin):
     def is_admin(self):
         """Check if user has admin role."""
         return self.role == 'admin'
+    
+    # Explicitly implement UserMixin properties
+    @property
+    def is_authenticated(self):
+        return True
+        
+    @property
+    def is_active(self):
+        return True
+        
+    @property
+    def is_anonymous(self):
+        return False
+    
+    def get_id(self):
+        return str(self.id)
 
 # Create user-related tables
 def create_auth_tables():
@@ -605,21 +632,19 @@ def login():
                 user_data = cursor.fetchone()
                 
                 if not user_data:
-                    logger.warning(f"Login failed: User not found - {email}")
                     flash("Invalid email or password", "error")
                     return render_template('login.html', error="Invalid email or password")
                 
                 # Verify password
                 if check_password_hash(user_data['password_hash'], password):
-                    # Set default role to 'customer'
-                    role = 'customer'
+                    # Create user object
+                    role = 'customer'  # Default role
                     
-                    # Check if role column exists and has a value
+                    # Get column names to check if role exists
                     column_names = [column[0] for column in cursor.description]
                     if 'role' in column_names and user_data['role']:
                         role = user_data['role']
                     
-                    # Create user object and log them in
                     user = User(
                         id=user_data['id'],
                         email=user_data['email'],
@@ -628,22 +653,20 @@ def login():
                         role=role
                     )
                     
-                    # Force logout first to clear any existing session
-                    logout_user()
-                    
-                    # Then login
+                    # Make session permanent and log in the user
+                    session.permanent = True
                     login_user(user, remember=True)
                     
-                    # Set a flash message to verify the login worked
-                    flash(f"Logged in successfully as {email}", "success")
+                    # Store additional info in session
+                    session['user_email'] = user.email
+                    session['user_role'] = user.role
                     
-                    # Add debug log
-                    logger.info(f"Login successful. User: {email}, Role: {role}, Redirect to: pools")
+                    # Log success
+                    logger.info(f"Login successful: {email} with role {role}")
                     
-                    # Redirect directly 
-                    return redirect(url_for('pools'))
+                    # Direct redirect bypassing next parameter
+                    return redirect('/pools')
                 else:
-                    logger.warning(f"Login failed: Incorrect password - {email}")
                     flash("Invalid email or password", "error")
                     return render_template('login.html', error="Invalid email or password")
         except Exception as e:
@@ -653,6 +676,57 @@ def login():
             return render_template('login.html', error="System error during login")
     
     return render_template('login.html')
+
+@app.route('/direct-pools')
+def direct_pools():
+    """Direct access to pools without login_required."""
+    try:
+        # Check if user is authenticated
+        if hasattr(current_user, 'is_authenticated') and current_user.is_authenticated:
+            user_info = f"User: {current_user.email}, Role: {current_user.role}"
+        else:
+            user_info = "No authenticated user"
+        
+        # Get pools
+        pools = []
+        is_admin = getattr(current_user, 'is_admin', False)
+        
+        if hasattr(current_user, 'id'):
+            try:
+                # Get pools from database
+                with sqlite3.connect(app.config['DATABASE_PATH']) as conn:
+                    conn.row_factory = sqlite3.Row
+                    cursor = conn.cursor()
+                    
+                    # Get user pools or all pools for admin
+                    if is_admin:
+                        cursor.execute("SELECT * FROM pools")
+                    else:
+                        cursor.execute("SELECT * FROM pools WHERE owner_id = ?", (current_user.id,))
+                    
+                    pools = [dict(row) for row in cursor.fetchall()]
+            except Exception as e:
+                return f"Database error: {str(e)}"
+        
+        # Simple response showing pools and authentication state
+        output = "<h1>Direct Pools Access</h1>"
+        output += f"<p>Authentication: {user_info}</p>"
+        output += f"<p>Is Admin: {is_admin}</p>"
+        output += "<h2>Pools:</h2>"
+        
+        if pools:
+            output += "<ul>"
+            for pool in pools:
+                output += f"<li>{pool.get('name', 'Unnamed Pool')}</li>"
+            output += "</ul>"
+        else:
+            output += "<p>No pools found. <a href='/add-pool'>Add a pool</a></p>"
+        
+        output += "<p><a href='/admin'>Go to Admin Dashboard</a></p>"
+        
+        return output
+    except Exception as e:
+        return f"Error: {str(e)}<br>Details: {traceback.format_exc()}"
 
 # Admin dashboard route
 @app.route('/admin')
@@ -1575,7 +1649,78 @@ def get_scheduled_doses():
         error_details = handle_exception(e, "getting scheduled doses")
         return jsonify({"error": error_details["error"]}), 500
     
+@app.route('/debug-login')
+def debug_login():
+    """Debug route to test login directly."""
+    try:
+        # Create a simple user session without Flask-Login
+        session['user_id'] = 'debug-user'
+        session['user_email'] = 'debug@test.com'
+        session['user_role'] = 'admin'
+        
+        # Add extensive logging
+        logger.info("Debug login route accessed")
+        logger.info(f"Session data: {session}")
+        
+        # Return simple HTML with session info
+        session_info = "<h1>Debug Login</h1>"
+        session_info += "<h2>Session Information:</h2>"
+        session_info += f"<pre>{session}</pre>"
+        session_info += "<p>Try visiting <a href='/pools'>/pools</a> now</p>"
+        
+        return session_info
+    except Exception as e:
+        return f"Error in debug login: {str(e)}"
 
+@app.route('/test-auth')
+def test_auth():
+    """Test authentication directly."""
+    try:
+        with sqlite3.connect(app.config['DATABASE_PATH']) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            # Get admin user
+            cursor.execute("SELECT * FROM users WHERE email = ?", ('admin@biopool.design',))
+            user_data = cursor.fetchone()
+            
+            if not user_data:
+                return "Admin user not found"
+            
+            # Create user object
+            column_names = [column[0] for column in cursor.description]
+            role = 'customer'
+            if 'role' in column_names and user_data['role']:
+                role = user_data['role']
+                
+            user = User(
+                id=user_data['id'],
+                email=user_data['email'],
+                password_hash=user_data['password_hash'],
+                name=user_data['name'] if 'name' in column_names else None,
+                role=role
+            )
+            
+            # Log out any existing user
+            logout_user()
+            
+            # Log in with the admin user
+            login_result = login_user(user)
+            
+            # Check authentication
+            auth_status = current_user.is_authenticated if hasattr(current_user, 'is_authenticated') else False
+            
+            result = f"<h1>Authentication Test</h1>"
+            result += f"<p>Login result: {login_result}</p>"
+            result += f"<p>User authenticated: {auth_status}</p>"
+            result += f"<p>User email: {current_user.email if auth_status else 'Not logged in'}</p>"
+            result += f"<p>User role: {current_user.role if auth_status else 'Not logged in'}</p>"
+            result += f"<p>Session: {session}</p>"
+            result += "<p>Try visiting <a href='/pools'>/pools</a> now</p>"
+            
+            return result
+    except Exception as e:
+        return f"Error in test auth: {str(e)}<br>Details: {traceback.format_exc()}"
 
 # WebSocket room management
 @socketio.on('join')
