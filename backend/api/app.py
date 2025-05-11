@@ -619,6 +619,7 @@ def login():
                     if 'role' in column_names and user_data['role']:
                         role = user_data['role']
                     
+                    # Create user object and log them in
                     user = User(
                         id=user_data['id'],
                         email=user_data['email'],
@@ -627,8 +628,19 @@ def login():
                         role=role
                     )
                     
-                    login_user(user)
-                    logger.info(f"Login successful: {email}")
+                    # Force logout first to clear any existing session
+                    logout_user()
+                    
+                    # Then login
+                    login_user(user, remember=True)
+                    
+                    # Set a flash message to verify the login worked
+                    flash(f"Logged in successfully as {email}", "success")
+                    
+                    # Add debug log
+                    logger.info(f"Login successful. User: {email}, Role: {role}, Redirect to: pools")
+                    
+                    # Redirect directly 
                     return redirect(url_for('pools'))
                 else:
                     logger.warning(f"Login failed: Incorrect password - {email}")
@@ -875,8 +887,20 @@ def logout():
 @login_required
 def pools():
     """Show list of user's pools."""
-    user_pools = get_user_pools(current_user.id)
-    return render_template('pools.html', pools=user_pools)
+    # Add debugging
+    logger.info(f"Pools route accessed by user: {current_user.email}, Role: {getattr(current_user, 'role', 'unknown')}")
+    
+    try:
+        user_pools = get_user_pools(current_user.id)
+        logger.info(f"Found {len(user_pools)} pools for user {current_user.email}")
+        return render_template('pools.html', 
+                              pools=user_pools, 
+                              is_admin=getattr(current_user, 'is_admin', False))
+    except Exception as e:
+        logger.error(f"Error in pools route: {str(e)}")
+        logger.error(traceback.format_exc())
+        flash("Error loading pools", "error")
+        return redirect(url_for('login'))
 
 @app.route('/pools/add', methods=['GET', 'POST'])
 @login_required
