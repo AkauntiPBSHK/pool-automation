@@ -17,10 +17,11 @@ except ImportError:
     logger.warning("psycopg2 not available - PostgreSQL support disabled")
 
 class DatabaseHandler:
-    def __init__(self, db_path=None):
+    def __init__(self, db_path=None, auto_migrate=True):
         """Initialize the database with required tables."""
         self.db_path = db_path
         self.db_type = None
+        self.auto_migrate = auto_migrate
         self._init_db()
     
     def _get_connection(self):
@@ -172,8 +173,95 @@ class DatabaseHandler:
                     )
                 ''')
             
+            # Create indexes for better performance
+            self._create_indexes()
+            
             conn.commit()
             logger.info(f"Database initialized successfully (type: {self.db_type})")
+            
+            # Run migrations if enabled
+            if self.auto_migrate:
+                self._run_migrations()
+    
+    def _create_indexes(self):
+        """Create database indexes for better query performance"""
+        try:
+            with self._get_connection() as conn:
+                if self.db_type == 'postgresql':
+                    with conn.cursor() as cursor:
+                        # Indexes for PostgreSQL
+                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_turbidity_timestamp ON turbidity_readings(timestamp)')
+                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_turbidity_pool_id ON turbidity_readings(pool_id)')
+                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_turbidity_timestamp_pool ON turbidity_readings(timestamp, pool_id)')
+                        
+                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_steiel_timestamp ON steiel_readings(timestamp)')
+                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_steiel_pool_id ON steiel_readings(pool_id)')
+                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_steiel_timestamp_pool ON steiel_readings(timestamp, pool_id)')
+                        
+                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_dosing_timestamp ON dosing_events(timestamp)')
+                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_dosing_pool_id ON dosing_events(pool_id)')
+                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_dosing_event_type ON dosing_events(event_type)')
+                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_dosing_timestamp_pool ON dosing_events(timestamp, pool_id)')
+                        
+                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_system_events_timestamp ON system_events(timestamp)')
+                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_system_events_pool_id ON system_events(pool_id)')
+                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_system_events_type ON system_events(event_type)')
+                else:
+                    # Indexes for SQLite
+                    cursor = conn.cursor()
+                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_turbidity_timestamp ON turbidity_readings(timestamp)')
+                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_turbidity_pool_id ON turbidity_readings(pool_id)')
+                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_turbidity_timestamp_pool ON turbidity_readings(timestamp, pool_id)')
+                    
+                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_steiel_timestamp ON steiel_readings(timestamp)')
+                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_steiel_pool_id ON steiel_readings(pool_id)')
+                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_steiel_timestamp_pool ON steiel_readings(timestamp, pool_id)')
+                    
+                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_dosing_timestamp ON dosing_events(timestamp)')
+                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_dosing_pool_id ON dosing_events(pool_id)')
+                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_dosing_event_type ON dosing_events(event_type)')
+                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_dosing_timestamp_pool ON dosing_events(timestamp, pool_id)')
+                    
+                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_system_events_timestamp ON system_events(timestamp)')
+                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_system_events_pool_id ON system_events(pool_id)')
+                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_system_events_type ON system_events(event_type)')
+                
+                logger.info("Database indexes created successfully")
+        except Exception as e:
+            logger.error(f"Error creating database indexes: {e}")
+    
+    def _run_migrations(self):
+        """Run database migrations if available"""
+        try:
+            # Import here to avoid circular imports
+            import os
+            import sys
+            migrations_path = os.path.join(os.path.dirname(__file__), '..', 'migrations')
+            if os.path.exists(migrations_path):
+                sys.path.insert(0, migrations_path)
+                from migration_manager import MigrationManager
+                
+                # Get database path
+                db_path = self.db_path or 'pool_automation.db'
+                if hasattr(current_app, 'config'):
+                    db_path = current_app.config.get('DATABASE_PATH', db_path)
+                
+                # Run migrations
+                manager = MigrationManager(db_path)
+                pending = manager.get_pending_migrations()
+                
+                if pending:
+                    logger.info(f"Running {len(pending)} pending migrations")
+                    success = manager.migrate()
+                    if success:
+                        logger.info("All migrations applied successfully")
+                    else:
+                        logger.error("Migration failed")
+                else:
+                    logger.debug("No pending migrations")
+                    
+        except Exception as e:
+            logger.warning(f"Could not run migrations: {e}")
     
     # Update all methods to support pool_id parameter
     
@@ -364,3 +452,119 @@ class DatabaseHandler:
         except Exception as e:
             logger.error(f"Error saving notification settings: {e}")
             return False
+    
+    def get_steiel_history(self, hours=24, pool_id=None):
+        """Get Steiel sensor history with proper parameterization."""
+        with self._get_connection() as conn:
+            try:
+                conn.row_factory = sqlite3.Row if self.db_type != 'postgresql' else None
+                
+                if self.db_type == 'postgresql':
+                    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                        cursor.execute('''
+                            SELECT timestamp, ph, orp, free_chlorine, combined_chlorine, temperature
+                            FROM steiel_readings 
+                            WHERE timestamp >= NOW() - INTERVAL %s HOUR
+                            AND (%s IS NULL OR pool_id = %s)
+                            ORDER BY timestamp ASC
+                        ''', (hours, pool_id, pool_id))
+                        return [dict(row) for row in cursor.fetchall()]
+                else:
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        SELECT timestamp, ph, orp, free_chlorine, combined_chlorine, temperature
+                        FROM steiel_readings 
+                        WHERE timestamp >= datetime('now', '-' || ? || ' hours')
+                        AND (? IS NULL OR pool_id = ?)
+                        ORDER BY timestamp ASC
+                    ''', (hours, pool_id, pool_id))
+                    return [dict(row) for row in cursor.fetchall()]
+                    
+            except Exception as e:
+                logger.error(f"Error getting Steiel history: {e}")
+                return []
+    
+    def get_dosing_events(self, hours=24, event_type=None, pool_id=None):
+        """Get dosing events history with proper parameterization."""
+        with self._get_connection() as conn:
+            try:
+                conn.row_factory = sqlite3.Row if self.db_type != 'postgresql' else None
+                
+                if self.db_type == 'postgresql':
+                    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                        cursor.execute('''
+                            SELECT timestamp, event_type, duration, flow_rate, turbidity_before
+                            FROM dosing_events 
+                            WHERE timestamp >= NOW() - INTERVAL %s HOUR
+                            AND (%s IS NULL OR event_type = %s)
+                            AND (%s IS NULL OR pool_id = %s)
+                            ORDER BY timestamp DESC
+                        ''', (hours, event_type, event_type, pool_id, pool_id))
+                        return [dict(row) for row in cursor.fetchall()]
+                else:
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        SELECT timestamp, event_type, duration, flow_rate, turbidity_before
+                        FROM dosing_events 
+                        WHERE timestamp >= datetime('now', '-' || ? || ' hours')
+                        AND (? IS NULL OR event_type = ?)
+                        AND (? IS NULL OR pool_id = ?)
+                        ORDER BY timestamp DESC
+                    ''', (hours, event_type, event_type, pool_id, pool_id))
+                    return [dict(row) for row in cursor.fetchall()]
+                    
+            except Exception as e:
+                logger.error(f"Error getting dosing events: {e}")
+                return []
+    
+    def get_notification_settings(self, user_id):
+        """Get notification settings for a user."""
+        with self._get_connection() as conn:
+            try:
+                conn.row_factory = sqlite3.Row if self.db_type != 'postgresql' else None
+                
+                if self.db_type == 'postgresql':
+                    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                        cursor.execute('''
+                            SELECT email, email_enabled, alert_threshold
+                            FROM notification_settings 
+                            WHERE user_id = %s
+                        ''', (user_id,))
+                        result = cursor.fetchone()
+                        return dict(result) if result else None
+                else:
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        SELECT email, email_enabled, alert_threshold
+                        FROM notification_settings 
+                        WHERE user_id = ?
+                    ''', (user_id,))
+                    result = cursor.fetchone()
+                    return dict(result) if result else None
+                    
+            except Exception as e:
+                logger.error(f"Error getting notification settings: {e}")
+                return None
+    
+    def validate_pool_access(self, user_id, pool_id):
+        """Validate that a user has access to a specific pool."""
+        with self._get_connection() as conn:
+            try:
+                if self.db_type == 'postgresql':
+                    with conn.cursor() as cursor:
+                        cursor.execute('''
+                            SELECT COUNT(*) FROM pools 
+                            WHERE id = %s AND owner_id = %s
+                        ''', (pool_id, user_id))
+                        return cursor.fetchone()[0] > 0
+                else:
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        SELECT COUNT(*) FROM pools 
+                        WHERE id = ? AND owner_id = ?
+                    ''', (pool_id, user_id))
+                    return cursor.fetchone()[0] > 0
+                    
+            except Exception as e:
+                logger.error(f"Error validating pool access: {e}")
+                return False

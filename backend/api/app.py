@@ -43,93 +43,23 @@ app = Flask(__name__,
     template_folder='../../frontend/templates'
 )
 
-# Configuration class
-class Config:
-    """Base configuration."""
-    SECRET_KEY = os.getenv('SECRET_KEY', 'dev-key-CHANGE-IN-PRODUCTION')
-    FLASK_ENV = os.getenv('FLASK_ENV', 'development')
-    DEBUG = False
-    TESTING = False
-    
-    # Database
-    DATABASE_PATH = os.path.join(os.getcwd(), 'pool_automation.db')
-    
-    # System
-    SIMULATION_MODE = True
-    
-    # Socket.IO
-    SOCKETIO_PING_TIMEOUT = 60
-    SOCKETIO_PING_INTERVAL = 25
-    
-    # Hardware
-    HARDWARE = {
-        'turbidity_sensor': {},
-        'pac_pump': {}
-    }
-    
-    # Simulator
-    SIMULATOR = {}
-    
-    # Notifications
-    SMTP_SERVER = os.getenv('SMTP_SERVER', '')
-    SMTP_PORT = int(os.getenv('SMTP_PORT', 587))
-    SMTP_USERNAME = os.getenv('SMTP_USERNAME', '')
-    SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', '')
-    
-    # Dosing
-    DOSING_HIGH_THRESHOLD = 0.25
-    DOSING_LOW_THRESHOLD = 0.12
-    DOSING_TARGET = 0.15
-    DOSING_MIN_INTERVAL = 300
-    DOSING_DURATION = 30
-    DOSING_PID_KP = 1.0
-    DOSING_PID_KI = 0.1
-    DOSING_PID_KD = 0.05
-    
-    # Logger settings
-    LOG_LEVEL = 'INFO'
+# Import configuration from main config module
+from config import get_config
 
-class DevelopmentConfig(Config):
-    """Development configuration."""
-    DEBUG = True
-    LOG_LEVEL = 'DEBUG'
-
-class TestingConfig(Config):
-    """Testing configuration."""
-    TESTING = True
-    DEBUG = True
-    DATABASE_PATH = os.path.join(os.getcwd(), 'test_pool_automation.db')
-
-class ProductionConfig(Config):
-    """Production configuration."""
-    SECRET_KEY = os.getenv('SECRET_KEY')  # Must be set in production
-    SIMULATION_MODE = False
-    LOG_LEVEL = 'WARNING'
-    
-    # In production, set an absolute path
-    DATABASE_PATH = os.getenv('DATABASE_PATH', '/var/www/pool-automation/pool_automation.db')
-    
-    # For PostgreSQL (if used)
-    DB_USER = os.getenv('DB_USER', '')
-    DB_PASSWORD = os.getenv('DB_PASSWORD', '')
-    DB_HOST = os.getenv('DB_HOST', 'localhost')
-    DB_PORT = os.getenv('DB_PORT', '5432')
-    DB_NAME = os.getenv('DB_NAME', 'pool_automation')
-    
-    def __init__(self):
-        if not self.SECRET_KEY:
-            logger.warning("No SECRET_KEY set for production environment - using fallback")
-
-# Get configuration based on environment
-def get_config():
-    env = os.getenv('FLASK_ENV', 'development')
-    config_dict = {
-        'development': DevelopmentConfig,
-        'testing': TestingConfig,
-        'production': ProductionConfig,
-        'default': DevelopmentConfig
-    }
-    return config_dict.get(env, config_dict['default'])()
+# Import validation utilities
+import sys
+sys.path.append('..')
+from utils.validation import validate_request_json, SCHEMAS, ValidationError, validate_pump_control
+from utils.rate_limiter import rate_limit, check_global_rate_limit, get_rate_limit_status
+from utils.auth_middleware import (
+    init_auth_middleware, require_auth, require_csrf_protection, 
+    require_pool_access, secure_api_endpoint, audit_log
+)
+from utils.error_handler import (
+    init_error_handling, setup_structured_logging, handle_exceptions,
+    raise_validation_error, raise_not_found_error, raise_auth_error,
+    ErrorContext, ValidationError, ResourceNotFoundError
+)
 
 # Load application configuration
 app_config = get_config()
@@ -139,12 +69,35 @@ app.config.from_object(app_config)
 app.config['SECRET_KEY'] = app_config.SECRET_KEY
 logger.info(f"Configuration loaded for environment: {app.config['FLASK_ENV']}")
 
+# Add global rate limiting middleware
+@app.before_request
+def apply_global_rate_limiting():
+    """Apply global rate limiting to all API requests"""
+    # Skip rate limiting for static files and certain paths
+    if request.path.startswith('/static/') or request.path in ['/', '/login', '/register']:
+        return None
+    
+    # Apply global rate limits to API endpoints
+    if request.path.startswith('/api/'):
+        rate_limit_response = check_global_rate_limit()
+        if rate_limit_response:
+            return rate_limit_response
+    
+    return None
+
 CORS(app)  # Enable CORS for all routes
 
 # Initialize Flask-Login
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+# Initialize authentication middleware
+init_auth_middleware(app)
+
+# Initialize error handling
+init_error_handling(app)
+setup_structured_logging(app)
 
 # Consistent exception handling function
 def handle_exception(e, operation_name, log_error=True, reraise=False):
@@ -568,6 +521,7 @@ def get_simulated_data():
 # Routes
 # Authentication routes
 @app.route('/login', methods=['GET', 'POST'])
+@rate_limit('login_attempts', auto_block=True, block_duration=600)  # Auto-block for 10 minutes
 def login():
     """Handle user login."""
     if request.method == 'POST':
@@ -599,6 +553,7 @@ def login():
     return render_template('login.html')
 
 @app.route('/register', methods=['GET', 'POST'])
+@rate_limit('register_attempts', auto_block=True, block_duration=1800)  # Auto-block for 30 minutes
 def register():
     """Handle user registration."""
     if request.method == 'POST':
@@ -751,13 +706,15 @@ def socket_status():
 
 # Add these API endpoints
 @app.route('/api/dashboard')
-@login_required
+@handle_exceptions()
+@secure_api_endpoint(require_pool=True, audit_action='dashboard_access')
+@rate_limit('api_general')
 def dashboard_data():
     """Get all dashboard data for the current pool."""
     pool_id = session.get('current_pool_id')
     
     if not pool_id:
-        return jsonify({"error": "No pool selected"}), 400
+        raise_validation_error("No pool selected", "pool_id")
     
     # Check if user has access to this pool
     with sqlite3.connect(app.config['DATABASE_PATH']) as conn:
@@ -769,7 +726,7 @@ def dashboard_data():
         pool = cursor.fetchone()
         
         if not pool:
-            return jsonify({"error": "Access denied"}), 403
+            raise_not_found_error("Pool", pool_id)
 
     if simulator:
         # Get data from the simulator
@@ -807,31 +764,36 @@ def dashboard_data():
     
 # Update your control_pac_pump endpoint to use emit_system_event
 @app.route('/api/pumps/pac', methods=['POST'])
+@secure_api_endpoint(require_pool=True, audit_action='pump_control')
+@rate_limit('pump_control', auto_block=True, block_duration=300)  # Auto-block for 5 minutes
+@validate_request_json(SCHEMAS['pump_control'])
 def control_pac_pump():
     """Control the PAC dosing pump."""
-    if not request.is_json:
-        return jsonify({"error": "Invalid request format"}), 400
-    
-    data = request.json
-    command = data.get('command')
+    data = request.validated_data
+    command = data['command']
     
     try:
         if command == 'start':
             duration = data.get('duration', 30)
             flow_rate = data.get('flow_rate')
             
-            if flow_rate:
-                mock_pac_pump.set_flow_rate(flow_rate)
+            # Validate pump control parameters
+            validated_duration, validated_flow_rate = validate_pump_control(
+                'pac', duration, flow_rate
+            )
             
-            success = mock_pac_pump.start(duration=duration)
+            if validated_flow_rate:
+                mock_pac_pump.set_flow_rate(validated_flow_rate)
+            
+            success = mock_pac_pump.start(duration=validated_duration)
             
             # Emit system event
             emit_system_event('pac_pump_started', 
-                            f"PAC pump started manually for {duration}s at {mock_pac_pump.get_flow_rate()} mL/h")
+                            f"PAC pump started manually for {validated_duration}s at {mock_pac_pump.get_flow_rate()} mL/h")
             
             return jsonify({
                 "success": success,
-                "message": f"PAC pump started for {duration} seconds at {mock_pac_pump.get_flow_rate()} ml/h"
+                "message": f"PAC pump started for {validated_duration} seconds at {mock_pac_pump.get_flow_rate()} ml/h"
             })
         
         elif command == 'stop':
@@ -850,14 +812,17 @@ def control_pac_pump():
             if not flow_rate:
                 return jsonify({"error": "Missing flow_rate parameter"}), 400
             
-            success = mock_pac_pump.set_flow_rate(flow_rate)
+            # Validate flow rate
+            _, validated_flow_rate = validate_pump_control('pac', None, flow_rate)
+            
+            success = mock_pac_pump.set_flow_rate(validated_flow_rate)
             
             # Emit system event
-            emit_system_event('pac_flow_rate_changed', f"PAC pump flow rate set to {flow_rate} mL/h")
+            emit_system_event('pac_flow_rate_changed', f"PAC pump flow rate set to {validated_flow_rate} mL/h")
             
             return jsonify({
                 "success": success,
-                "message": f"PAC pump flow rate set to {flow_rate} ml/h"
+                "message": f"PAC pump flow rate set to {validated_flow_rate} ml/h"
             })
         
         else:
@@ -933,6 +898,7 @@ def turbidity_history():
         return jsonify({"error": error_details["error"]}), 500
 
 @app.route('/api/history/parameters')
+@rate_limit('history_request')
 def parameter_history():
     """Get historical data for multiple parameters."""
     try:
@@ -1037,19 +1003,33 @@ def socket_io_test():
     return jsonify({"status": "Socket.IO server is running", 
                     "async_mode": socketio.async_mode})
 
+@app.route('/api/rate-limit-status')
+@rate_limit('api_general')
+def rate_limit_status():
+    """Get rate limiting status for debugging (development only)"""
+    if not app.config.get('DEBUG', False):
+        return jsonify({"error": "Not available in production"}), 403
+    
+    limit_type = request.args.get('type', 'api_general')
+    status = get_rate_limit_status(limit_type)
+    return jsonify(status)
+
 # Update your manual_dosing endpoint to use the emit functions
 @app.route('/api/dosing/manual', methods=['POST'])
+@secure_api_endpoint(require_pool=True, audit_action='manual_dosing')
+@rate_limit('dosing_control', auto_block=True, block_duration=600)  # Auto-block for 10 minutes  
+@validate_request_json(SCHEMAS['pac_dosing'])
 def manual_dosing():
     """Trigger manual dosing."""
-    if not request.is_json:
-        return jsonify({"error": "Invalid request format"}), 400
-    
-    data = request.json
-    duration = data.get('duration', 30)  # Default to 30 seconds if not specified
-    flow_rate = data.get('flow_rate')
+    data = request.validated_data
+    duration = data['duration']
+    flow_rate = data['flow_rate']
     
     try:
-        success = dosing_controller.manual_dose(duration, flow_rate)
+        # Additional validation for PAC dosing
+        validated_duration, validated_flow_rate = validate_pump_control('pac', duration, flow_rate)
+        
+        success = dosing_controller.manual_dose(validated_duration, validated_flow_rate)
         
         if success:
             # Get current turbidity for the event
@@ -1057,12 +1037,12 @@ def manual_dosing():
             
             # Emit dosing update
             emit_dosing_update('manual_dose_started', {
-                'duration': duration,
-                'flow_rate': mock_pac_pump.get_flow_rate()
+                'duration': validated_duration,
+                'flow_rate': validated_flow_rate
             })
             
             # Emit system event
-            event_desc = f"Manual dosing started (duration: {duration}s, flow rate: {mock_pac_pump.get_flow_rate()} mL/h)"
+            event_desc = f"Manual dosing started (duration: {validated_duration}s, flow rate: {validated_flow_rate} mL/h)"
             emit_system_event('manual_dose_started', event_desc, 'turbidity', str(current_turbidity))
             
             return jsonify({
