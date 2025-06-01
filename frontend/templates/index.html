@@ -7,8 +7,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="static/css/style.css">
-    <link rel="stylesheet" href="/static/css/websocket.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/websocket.css') }}">
 </head>
 <body>
     <div class="container-fluid">
@@ -1428,11 +1427,27 @@
         </div>
     </div>
     
+    <!-- External Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
-    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="{{ url_for('static', filename='js/utility.js') }}"></script>
-    <script src="/static/js/websocket.js"></script>
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    
+    <!-- Core Modules - Load in dependency order -->
+    <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/config.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/api.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/websocket.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/validation.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/ui-updates.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/settings.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/dosing-controls.js') }}"></script>
+    
+    <!-- Main Application -->
+    <script src="{{ url_for('static', filename='js/dashboard-main.js') }}"></script>
+    
+    <!-- Legacy files - to be removed after full migration -->
+    <!-- <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script> -->
+    <!-- <script src="{{ url_for('static', filename='js/utility.js') }}"></script> -->
 </body>
 </html>

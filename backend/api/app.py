@@ -47,15 +47,13 @@ app = Flask(__name__,
 from config import get_config
 
 # Import validation utilities
-import sys
-sys.path.append('..')
-from utils.validation import validate_request_json, SCHEMAS, ValidationError, validate_pump_control
-from utils.rate_limiter import rate_limit, check_global_rate_limit, get_rate_limit_status
-from utils.auth_middleware import (
+from backend.utils.validation import validate_request_json, SCHEMAS, ValidationError, validate_pump_control
+from backend.utils.rate_limiter import rate_limit, check_global_rate_limit, get_rate_limit_status
+from backend.utils.auth_middleware import (
     init_auth_middleware, require_auth, require_csrf_protection, 
     require_pool_access, secure_api_endpoint, audit_log
 )
-from utils.error_handler import (
+from backend.utils.error_handler import (
     init_error_handling, setup_structured_logging, handle_exceptions,
     raise_validation_error, raise_not_found_error, raise_auth_error,
     ErrorContext, ValidationError, ResourceNotFoundError

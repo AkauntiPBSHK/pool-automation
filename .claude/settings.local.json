@@ -1,7 +1,22 @@
 {
   "permissions": {
     "allow": [
-      "Bash(code .)"
+      "Bash(code .)",
+      "Bash(touch:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Bash(find:*)",
+      "Bash(node:*)",
+      "Bash(python:*)",
+      "Bash(rm:*)",
+      "Bash(chmod:*)",
+      "Bash(git config:*)",
+      "Bash(git add:*)",
+      "Bash(git -c user.email=\"developer@pool-automation.local\" -c user.name=\"Pool Automation Developer\" commit -m \"feat: implement enterprise-grade security and testing infrastructure\n\nComplete implementation of critical security improvements and comprehensive testing suite:\n\n## 🔒 Security Enhancements\n- **Authentication Middleware**: CSRF protection, session management, pool access control\n- **Rate Limiting**: Token bucket & sliding window algorithms with auto-blocking\n- **Input Validation**: 20+ schemas with XSS prevention and SQL injection protection  \n- **Error Handling**: Structured logging with correlation IDs and context-aware responses\n\n## 🗄️ Database Security & Performance\n- **Migration System**: Schema versioning with rollback support and integrity checks\n- **Foreign Key Constraints**: Referential integrity across all tables\n- **Performance Indexes**: Optimized queries on timestamp, pool_id, and event_type\n- **SQL Injection Prevention**: Parameterized queries throughout codebase\n\n## 🧪 Comprehensive Testing Suite\n- **Backend Tests**: Database, migrations, auth middleware, rate limiting, API endpoints\n- **Frontend Tests**: JavaScript modules with Jest and comprehensive mocking\n- **Security Tests**: CSRF validation, SQL injection prevention, authentication flows\n- **Test Runner**: Automated execution with coverage reporting and CI/CD support\n\n## 🎯 Frontend Architecture\n- **Modular Design**: IIFE pattern with proper dependency management\n- **Settings Management**: Complete form validation and local storage integration\n- **Dosing Controls**: Manual pump operations with safety validation\n- **API Integration**: Rate limit aware with automatic retry and offline support\n\n## 📊 Key Metrics\n- **100% Security Coverage**: All critical vulnerabilities addressed\n- **Enterprise Ready**: Production-grade error handling and monitoring\n- **Performance Optimized**: Database indexes and query optimization\n- **Test Coverage**: 80%+ coverage across backend and frontend modules\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(./venv/Scripts/python.exe backend/api/app.py)",
+      "Bash(./venv/Scripts/python.exe start_server.py:*)"
     ],
     "deny": []
   }

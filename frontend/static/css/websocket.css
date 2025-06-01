@@ -1,244 +1,232 @@
-/* frontend/static/css/websocket.css */
+/**
+ * WebSocket and real-time UI styles
+ */
 
-/* Connection status indicator */
-.status-indicator {
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    margin-left: 10px;
-    position: relative;
-    cursor: pointer;
+/* Connection Status Indicator */
+.connection-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
 }
 
-.status-connected {
-    background-color: #4CAF50;
-    box-shadow: 0 0 5px #4CAF50;
-    animation: pulse-green 2s infinite;
+.connection-status.connected {
+    background-color: rgba(25, 135, 84, 0.1);
+    color: #198754;
 }
 
-.status-disconnected {
-    background-color: #F44336;
-    box-shadow: 0 0 5px #F44336;
+.connection-status.disconnected {
+    background-color: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
 }
 
-@keyframes pulse-green {
-    0% {
-        box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
-    }
-    70% {
-        box-shadow: 0 0 0 5px rgba(76, 175, 80, 0);
-    }
-    100% {
-        box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
-    }
+.connection-status i {
+    font-size: 1rem;
 }
 
-/* Toast notifications */
-#toast-container {
-    position: fixed;
-    top: 20px;
-    right: 20px;
+/* Toast Container */
+.toast-container {
     z-index: 9999;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    max-width: 300px;
 }
 
-.toast {
-    padding: 12px 16px;
-    border-radius: 4px;
-    margin-bottom: 10px;
-    color: white;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-    opacity: 1;
-    transition: opacity 0.3s, transform 0.3s;
-    transform: translateX(0);
-    max-width: 100%;
-    word-break: break-word;
-    animation: slide-in 0.3s;
-}
-
-.toast-info {
-    background-color: #2196F3;
-}
-
-.toast-success {
-    background-color: #4CAF50;
-}
-
-.toast-warning {
-    background-color: #FF9800;
-}
-
-.toast-error {
-    background-color: #F44336;
-}
-
-.toast-hide {
-    opacity: 0;
-    transform: translateX(100%);
-}
-
-@keyframes slide-in {
-    from {
-        transform: translateX(100%);
-        opacity: 0;
-    }
-    to {
-        transform: translateX(0);
-        opacity: 1;
-    }
-}
-
-/* Pump status indicators */
-.pump-status {
-    display: inline-block;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 0.9em;
-    font-weight: bold;
-}
-
-.pump-running {
-    background-color: rgba(76, 175, 80, 0.2);
-    color: #2E7D32;
-    animation: pulse-running 2s infinite;
-}
-
-.pump-stopped {
-    background-color: rgba(158, 158, 158, 0.2);
-    color: #616161;
-}
-
-@keyframes pulse-running {
-    0% {
-        background-color: rgba(76, 175, 80, 0.1);
-    }
-    50% {
-        background-color: rgba(76, 175, 80, 0.3);
-    }
-    100% {
-        background-color: rgba(76, 175, 80, 0.1);
-    }
-}
-
-/* Dosing mode indicators */
-.dosing-mode {
-    display: inline-block;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-weight: bold;
-}
-
-.mode-automatic, .mode-auto {
-    background-color: rgba(33, 150, 243, 0.2);
-    color: #0D47A1;
-}
-
-.mode-manual {
-    background-color: rgba(255, 152, 0, 0.2);
-    color: #E65100;
-}
-
-.mode-off {
-    background-color: rgba(158, 158, 158, 0.2);
-    color: #424242;
-}
-
-/* Parameter values with warnings */
-.value-warning {
-    color: #F44336;
-    animation: pulse-warning 2s infinite;
-}
-
-@keyframes pulse-warning {
-    0% {
-        color: #F44336;
-    }
-    50% {
-        color: #FF7043;
-    }
-    100% {
-        color: #F44336;
-    }
-}
-
-/* Event history */
-.event-history {
-    max-height: 300px;
-    overflow-y: auto;
-    border: 1px solid #E0E0E0;
-    border-radius: 4px;
-    padding: 10px;
-    background-color: #FAFAFA;
-}
-
-.event-item {
-    padding: 8px;
-    border-bottom: 1px solid #EEEEEE;
-    font-size: 0.9em;
+/* Loading Overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
     display: flex;
     align-items: center;
+    justify-content: center;
+    z-index: 9998;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 
-.event-item:last-child {
+.loading-overlay.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.loading-content {
+    text-align: center;
+    color: white;
+}
+
+.loading-message {
+    margin-top: 1rem;
+    font-size: 1.1rem;
+}
+
+/* Real-time Update Animation */
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.parameter-card.updating {
+    animation: pulse 0.5s ease-in-out;
+}
+
+/* Status Classes */
+.status-normal {
+    border-left: 4px solid #198754;
+}
+
+.status-warning {
+    border-left: 4px solid #ffc107;
+    background-color: rgba(255, 193, 7, 0.05);
+}
+
+.status-danger {
+    border-left: 4px solid #dc3545;
+    background-color: rgba(220, 53, 69, 0.05);
+}
+
+/* Pump Running Animation */
+@keyframes pump-running {
+    0% {
+        box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(25, 135, 84, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(25, 135, 84, 0);
+    }
+}
+
+.pump-card.pump-running {
+    animation: pump-running 2s infinite;
+}
+
+/* WebSocket Event Log */
+.event-log {
+    max-height: 300px;
+    overflow-y: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 0.875rem;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+}
+
+.event-log-entry {
+    padding: 0.25rem 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.event-log-entry:last-child {
     border-bottom: none;
 }
 
-.event-time {
-    color: #757575;
-    font-size: 0.85em;
-    margin-right: 10px;
-    min-width: 80px;
-}
-
-.event-type {
-    font-weight: bold;
-    margin-right: 10px;
-    color: #0288D1;
-    min-width: 120px;
-}
-
-.event-description {
-    flex: 1;
-}
-
-.event-item:nth-child(odd) {
-    background-color: rgba(0, 0, 0, 0.02);
-}
-
-/* Water-themed enhancements for pool automation */
-.parameter-card {
-    border-radius: 8px;
-    overflow: hidden;
-    transition: all 0.3s ease;
-}
-
-.parameter-card:hover {
-    box-shadow: 0 5px 15px rgba(0, 150, 255, 0.1);
-    transform: translateY(-2px);
-}
-
-.parameter-card .card-header {
-    background: linear-gradient(135deg, #b3e0ff 0%, #4dabf7 100%);
-    color: #1a3a5f;
-}
-
-.parameter-value {
-    font-size: 1.8rem;
-    font-weight: bold;
-    color: #0069c0;
-    transition: all 0.3s ease;
-}
-
-.parameter-unit {
+.event-log-entry .timestamp {
     color: #6c757d;
-    font-size: 0.9rem;
+    margin-right: 0.5rem;
 }
 
-/* Utility classes */
-.hidden {
-    display: none !important;
+.event-log-entry.error {
+    color: #dc3545;
+}
+
+.event-log-entry.warning {
+    color: #ffc107;
+}
+
+.event-log-entry.success {
+    color: #198754;
+}
+
+/* Real-time Chart Updates */
+.chart-container {
+    position: relative;
+    transition: opacity 0.3s ease;
+}
+
+.chart-container.updating {
+    opacity: 0.7;
+}
+
+.chart-update-indicator {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #198754;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.chart-container.updating .chart-update-indicator {
+    opacity: 1;
+    animation: pulse 1s infinite;
+}
+
+/* Offline Mode Indicator */
+.offline-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background-color: #ffc107;
+    color: #000;
+    text-align: center;
+    padding: 0.5rem;
+    z-index: 9997;
+    transform: translateY(-100%);
+    transition: transform 0.3s ease;
+}
+
+.offline-banner.show {
+    transform: translateY(0);
+}
+
+/* Queue Size Indicator */
+.queue-indicator {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.queue-indicator.show {
+    opacity: 1;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .connection-status {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.5rem;
+    }
+    
+    .loading-message {
+        font-size: 1rem;
+    }
+    
+    .event-log {
+        max-height: 200px;
+    }
 }

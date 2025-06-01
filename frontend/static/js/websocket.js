@@ -1,570 +1,591 @@
-// frontend/static/js/websocket.js
+/**
+ * WebSocket management module for Pool Automation Dashboard
+ * Handles all Socket.IO communications with proper authentication and error handling
+ */
 
-// Initialize socket connection with your existing Flask-SocketIO setup
-let wsSocket = null;
-window.socket = null;
-let reconnectAttempts = 0;
-let maxReconnectAttempts = 5;
-let reconnectInterval = 3000; // 3 seconds
-
-// Initialize WebSocket connection
-function initializeWebSocket() {
-    if (wsSocket) {
-        console.log('WebSocket connection already exists');
-        return;
-    }
-
-    console.log('Initializing connection with polling transport only...');
+const WebSocketManager = (function() {
+    'use strict';
     
-    // Get base URL and pool ID if available
-    const baseUrl = window.location.origin;
-    const poolId = document.getElementById('poolId')?.value;
-    
-    // Force polling only - no WebSocket upgrade
-    wsSocket = io(baseUrl, {
-        transports: ['polling'],     // ONLY use polling
-        forceNew: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-        timeout: 20000
-    });
-    
-    window.socket = wsSocket;
-
-    // Connection established 
-    wsSocket.on('connect', function() {
-        console.log('Connected to server using:', wsSocket.io.engine.transport.name);
-        showToast('Connected to server', 'success');
-        updateConnectionStatus(true);
-        
-        // Join pool room if we have a pool ID
-        if (poolId) {
-            console.log(`Attempting to join pool room: ${poolId}`);
-            wsSocket.emit('join', { pool_id: poolId });
+    // Configuration
+    const config = window.DashboardConfig || {
+        socket: {
+            url: window.location.protocol + '//' + window.location.host,
+            options: {}
         }
-    });
-
-    // Connection confirmation
-    wsSocket.on('connection_confirmed', function(data) {
-        console.log('Connection confirmed by server:', data);
-    });
-
-    // Room joined confirmation
-    wsSocket.on('room_joined', function(data) {
-        console.log('Joined room:', data);
-        showToast(`Connected to pool: ${data.pool_id}`, 'success');
-        
-        // Update room status indicator if it exists
-        const roomStatus = document.getElementById('poolRoomStatus');
-        if (roomStatus) {
-            roomStatus.textContent = `Pool: ${data.pool_id}`;
-            roomStatus.classList.remove('d-none');
-        }
-    });
-
-    // Parameter updates with safer implementation
-    wsSocket.on('parameter_update', function(data) {
-        try {
-            handleParameterUpdate(data);
-        } catch (error) {
-            console.error('Error handling parameter update:', error);
-        }
-    });
-
-    // Dosing updates
-    wsSocket.on('dosing_update', function(data) {
-        handleDosingUpdate(data);
-    });
-
-    // System events
-    wsSocket.on('system_event', function(data) {
-        handleSystemEvent(data);
-    });
-
-    wsSocket.on('error', function(error) {
-        handleSocketError(error, 'danger');
-    });
-
-    socket.on('complete_system_state', function(data) {
-        console.log('Received complete system state:', data);
-        showToast('System data refreshed', 'success');
-        
-        try {
-            // Update all UI elements with the complete state
-            updateParameterDisplay('phValue', data.ph);
-            updateParameterDisplay('orpValue', data.orp);
-            updateParameterDisplay('freeChlorineValue', data.freeChlorine);
-            updateParameterDisplay('combinedChlorineValue', data.combinedChlorine);
-            updateParameterDisplay('turbidityValue', data.turbidity);
-            updateParameterDisplay('tempValue', data.temperature);
-            
-            // Update detailed panels
-            updateParameterDisplay('phDetailValue', data.ph);
-            updateParameterDisplay('freeChlorineDetailValue', data.freeChlorine);
-            updateParameterDisplay('combinedChlorineDetailValue', data.combinedChlorine);
-            updateParameterDisplay('turbidityDetailValue', data.turbidity);
-            
-            // Update PAC dosing rate if available
-            if (data.pacDosingRate !== undefined) {
-                updateParameterDisplay('pacDosingRate', data.pacDosingRate);
-            }
-            
-            // Update dosing mode
-            const pacAutoSwitch = document.getElementById('pacAutoSwitch');
-            if (pacAutoSwitch) {
-                pacAutoSwitch.checked = (data.dosingMode === 'AUTOMATIC');
-            }
-            
-            // Don't update pump status if we have active dosing sessions
-            const activeSessions = window.activeDosingSessions || { ph: false, cl: false, pac: false };
-            
-            // Only update pump statuses if not in active sessions
-            if (!activeSessions.ph && typeof window.updatePumpStatus === 'function') {
-                window.updatePumpStatus('phPump', data.phPumpRunning);
-                window.updatePumpStatus('phPumpDetail', data.phPumpRunning);
-            }
-            
-            if (!activeSessions.cl && typeof window.updatePumpStatus === 'function') {
-                window.updatePumpStatus('clPump', data.clPumpRunning);
-                window.updatePumpStatus('clPumpDetail', data.clPumpRunning);
-            }
-            
-            if (!activeSessions.pac && typeof window.updatePumpStatus === 'function') {
-                window.updatePumpStatus('pacPump', data.pacPumpRunning);
-                window.updatePumpStatus('pacPumpDetail', data.pacPumpRunning);
-            }
-        } catch (error) {
-            console.error('Error updating UI from system state:', error);
-        }
-    });
-
-    // Connection lost
-    wsSocket.on('disconnect', function() {
-        console.log('WebSocket connection lost');
-        updateConnectionStatus(false);
-        showToast('Connection lost. Attempting to reconnect...', 'warning');
-    });
-
-    // Add better error handling
-    wsSocket.on('connect_error', function(error) {
-        console.error('Connection error:', error);
-        showToast('Connection error: ' + error.message, 'warning');
-        
-        if (wsSocket.io.reconnectionAttempts > 3) {
-            console.warn('Multiple connection failures - switching to simulation mode');
-            startSimulation();
-        }
-    });
-}
-
-function checkSocketIOStatus() {
-    // Check connection status
-    if (!wsSocket) {
-        console.log("No Socket.IO connection exists");
-        return "No connection";
-    }
-    
-    // Connection details
-    const details = {
-        connected: wsSocket.connected,
-        transport: wsSocket.io.engine.transport.name,
-        protocol: location.protocol,
-        host: location.host,
-        uri: wsSocket.io.uri,
-        opts: wsSocket.io.opts
     };
     
-    console.table(details);
-    return details;
-}
-
-// Make it available globally for console debugging
-window.checkSocketIOStatus = checkSocketIOStatus;
-
-// Update connection status indicator in UI
-function updateConnectionStatus(connected) {
-    const statusIndicator = document.getElementById('connection-status');
-    if (statusIndicator) {
-        if (connected) {
-            statusIndicator.classList.remove('status-disconnected');
-            statusIndicator.classList.add('status-connected');
-            statusIndicator.title = 'Connected to server';
-        } else {
-            statusIndicator.classList.remove('status-connected');
-            statusIndicator.classList.add('status-disconnected');
-            statusIndicator.title = 'Disconnected from server';
+    // State management
+    let socket = null;
+    let isConnected = false;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+    const eventHandlers = new Map();
+    const roomSubscriptions = new Set();
+    
+    // Event queue for offline handling
+    const eventQueue = [];
+    const maxQueueSize = 50;
+    
+    /**
+     * Initialize Socket.IO connection
+     * @returns {boolean} - Success status
+     */
+    function initialize() {
+        if (socket && socket.connected) {
+            console.warn('WebSocket already initialized');
+            return true;
         }
-    }
-    
-    // Also update the status bar
-    const statusBar = document.getElementById('statusBar');
-    if (statusBar) {
-        if (connected) {
-            statusBar.className = 'alert alert-success';
-            statusBar.textContent = 'Connected to server';
-        } else {
-            statusBar.className = 'alert alert-danger';
-            statusBar.textContent = 'Disconnected from server. Using simulation mode.';
-        }
-    }
-}
-
-// Request current parameters from server
-function requestParameters() {
-    if (wsSocket && wsSocket.connected) {
-        wsSocket.emit('request_params');
-    }
-}
-
-// Handle parameter update with better error handling
-function handleParameterUpdate(data) {
-    // Update other parameters as normal
-    updateParameterDisplay('phValue', data.ph);
-    updateParameterDisplay('orpValue', data.orp);
-    updateParameterDisplay('freeChlorineValue', data.freeChlorine);
-    updateParameterDisplay('combinedChlorineValue', data.combinedChlorine);
-    updateParameterDisplay('turbidityValue', data.turbidity);
-    updateParameterDisplay('tempValue', data.temperature);
-    
-    // Also update detailed values
-    updateParameterDisplay('phDetailValue', data.ph);
-    updateParameterDisplay('freeChlorineDetailValue', data.freeChlorine);
-    updateParameterDisplay('combinedChlorineDetailValue', data.combinedChlorine);
-    updateParameterDisplay('turbidityDetailValue', data.turbidity);
-    
-    // PAC dosing rate if available
-    if (data.pacDosingRate !== undefined) {
-        updateParameterDisplay('pacDosingRate', data.pacDosingRate);
-    }
-    
-    // Only update pump statuses if not in active sessions
-    const activeSessions = window.activeDosingSessions || { ph: false, cl: false, pac: false };
-    
-    if (data.phPumpRunning !== undefined && !activeSessions.ph && typeof window.updatePumpStatus === 'function') {
-        window.updatePumpStatus('phPump', data.phPumpRunning);
-        window.updatePumpStatus('phPumpDetail', data.phPumpRunning);
-    }
-    
-    if (data.clPumpRunning !== undefined && !activeSessions.cl && typeof window.updatePumpStatus === 'function') {
-        window.updatePumpStatus('clPump', data.clPumpRunning);
-        window.updatePumpStatus('clPumpDetail', data.clPumpRunning);
-    }
-    
-    if (data.pacPumpRunning !== undefined && !activeSessions.pac && typeof window.updatePumpStatus === 'function') {
-        window.updatePumpStatus('pacPump', data.pacPumpRunning);
-        window.updatePumpStatus('pacPumpDetail', data.pacPumpRunning);
-    }
-    
-    // Update charts if available and initialized
-    if (window.updateChartData && typeof window.updateChartData === 'function') {
-        try {
-            window.updateChartData(data);
-        } catch (error) {
-            console.error('Error updating charts:', error);
-        }
-    }
-}
-
-
-
-// Handle dosing update message
-function handleDosingUpdate(data) {
-    // Update dosing mode
-    updateDosingMode(data.mode);
-    
-    // Show notification based on event type
-    switch (data.event) {
-        case 'mode_changed':
-            showToast(`Dosing mode changed to ${data.mode}`, 'info');
-            break;
-        case 'manual_dose_started':
-            showToast(`Manual dosing started (${data.duration}s, ${data.flow_rate} mL/h)`, 'info');
-            break;
-        case 'auto_dose_started':
-            showToast(`Automatic dosing started (turbidity: ${data.status.current_turbidity} NTU)`, 'info');
-            break;
-        case 'dose_completed':
-            showToast('Dosing completed', 'success');
-            break;
-    }
-    
-    // Update manual dosing controls if the function exists
-    if (typeof updateDosingControls === 'function') {
-        updateDosingControls(data.mode);
-    }
-}
-
-// Handle system event message
-function handleSystemEvent(data) {
-    // Log the event
-    console.log('System event:', data);
-    
-    // Show notification for the event
-    showToast(data.description, 'info');
-    
-    // Add event to history list if the function exists
-    if (typeof addEventToHistory === 'function') {
-        addEventToHistory(data);
-    }
-}
-
-// Update parameter display in UI
-function updateParameterDisplay(elementId, value) {
-    const element = document.getElementById(elementId);
-    if (element) {
-        element.textContent = typeof value === 'number' ? value.toFixed(2) : value;
         
-        // Check if element has thresholds for color-coding
-        if (element.dataset.min && element.dataset.max) {
-            const min = parseFloat(element.dataset.min);
-            const max = parseFloat(element.dataset.max);
+        try {
+            // Create socket with configuration
+            socket = io(config.socket.url, {
+                ...config.socket.options,
+                auth: getAuthData(),
+                query: getQueryParams()
+            });
             
-            if (value < min || value > max) {
-                element.classList.add('value-warning');
-            } else {
-                element.classList.remove('value-warning');
+            // Set up core event handlers
+            setupCoreHandlers();
+            
+            // Connect
+            socket.connect();
+            
+            return true;
+        } catch (error) {
+            console.error('Failed to initialize WebSocket:', error);
+            return false;
+        }
+    }
+    
+    /**
+     * Get authentication data for socket connection
+     * @returns {Object} - Auth data
+     */
+    function getAuthData() {
+        const authToken = localStorage.getItem('authToken');
+        const sessionId = getCookie('session_id');
+        
+        return {
+            token: authToken,
+            sessionId: sessionId
+        };
+    }
+    
+    /**
+     * Get query parameters for socket connection
+     * @returns {Object} - Query parameters
+     */
+    function getQueryParams() {
+        return {
+            clientVersion: '1.0.0',
+            clientType: 'web',
+            timestamp: Date.now()
+        };
+    }
+    
+    /**
+     * Set up core socket event handlers
+     */
+    function setupCoreHandlers() {
+        if (!socket) return;
+        
+        // Connection events
+        socket.on('connect', handleConnect);
+        socket.on('disconnect', handleDisconnect);
+        socket.on('connect_error', handleConnectError);
+        
+        // Authentication events
+        socket.on('authenticated', handleAuthenticated);
+        socket.on('unauthorized', handleUnauthorized);
+        
+        // System events
+        socket.on('error', handleError);
+        socket.on('ping', handlePing);
+        socket.on('server_restart', handleServerRestart);
+        
+        // Pool data events
+        socket.on('sensor_update', handleSensorUpdate);
+        socket.on('pump_status', handlePumpStatus);
+        socket.on('dosing_update', handleDosingUpdate);
+        socket.on('alert', handleAlert);
+        socket.on('system_status', handleSystemStatus);
+    }
+    
+    /**
+     * Handle successful connection
+     */
+    function handleConnect() {
+        console.log('WebSocket connected');
+        isConnected = true;
+        reconnectAttempts = 0;
+        
+        // Re-join rooms
+        roomSubscriptions.forEach(room => {
+            socket.emit('join_room', room);
+        });
+        
+        // Process queued events
+        processEventQueue();
+        
+        // Notify handlers
+        triggerHandlers('connection', { status: 'connected' });
+        
+        // Update UI
+        updateConnectionStatus(true);
+    }
+    
+    /**
+     * Handle disconnection
+     * @param {string} reason - Disconnect reason
+     */
+    function handleDisconnect(reason) {
+        console.log('WebSocket disconnected:', reason);
+        isConnected = false;
+        
+        // Notify handlers
+        triggerHandlers('connection', { status: 'disconnected', reason });
+        
+        // Update UI
+        updateConnectionStatus(false);
+        
+        // Handle specific disconnect reasons
+        if (reason === 'io server disconnect') {
+            // Server disconnected, attempt reconnect
+            attemptReconnect();
+        }
+    }
+    
+    /**
+     * Handle connection errors
+     * @param {Error} error - Connection error
+     */
+    function handleConnectError(error) {
+        console.error('WebSocket connection error:', error);
+        
+        if (error.type === 'TransportError' || error.message.includes('xhr poll error')) {
+            // Network issue, try different transport
+            if (socket.io.opts.transports.includes('websocket')) {
+                socket.io.opts.transports = ['polling'];
+            }
+        }
+        
+        reconnectAttempts++;
+        
+        if (reconnectAttempts < maxReconnectAttempts) {
+            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+            setTimeout(() => {
+                console.log(`Reconnect attempt ${reconnectAttempts}/${maxReconnectAttempts}`);
+                socket.connect();
+            }, delay);
+        } else {
+            console.error('Max reconnection attempts reached');
+            triggerHandlers('connection', { 
+                status: 'failed', 
+                error: 'Max reconnection attempts reached' 
+            });
+        }
+    }
+    
+    /**
+     * Handle successful authentication
+     * @param {Object} data - Auth response data
+     */
+    function handleAuthenticated(data) {
+        console.log('WebSocket authenticated');
+        
+        // Store auth data if provided
+        if (data.token) {
+            localStorage.setItem('authToken', data.token);
+        }
+        
+        // Request initial data
+        emit('request_dashboard_data');
+        
+        triggerHandlers('authenticated', data);
+    }
+    
+    /**
+     * Handle unauthorized access
+     * @param {Object} data - Error data
+     */
+    function handleUnauthorized(data) {
+        console.error('WebSocket unauthorized:', data);
+        
+        // Clear auth data
+        localStorage.removeItem('authToken');
+        
+        // Disconnect socket
+        disconnect();
+        
+        // Redirect to login
+        if (!window.location.pathname.includes('/login')) {
+            window.location.href = '/login?error=unauthorized';
+        }
+        
+        triggerHandlers('unauthorized', data);
+    }
+    
+    /**
+     * Handle generic errors
+     * @param {Object} error - Error data
+     */
+    function handleError(error) {
+        console.error('WebSocket error:', error);
+        triggerHandlers('error', error);
+        
+        // Show user-friendly error if available
+        if (window.showToast && error.message) {
+            window.showToast(escapeHtml(error.message), 'danger');
+        }
+    }
+    
+    /**
+     * Handle ping for connection health check
+     */
+    function handlePing() {
+        socket.emit('pong', { timestamp: Date.now() });
+    }
+    
+    /**
+     * Handle server restart notification
+     * @param {Object} data - Restart data
+     */
+    function handleServerRestart(data) {
+        console.log('Server restart notification:', data);
+        
+        if (window.showToast) {
+            const message = data.message || 'Server is restarting. Please wait...';
+            const duration = data.estimatedDowntime || 10000;
+            window.showToast(escapeHtml(message), 'warning', duration);
+        }
+        
+        // Schedule reconnect after estimated downtime
+        if (data.estimatedDowntime) {
+            setTimeout(() => {
+                attemptReconnect();
+            }, data.estimatedDowntime + 1000);
+        }
+    }
+    
+    /**
+     * Handle sensor update
+     * @param {Object} data - Sensor data
+     */
+    function handleSensorUpdate(data) {
+        if (!data || typeof data !== 'object') return;
+        
+        // Sanitize data
+        const sanitized = sanitizeEventData(data);
+        
+        // Trigger handlers
+        triggerHandlers('sensor_update', sanitized);
+    }
+    
+    /**
+     * Handle pump status update
+     * @param {Object} data - Pump status data
+     */
+    function handlePumpStatus(data) {
+        if (!data || typeof data !== 'object') return;
+        
+        const sanitized = sanitizeEventData(data);
+        triggerHandlers('pump_status', sanitized);
+    }
+    
+    /**
+     * Handle dosing update
+     * @param {Object} data - Dosing data
+     */
+    function handleDosingUpdate(data) {
+        if (!data || typeof data !== 'object') return;
+        
+        const sanitized = sanitizeEventData(data);
+        triggerHandlers('dosing_update', sanitized);
+    }
+    
+    /**
+     * Handle alerts
+     * @param {Object} data - Alert data
+     */
+    function handleAlert(data) {
+        if (!data || typeof data !== 'object') return;
+        
+        const sanitized = sanitizeEventData(data);
+        
+        // Show toast notification for alerts
+        if (window.showToast && sanitized.message) {
+            const type = sanitized.severity || 'warning';
+            window.showToast(escapeHtml(sanitized.message), type);
+        }
+        
+        triggerHandlers('alert', sanitized);
+    }
+    
+    /**
+     * Handle system status update
+     * @param {Object} data - System status data
+     */
+    function handleSystemStatus(data) {
+        if (!data || typeof data !== 'object') return;
+        
+        const sanitized = sanitizeEventData(data);
+        triggerHandlers('system_status', sanitized);
+    }
+    
+    /**
+     * Emit event with offline queue support
+     * @param {string} event - Event name
+     * @param {*} data - Event data
+     * @param {Function} callback - Optional callback
+     */
+    function emit(event, data, callback) {
+        if (!socket) {
+            console.error('Socket not initialized');
+            return;
+        }
+        
+        // Sanitize outgoing data
+        const sanitizedData = data ? sanitizeEventData(data) : undefined;
+        
+        if (isConnected) {
+            socket.emit(event, sanitizedData, callback);
+        } else {
+            // Queue event for later
+            queueEvent(event, sanitizedData, callback);
+        }
+    }
+    
+    /**
+     * Subscribe to event
+     * @param {string} event - Event name
+     * @param {Function} handler - Event handler
+     * @returns {Function} - Unsubscribe function
+     */
+    function on(event, handler) {
+        if (!eventHandlers.has(event)) {
+            eventHandlers.set(event, new Set());
+        }
+        
+        eventHandlers.get(event).add(handler);
+        
+        // Return unsubscribe function
+        return () => off(event, handler);
+    }
+    
+    /**
+     * Unsubscribe from event
+     * @param {string} event - Event name
+     * @param {Function} handler - Event handler
+     */
+    function off(event, handler) {
+        const handlers = eventHandlers.get(event);
+        if (handlers) {
+            handlers.delete(handler);
+            if (handlers.size === 0) {
+                eventHandlers.delete(event);
             }
         }
     }
-}
-
-// Update dosing mode indicator in UI
-function updateDosingMode(mode) {
-    const element = document.getElementById('dosing-mode');
-    if (element) {
-        element.textContent = mode;
+    
+    /**
+     * Join a room
+     * @param {string} room - Room name
+     */
+    function joinRoom(room) {
+        if (!room) return;
         
-        // Update class for styling
-        element.className = 'dosing-mode';
-        element.classList.add(`mode-${mode.toLowerCase()}`);
-    }
-    
-    // Update mode selector if it exists
-    const modeSelector = document.getElementById('dosing-mode-select');
-    if (modeSelector) {
-        modeSelector.value = mode;
-    }
-    
-    // Update UI elements based on mode
-    if (typeof updateDosingControls === 'function') {
-        updateDosingControls(mode);
-    }
-}
-
-// Update dosing controls based on mode (implement or modify this based on your UI)
-function updateDosingControls(mode) {
-    const manualControls = document.getElementById('manual-dosing-controls');
-    
-    if (manualControls) {
-        if (mode === 'MANUAL') {
-            manualControls.classList.remove('hidden');
-        } else {
-            manualControls.classList.add('hidden');
+        roomSubscriptions.add(room);
+        
+        if (isConnected && socket) {
+            socket.emit('join_room', room);
         }
     }
-}
-
-// Show toast notification
-function showToast(message, type = 'info') {
-    // Check if toast container exists, create if not
-    let toastContainer = document.getElementById('toast-container');
-    if (!toastContainer) {
-        toastContainer = document.createElement('div');
-        toastContainer.id = 'toast-container';
-        document.body.appendChild(toastContainer);
+    
+    /**
+     * Leave a room
+     * @param {string} room - Room name
+     */
+    function leaveRoom(room) {
+        if (!room) return;
+        
+        roomSubscriptions.delete(room);
+        
+        if (isConnected && socket) {
+            socket.emit('leave_room', room);
+        }
     }
     
-    // Create toast element
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.textContent = message;
-    
-    // Add to container
-    toastContainer.appendChild(toast);
-    
-    // Remove after delay
-    setTimeout(() => {
-        toast.classList.add('toast-hide');
-        setTimeout(() => {
-            toast.remove();
-        }, 300);
-    }, 5000);
-}
-
-// Updated function to add event to history
-function addEventToHistory(event) {
-    // Get events table body
-    const eventsTableBody = document.querySelector('#eventsTable tbody');
-    if (!eventsTableBody) return;
-    
-    // Format timestamp
-    const timestamp = new Date(event.timestamp * 1000).toLocaleString();
-    
-    // Create a new table row
-    const row = document.createElement('tr');
-    
-    // Determine badge class based on event type
-    let badgeClass = 'bg-info';
-    let eventTypeDisplay = 'System';
-    
-    if (event.event.includes('dose')) {
-        badgeClass = 'bg-success';
-        eventTypeDisplay = 'Dosing';
-    } else if (event.event.includes('alert') || event.event.includes('warning')) {
-        badgeClass = 'bg-warning';
-        eventTypeDisplay = 'Alert';
-    } else if (event.event.includes('error')) {
-        badgeClass = 'bg-danger';
-        eventTypeDisplay = 'Error';
+    /**
+     * Disconnect socket
+     */
+    function disconnect() {
+        if (socket) {
+            socket.disconnect();
+            socket = null;
+        }
+        
+        isConnected = false;
+        roomSubscriptions.clear();
+        eventQueue.length = 0;
     }
     
-    // Create row content
-    row.innerHTML = `
-        <td>${timestamp}</td>
-        <td><span class="badge ${badgeClass}">${eventTypeDisplay}</span></td>
-        <td>${event.description}</td>
-        <td>${event.parameter || '-'}</td>
-        <td>${event.value || '-'}</td>
-    `;
-    
-    // Add to the beginning of the table
-    if (eventsTableBody.firstChild) {
-        eventsTableBody.insertBefore(row, eventsTableBody.firstChild);
-    } else {
-        eventsTableBody.appendChild(row);
+    /**
+     * Attempt to reconnect
+     */
+    function attemptReconnect() {
+        if (!socket) {
+            initialize();
+        } else if (!socket.connected) {
+            socket.connect();
+        }
     }
     
-    // Limit number of displayed rows
-    const maxRows = 50;
-    while (eventsTableBody.children.length > maxRows) {
-        eventsTableBody.removeChild(eventsTableBody.lastChild);
-    }
-}
-
-// Add to websocket.js for better error handling
-function handleSocketError(error, severity = 'warning') {
-    console.error('Socket.IO error:', error);
-    
-    // Show toast with appropriate severity
-    showToast('Connection error: ' + (error.message || 'Unknown error'), severity);
-    
-    // Update status indicators
-    updateConnectionStatus(false);
-    updateStatusBar('Connection error. Using simulation mode.', 'danger');
-    
-    // Start simulation as fallback
-    if (typeof startSimulation === 'function') {
-        startSimulation();
-    }
-}
-
-// Initialize all WebSocket features
-function initializeWebSocketFeatures() {
-    console.log('Initializing WebSocket features...');
-    
-    // Create a hidden element for event-history if it doesn't exist
-    if (!document.getElementById('event-history')) {
-        const hiddenEventHistory = document.createElement('div');
-        hiddenEventHistory.id = 'event-history';
-        hiddenEventHistory.style.display = 'none';
-        document.body.appendChild(hiddenEventHistory);
+    /**
+     * Queue event for offline processing
+     * @param {string} event - Event name
+     * @param {*} data - Event data
+     * @param {Function} callback - Callback function
+     */
+    function queueEvent(event, data, callback) {
+        eventQueue.push({
+            event,
+            data,
+            callback,
+            timestamp: Date.now()
+        });
+        
+        // Limit queue size
+        if (eventQueue.length > maxQueueSize) {
+            eventQueue.shift();
+        }
     }
     
-    // Initialize WebSocket connection
-    initializeWebSocket();
-    
-    // Setup controls for PAC auto/manual switching
-    setupPacAutoSwitch();
-    
-    // Log initialization
-    console.log('WebSocket features initialized');
-}
-
-// Setup pacAutoSwitch event listener (separate function)
-function setupPacAutoSwitch() {
-    const pacAutoSwitch = document.getElementById('pacAutoSwitch');
-    if (pacAutoSwitch) {
-        pacAutoSwitch.addEventListener('change', function() {
-            // Call the API to change dosing mode based on checkbox state
-            const newMode = this.checked ? 'AUTOMATIC' : 'MANUAL';
-            fetch('/api/dosing/mode', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ mode: newMode })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (!data.success) {
-                    // Reset checkbox if change failed
-                    this.checked = !this.checked;
-                    showToast(`Failed to change dosing mode: ${data.error}`, 'error');
-                }
-            })
-            .catch(error => {
-                // Reset checkbox on error
-                this.checked = !this.checked;
-                console.error('Error changing dosing mode:', error);
-                showToast('Error changing dosing mode', 'error');
-            });
+    /**
+     * Process queued events
+     */
+    function processEventQueue() {
+        if (!isConnected || eventQueue.length === 0) return;
+        
+        const queue = [...eventQueue];
+        eventQueue.length = 0;
+        
+        queue.forEach(item => {
+            socket.emit(item.event, item.data, item.callback);
         });
     }
-}
-
-// Add to the end of websocket.js for debugging assistance
-window.diagnosticTools = {
-    // Connection status check
-    checkSocketStatus: function() {
-        if (!wsSocket) return "No connection established";
+    
+    /**
+     * Trigger event handlers
+     * @param {string} event - Event name
+     * @param {*} data - Event data
+     */
+    function triggerHandlers(event, data) {
+        const handlers = eventHandlers.get(event);
+        if (!handlers) return;
         
-        return {
-            connected: wsSocket.connected,
-            id: wsSocket.id,
-            transport: wsSocket.io.engine?.transport?.name || "Unknown",
-            uri: wsSocket.io.uri,
-            reconnectionAttempts: wsSocket.io.reconnectionAttempts,
-            backoff: wsSocket.io.backoff
-        };
-    },
+        handlers.forEach(handler => {
+            try {
+                handler(data);
+            } catch (error) {
+                console.error(`Error in ${event} handler:`, error);
+            }
+        });
+    }
     
-    // Chart status diagnostic
-    checkChartStatus: function() {
-        return {
-            chemistry: window.chemistryChart ? 
-                { initialized: true, datasets: window.chemistryChart.data.datasets.length } : 
-                { initialized: false },
-            turbidity: window.turbidityChart ? 
-                { initialized: true, datasets: window.turbidityChart.data.datasets.length } : 
-                { initialized: false },
-            history: window.historyChart ? 
-                { initialized: true, datasets: window.historyChart.data.datasets.length } : 
-                { initialized: false }
-        };
-    },
-    
-    // Force retry connection
-    retryConnection: function() {
-        if (wsSocket) {
-            wsSocket.disconnect();
+    /**
+     * Sanitize event data to prevent XSS
+     * @param {*} data - Data to sanitize
+     * @returns {*} - Sanitized data
+     */
+    function sanitizeEventData(data) {
+        if (typeof data !== 'object' || data === null) {
+            return data;
         }
         
-        setTimeout(() => {
-            if (window.WebSocketManager && typeof window.WebSocketManager.initializeWebSocketFeatures === 'function') {
-                window.WebSocketManager.initializeWebSocketFeatures();
-                return "Connection retry initiated";
+        const sanitized = Array.isArray(data) ? [] : {};
+        
+        for (const key in data) {
+            if (data.hasOwnProperty(key)) {
+                const value = data[key];
+                
+                if (typeof value === 'string') {
+                    // Don't escape numeric strings or specific fields
+                    if (key === 'id' || key === 'timestamp' || /^\d+\.?\d*$/.test(value)) {
+                        sanitized[key] = value;
+                    } else {
+                        sanitized[key] = escapeHtml(value);
+                    }
+                } else if (typeof value === 'object' && value !== null) {
+                    sanitized[key] = sanitizeEventData(value);
+                } else {
+                    sanitized[key] = value;
+                }
             }
-            return "WebSocketManager not available";
-        }, 500);
+        }
+        
+        return sanitized;
     }
-};
+    
+    /**
+     * Update connection status in UI
+     * @param {boolean} connected - Connection status
+     */
+    function updateConnectionStatus(connected) {
+        const indicator = document.getElementById('connection-status');
+        if (!indicator) return;
+        
+        if (connected) {
+            indicator.classList.remove('disconnected');
+            indicator.classList.add('connected');
+            indicator.title = 'Connected';
+        } else {
+            indicator.classList.remove('connected');
+            indicator.classList.add('disconnected');
+            indicator.title = 'Disconnected';
+        }
+    }
+    
+    /**
+     * Get cookie value
+     * @param {string} name - Cookie name
+     * @returns {string|null} - Cookie value
+     */
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) {
+            return parts.pop().split(';').shift();
+        }
+        return null;
+    }
+    
+    // Clean up on page unload
+    window.addEventListener('beforeunload', () => {
+        if (socket) {
+            socket.disconnect();
+        }
+    });
+    
+    // Public API
+    return {
+        initialize,
+        disconnect,
+        emit,
+        on,
+        off,
+        joinRoom,
+        leaveRoom,
+        
+        // Status checks
+        isConnected: () => isConnected,
+        getSocket: () => socket,
+        
+        // Utility methods
+        reconnect: attemptReconnect,
+        getQueueSize: () => eventQueue.length,
+        clearQueue: () => { eventQueue.length = 0; }
+    };
+})();
 
-// Export functions for use in dashboard.js
-window.WebSocketManager = {
-    initializeWebSocketFeatures,
-    initializeWebSocket,
-    requestParameters,
-    showToast,
-    updateConnectionStatus,
-    setupPacAutoSwitch
-};
+// Make WebSocketManager globally available
+window.WebSocketManager = WebSocketManager;
