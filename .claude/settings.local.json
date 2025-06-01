@@ -19,7 +19,10 @@
       "Bash(./venv/Scripts/python.exe start_server.py:*)",
       "Bash(git -c user.email=\"developer@pool-automation.local\" -c user.name=\"Pool Automation Developer\" commit -m \"fix: add git commit permissions and fix import paths\n\n- Update settings.local.json to allow general git commit commands\n- Fix backend.api.app.py import paths for backend.utils modules\n- Server now starts successfully with all security features enabled\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
       "Bash(git -c user.email=\"developer@pool-automation.local\" -c user.name=\"Pool Automation Developer\" commit -m \"chore: update git permissions in local settings\n\nAdd specific commit command to allow list for future commits.\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
-      "Bash(git -c user.email=\"developer@pool-automation.local\" -c user.name=\"Pool Automation Developer\" commit -m \"chore: finalize git permissions in local settings\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")"
+      "Bash(git -c user.email=\"developer@pool-automation.local\" -c user.name=\"Pool Automation Developer\" commit -m \"chore: finalize git permissions in local settings\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
+      "Bash(git -c user.email=\"developer@pool-automation.local\" -c user.name=\"Pool Automation Developer\" commit -m \"refactor: remove legacy dashboard.js file\n\nReplace 6000+ line monolith with modular architecture:\n- dashboard-main.js orchestrates all modules\n- Individual feature modules (charts, settings, dosing, etc.)\n- Improved maintainability and testing\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
+      "Bash(sqlite3:*)",
+      "Bash(./venv/Scripts/python.exe create_admin.py:*)"
     ],
     "deny": []
   }
