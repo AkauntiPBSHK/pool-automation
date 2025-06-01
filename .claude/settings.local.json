@@ -16,7 +16,8 @@
       "Bash(git push:*)",
       "Bash(git commit:*)",
       "Bash(./venv/Scripts/python.exe backend/api/app.py)",
-      "Bash(./venv/Scripts/python.exe start_server.py:*)"
+      "Bash(./venv/Scripts/python.exe start_server.py:*)",
+      "Bash(git -c user.email=\"developer@pool-automation.local\" -c user.name=\"Pool Automation Developer\" commit -m \"fix: add git commit permissions and fix import paths\n\n- Update settings.local.json to allow general git commit commands\n- Fix backend.api.app.py import paths for backend.utils modules\n- Server now starts successfully with all security features enabled\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")"
     ],
     "deny": []
   }
