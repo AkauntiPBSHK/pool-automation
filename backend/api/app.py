@@ -116,13 +116,30 @@ def handle_exception(e, operation_name, log_error=True, reraise=False):
     
     return error_details
 
+# Decorators for role-based access control
+from functools import wraps
+
+def admin_required(f):
+    @wraps(f)
+    @login_required
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_admin():
+            flash("Admin access required", "error")
+            return redirect(url_for('pools'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 # User model for Flask-Login
 class User(UserMixin):
-    def __init__(self, id, email, password_hash, name=None):
+    def __init__(self, id, email, password_hash, name=None, role='customer'):
         self.id = id
         self.email = email
         self.password_hash = password_hash
         self.name = name
+        self.role = role
+    
+    def is_admin(self):
+        return self.role == 'admin'
 
 # Create user-related tables
 def create_auth_tables():
@@ -187,7 +204,8 @@ def load_user(user_id):
                     id=user_data['id'],
                     email=user_data['email'],
                     password_hash=user_data['password_hash'],
-                    name=user_data.get('name')
+                    name=user_data.get('name'),
+                    role=user_data.get('role', 'customer')
                 )
     except Exception as e:
         handle_exception(e, "loading user")
@@ -538,7 +556,8 @@ def login():
                         id=user_data['id'],
                         email=user_data['email'],
                         password_hash=user_data['password_hash'],
-                        name=user_data.get('name')
+                        name=user_data.get('name'),
+                        role=user_data.get('role', 'customer')
                     )
                     login_user(user)
                     return redirect(url_for('pools'))
@@ -602,12 +621,181 @@ def logout():
     flash("Logged out successfully", "success")
     return redirect(url_for('login'))
 
+# Customer management routes (admin only)
+@app.route('/customers')
+@admin_required
+def customers():
+    """Show list of all customers."""
+    try:
+        with sqlite3.connect(app.config['DATABASE_PATH']) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT c.*, u.email, u.role, 
+                       COUNT(p.id) as pool_count
+                FROM customers c
+                JOIN users u ON c.user_id = u.id
+                LEFT JOIN pools p ON c.id = p.customer_id
+                GROUP BY c.id
+                ORDER BY c.created_at DESC
+            """)
+            customers = [dict(row) for row in cursor.fetchall()]
+        return render_template('customers.html', customers=customers)
+    except Exception as e:
+        handle_exception(e, "getting customers")
+        return render_template('customers.html', customers=[])
+
+@app.route('/customers/add', methods=['GET', 'POST'])
+@admin_required
+def add_customer():
+    """Add a new customer."""
+    if request.method == 'POST':
+        # Customer details
+        name = request.form.get('name')
+        email = request.form.get('email')
+        phone = request.form.get('phone')
+        address = request.form.get('address')
+        pool_install_date = request.form.get('pool_install_date')
+        
+        # Generate temporary password
+        temp_password = f"BioPool{str(uuid.uuid4())[:8]}"
+        
+        try:
+            with sqlite3.connect(app.config['DATABASE_PATH']) as conn:
+                cursor = conn.cursor()
+                
+                # Check if email already exists
+                cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
+                if cursor.fetchone():
+                    flash("Email already registered", "error")
+                    return render_template('add_customer.html')
+                
+                # Create user account
+                user_id = str(uuid.uuid4())
+                password_hash = generate_password_hash(temp_password)
+                
+                cursor.execute("""
+                    INSERT INTO users (id, email, password_hash, name, role)
+                    VALUES (?, ?, ?, ?, 'customer')
+                """, (user_id, email, password_hash, name))
+                
+                # Create customer record
+                customer_id = str(uuid.uuid4())
+                cursor.execute("""
+                    INSERT INTO customers (id, user_id, name, phone, address, pool_install_date)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (customer_id, user_id, name, phone, address, pool_install_date))
+                
+                conn.commit()
+                
+                # TODO: Send email with temporary password
+                flash(f"Customer created successfully. Temporary password: {temp_password}", "success")
+                return redirect(url_for('customers'))
+                
+        except Exception as e:
+            handle_exception(e, "creating customer")
+            flash("Error creating customer", "error")
+    
+    return render_template('add_customer.html')
+
+@app.route('/customers/<customer_id>/pools', methods=['GET', 'POST'])
+@admin_required
+def manage_customer_pools(customer_id):
+    """Manage pools for a specific customer."""
+    if request.method == 'POST':
+        # Add pool to customer
+        pool_name = request.form.get('pool_name')
+        device_serial = request.form.get('device_serial')
+        location = request.form.get('location')
+        
+        try:
+            with sqlite3.connect(app.config['DATABASE_PATH']) as conn:
+                cursor = conn.cursor()
+                
+                # Create new pool
+                pool_id = str(uuid.uuid4())
+                cursor.execute("""
+                    INSERT INTO pools (id, customer_id, name, device_serial, location, status)
+                    VALUES (?, ?, ?, ?, ?, 'active')
+                """, (pool_id, customer_id, pool_name, device_serial, location))
+                
+                conn.commit()
+                flash("Pool added successfully", "success")
+                
+        except Exception as e:
+            handle_exception(e, "adding pool to customer")
+            flash("Error adding pool", "error")
+    
+    # Get customer info and pools
+    try:
+        with sqlite3.connect(app.config['DATABASE_PATH']) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            # Get customer info
+            cursor.execute("""
+                SELECT c.*, u.email
+                FROM customers c
+                JOIN users u ON c.user_id = u.id
+                WHERE c.id = ?
+            """, (customer_id,))
+            customer = dict(cursor.fetchone())
+            
+            # Get customer's pools
+            cursor.execute("""
+                SELECT * FROM pools
+                WHERE customer_id = ?
+                ORDER BY created_at DESC
+            """, (customer_id,))
+            pools = [dict(row) for row in cursor.fetchall()]
+            
+        return render_template('customer_pools.html', customer=customer, pools=pools)
+        
+    except Exception as e:
+        handle_exception(e, "getting customer pools")
+        flash("Error loading customer data", "error")
+        return redirect(url_for('customers'))
+
 @app.route('/pools')
 @login_required
 def pools():
-    """Show list of user's pools."""
-    user_pools = get_user_pools(current_user.id)
-    return render_template('pools.html', pools=user_pools)
+    """Show list of pools based on user role."""
+    if current_user.is_admin():
+        # Admin sees all pools with customer info
+        try:
+            with sqlite3.connect(app.config['DATABASE_PATH']) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT p.*, c.name as customer_name, u.email as customer_email
+                    FROM pools p
+                    LEFT JOIN customers c ON p.customer_id = c.id
+                    LEFT JOIN users u ON c.user_id = u.id
+                    ORDER BY p.created_at DESC
+                """)
+                all_pools = [dict(row) for row in cursor.fetchall()]
+            return render_template('pools.html', pools=all_pools, is_admin=True)
+        except Exception as e:
+            handle_exception(e, "getting all pools")
+            return render_template('pools.html', pools=[], is_admin=True)
+    else:
+        # Customer sees only their pools
+        try:
+            with sqlite3.connect(app.config['DATABASE_PATH']) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute("""
+                    SELECT p.*
+                    FROM pools p
+                    JOIN customers c ON p.customer_id = c.id
+                    WHERE c.user_id = ?
+                    ORDER BY p.created_at DESC
+                """, (current_user.id,))
+                user_pools = [dict(row) for row in cursor.fetchall()]
+            return render_template('pools.html', pools=user_pools, is_admin=False)
+        except Exception as e:
+            handle_exception(e, "getting user pools")
+            return render_template('pools.html', pools=[], is_admin=False)
 
 @app.route('/pools/add', methods=['GET', 'POST'])
 @login_required
@@ -666,17 +854,38 @@ def pool_dashboard(pool_id):
     return render_template('index.html', pool=pool)
 
 @app.route('/')
-def index():
+@app.route('/dashboard/<pool_id>')
+def index(pool_id=None):
     """Render the main dashboard page or redirect to login."""
     if not current_user.is_authenticated:
         return redirect(url_for('login'))
+    
+    # If pool_id is provided, validate access
+    if pool_id:
+        if current_user.is_admin():
+            # Admin can view any pool
+            pool = get_pool(pool_id)
+        else:
+            # Customer can only view their pools
+            pool = get_pool(pool_id, current_user.id)
+        
+        if pool:
+            session['current_pool_id'] = pool_id
+            return render_template('index.html', pool=pool)
+        else:
+            flash("You don't have access to this pool", "error")
+            return redirect(url_for('pools'))
     
     # If user is logged in but no pool is selected, show pool selection
     if not session.get('current_pool_id'):
         return redirect(url_for('pools'))
     
     # Verify user still has access to the selected pool
-    pool = get_pool(session['current_pool_id'], current_user.id)
+    if current_user.is_admin():
+        pool = get_pool(session['current_pool_id'])
+    else:
+        pool = get_pool(session['current_pool_id'], current_user.id)
+    
     if not pool:
         del session['current_pool_id']
         return redirect(url_for('pools'))

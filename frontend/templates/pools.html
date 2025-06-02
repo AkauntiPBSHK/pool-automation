@@ -181,14 +181,27 @@
             <a href="https://biopool.design/">
                 <i class="bi bi-arrow-left"></i> Back to BioPool Website
             </a>
-            <a href="{{ url_for('logout') }}">
-                Logout <i class="bi bi-box-arrow-right"></i>
-            </a>
+            <div>
+                {% if is_admin %}
+                    <a href="{{ url_for('customers') }}" class="me-3">
+                        <i class="bi bi-people"></i> Customers
+                    </a>
+                {% endif %}
+                <a href="{{ url_for('logout') }}">
+                    Logout <i class="bi bi-box-arrow-right"></i>
+                </a>
+            </div>
         </div>
         
         <div class="header">
-            <h1>My Pools</h1>
-            <p>Welcome, {{ current_user.name or current_user.email }}! Select a pool to view its dashboard.</p>
+            <h1>{% if is_admin %}All Pools{% else %}My Pools{% endif %}</h1>
+            <p>Welcome, {{ current_user.name or current_user.email }}! 
+               {% if is_admin %}
+                   Viewing all customer pools.
+               {% else %}
+                   Select a pool to view its dashboard.
+               {% endif %}
+            </p>
         </div>
         
         {% if pools and pools|length > 0 %}
@@ -196,6 +209,12 @@
                 {% for pool in pools %}
                 <div class="pool-card">
                     <h3>{{ pool.name }}</h3>
+                    {% if is_admin and pool.customer_name %}
+                        <p class="text-muted small mb-1">
+                            <i class="bi bi-person"></i> {{ pool.customer_name }}
+                            {% if pool.customer_email %}({{ pool.customer_email }}){% endif %}
+                        </p>
+                    {% endif %}
                     <p class="text-muted small">{{ pool.location or 'No location specified' }}</p>
                     
                     <div class="stats-row">
@@ -229,7 +248,7 @@
                     </div>
                     
                     <div class="actions mt-3">
-                        <a href="{{ url_for('pool_dashboard', pool_id=pool.id) }}" class="btn-view">
+                        <a href="{{ url_for('index', pool_id=pool.id) }}" class="btn-view">
                             View Dashboard <i class="bi bi-arrow-right"></i>
                         </a>
                     </div>

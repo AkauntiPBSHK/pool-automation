@@ -22,7 +22,10 @@
       "Bash(git -c user.email=\"developer@pool-automation.local\" -c user.name=\"Pool Automation Developer\" commit -m \"chore: finalize git permissions in local settings\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
       "Bash(git -c user.email=\"developer@pool-automation.local\" -c user.name=\"Pool Automation Developer\" commit -m \"refactor: remove legacy dashboard.js file\n\nReplace 6000+ line monolith with modular architecture:\n- dashboard-main.js orchestrates all modules\n- Individual feature modules (charts, settings, dosing, etc.)\n- Improved maintainability and testing\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
       "Bash(sqlite3:*)",
-      "Bash(./venv/Scripts/python.exe create_admin.py:*)"
+      "Bash(./venv/Scripts/python.exe create_admin.py:*)",
+      "Bash(source:*)",
+      "Bash(ls:*)",
+      "Bash(. venv/Scripts/activate)"
     ],
     "deny": []
   }
