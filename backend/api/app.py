@@ -204,8 +204,8 @@ def load_user(user_id):
                     id=user_data['id'],
                     email=user_data['email'],
                     password_hash=user_data['password_hash'],
-                    name=user_data.get('name'),
-                    role=user_data.get('role', 'customer')
+                    name=user_data['name'] if 'name' in user_data.keys() else None,
+                    role=user_data['role'] if 'role' in user_data.keys() else 'customer'
                 )
     except Exception as e:
         handle_exception(e, "loading user")
@@ -556,8 +556,8 @@ def login():
                         id=user_data['id'],
                         email=user_data['email'],
                         password_hash=user_data['password_hash'],
-                        name=user_data.get('name'),
-                        role=user_data.get('role', 'customer')
+                        name=user_data['name'] if 'name' in user_data.keys() else None,
+                        role=user_data['role'] if 'role' in user_data.keys() else 'customer'
                     )
                     login_user(user)
                     return redirect(url_for('pools'))
