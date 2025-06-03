@@ -400,44 +400,12 @@ function enhanceMobileResponsiveness() {
 window.addEventListener('load', enhanceMobileResponsiveness);
 window.addEventListener('resize', enhanceMobileResponsiveness);
 
-// Missing enhancement functions - stub implementations
-function updateAllRangeAriaAttributes() {
-    console.log('updateAllRangeAriaAttributes - stub implementation');
-    // TODO: Implement accessibility attributes for range inputs
-}
-
-function enhanceInitializeHistoryChart() {
-    console.log('enhanceInitializeHistoryChart - stub implementation');
-    // TODO: Implement history chart enhancements
-}
-
-function enhanceChartInitialization() {
-    console.log('enhanceChartInitialization - stub implementation');
-    // TODO: Implement chart initialization enhancements
-}
-
-function setupDosingEventsToggle() {
-    console.log('setupDosingEventsToggle - stub implementation');
-    // TODO: Implement dosing events toggle functionality
-    const toggle = document.getElementById('showDosingEvents');
-    if (toggle) {
-        toggle.addEventListener('change', function() {
-            console.log('Dosing events toggle:', this.checked);
-        });
-    }
-}
-
-function enhanceSyncParameterSelection() {
-    console.log('enhanceSyncParameterSelection - stub implementation');
-    // TODO: Implement parameter selection synchronization
-}
-
-function enhanceHistoryChartInit() {
-    console.log('enhanceHistoryChartInit - stub implementation');
-    // TODO: Implement history chart initialization enhancements
-}
-
-function fixDosingEventsToggle() {
-    console.log('fixDosingEventsToggle - stub implementation');
-    // TODO: Fix dosing events toggle issues
-}
+// Note: The following enhancement functions are implemented in dashboard.js:
+// - updateAllRangeAriaAttributes
+// - enhanceInitializeHistoryChart
+// - enhanceChartInitialization
+// - setupDosingEventsToggle
+// - enhanceSyncParameterSelection
+// - enhanceHistoryChartInit
+// - fixDosingEventsToggle
+// They are called from dashboard.js after it loads, so they don't need to be defined here.
