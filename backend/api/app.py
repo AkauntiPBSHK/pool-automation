@@ -289,6 +289,23 @@ simulator = EnhancedPoolSimulator(app.config.get('SIMULATOR', {}))
 mock_turbidity_sensor = MockTurbiditySensor(app.config.get('HARDWARE', {}).get('turbidity_sensor', {}), simulator)
 mock_pac_pump = MockPump({'type': 'pac', **app.config.get('HARDWARE', {}).get('pac_pump', {})}, simulator)
 
+# Background task to send periodic WebSocket updates
+def periodic_websocket_updates():
+    """Send periodic parameter updates via WebSocket."""
+    while True:
+        try:
+            with app.app_context():
+                send_status_update()
+            time.sleep(2)  # Send updates every 2 seconds
+        except Exception as e:
+            logger.error(f"Error in periodic WebSocket updates: {e}")
+            time.sleep(5)  # Wait longer if there's an error
+
+# Start background thread for WebSocket updates
+websocket_thread = threading.Thread(target=periodic_websocket_updates, daemon=True)
+websocket_thread.start()
+logger.info("Started periodic WebSocket update thread")
+
 # Create an event logger function
 def log_dosing_event(event_type, duration, flow_rate, turbidity):
     try:
@@ -386,17 +403,10 @@ def send_status_update(pool_id=None):
         else:
             # For pool-specific updates, send to the pool's room
             try:
-                # Get parameters for this specific pool (if simulator supports this)
-                try:
-                    params = simulator.get_all_parameters(pool_id)
-                    pump_states = simulator.get_pump_states(pool_id)
-                    dosing_status = dosing_controller.get_status(pool_id)
-                except TypeError:
-                    # Fall back to general parameters if pool-specific methods aren't implemented
-                    logger.warning(f"Pool-specific simulator methods not available, using general data for pool {pool_id}")
-                    params = simulator.get_all_parameters()
-                    pump_states = simulator.get_pump_states()
-                    dosing_status = dosing_controller.get_status()
+                # Get parameters for this specific pool (simulator doesn't support pool-specific data yet)
+                params = simulator.get_all_parameters()
+                pump_states = simulator.get_pump_states()
+                dosing_status = dosing_controller.get_status()
                 
                 # Create a pool-specific status update
                 status_data = {
@@ -1648,6 +1658,61 @@ def on_join(data):
     except Exception as e:
         handle_exception(e, "joining room")
         return {'error': 'Server error', 'status': 'error'}
+
+@app.route('/api/history/parameters')
+@login_required
+@rate_limit('history_request')
+def get_parameter_history():
+    """Get historical parameter data."""
+    try:
+        # Get query parameters
+        hours = request.args.get('hours', '24')
+        try:
+            hours = int(hours)
+        except ValueError:
+            hours = 24
+        
+        # Generate simulated historical data for now
+        # In a real implementation, this would query the database
+        current_time = time.time()
+        data_points = []
+        
+        # Generate data points every 5 minutes for the requested period
+        interval = 300  # 5 minutes in seconds
+        num_points = (hours * 3600) // interval
+        
+        for i in range(num_points):
+            timestamp = current_time - (i * interval)
+            
+            # Get current parameters and add some variation for history
+            if simulator:
+                params = simulator.get_all_parameters()
+                # Add some historical variation
+                variation = (i % 20) / 100  # Small cyclical variation
+                
+                data_points.append({
+                    'timestamp': timestamp,
+                    'ph': round(params['ph'] + (variation * 0.2), 2),
+                    'orp': round(params['orp'] + (variation * 20), 0),
+                    'freeChlorine': round(params['free_chlorine'] + (variation * 0.1), 2),
+                    'combinedChlorine': round(params['combined_chlorine'] + (variation * 0.05), 2),
+                    'turbidity': round(params['turbidity'] + (variation * 0.02), 3),
+                    'temperature': round(params['temperature'] + (variation * 1.0), 1)
+                })
+        
+        # Sort by timestamp (oldest first)
+        data_points.sort(key=lambda x: x['timestamp'])
+        
+        return jsonify({
+            'success': True,
+            'data': data_points,
+            'hours': hours,
+            'count': len(data_points)
+        })
+        
+    except Exception as e:
+        error_details = handle_exception(e, "getting parameter history")
+        return jsonify({"error": error_details["error"]}), 500
 
 # WebSocket events
 @socketio.on('connect')

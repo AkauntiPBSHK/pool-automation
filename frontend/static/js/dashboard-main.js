@@ -725,6 +725,114 @@
     }
     
     /**
+     * Load historical data for charts
+     */
+    async function loadHistoryData() {
+        try {
+            // Get time range from UI controls
+            const rangeSelect = document.getElementById('historyPresetRange');
+            const hours = rangeSelect ? rangeSelect.value : '168'; // Default to 7 days
+            
+            // Call history API
+            const response = await DashboardAPI.getData('/api/history/parameters', { hours });
+            
+            if (response.success && response.data) {
+                // Update history chart with new data
+                if (state.charts.history) {
+                    const chartData = formatHistoryDataForChart(response.data);
+                    ChartManager.updateChart('historyChart', chartData);
+                }
+                
+                // Update data table
+                updateHistoryDataTable(response.data);
+            } else {
+                console.warn('No historical data received');
+            }
+            
+        } catch (error) {
+            console.error('Error loading history data:', error);
+            UIManager.showToast(`Failed to load history data: ${error.message}`, 'danger');
+        }
+    }
+    
+    /**
+     * Format historical data for chart display
+     */
+    function formatHistoryDataForChart(data) {
+        const labels = data.map(point => new Date(point.timestamp * 1000).toLocaleString());
+        
+        return {
+            labels,
+            datasets: [
+                {
+                    label: 'pH',
+                    data: data.map(point => point.ph),
+                    borderColor: 'rgb(75, 192, 192)',
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    tension: 0.1
+                },
+                {
+                    label: 'ORP (mV)',
+                    data: data.map(point => point.orp),
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    tension: 0.1,
+                    yAxisID: 'y1'
+                },
+                {
+                    label: 'Free Chlorine (mg/L)',
+                    data: data.map(point => point.freeChlorine),
+                    borderColor: 'rgb(54, 162, 235)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    tension: 0.1
+                },
+                {
+                    label: 'Turbidity (NTU)',
+                    data: data.map(point => point.turbidity),
+                    borderColor: 'rgb(255, 205, 86)',
+                    backgroundColor: 'rgba(255, 205, 86, 0.2)',
+                    tension: 0.1
+                },
+                {
+                    label: 'Temperature (°C)',
+                    data: data.map(point => point.temperature),
+                    borderColor: 'rgb(153, 102, 255)',
+                    backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                    tension: 0.1
+                }
+            ]
+        };
+    }
+    
+    /**
+     * Update history data table
+     */
+    function updateHistoryDataTable(data) {
+        const tbody = document.querySelector('#historyDataTable tbody');
+        if (!tbody) return;
+        
+        // Clear existing data
+        tbody.innerHTML = '';
+        
+        // Add new rows (limit to last 50 for performance)
+        const recentData = data.slice(-50);
+        recentData.forEach(point => {
+            const row = tbody.insertRow();
+            const timestamp = new Date(point.timestamp * 1000).toLocaleString();
+            
+            row.innerHTML = `
+                <td>${timestamp}</td>
+                <td>${point.ph}</td>
+                <td>${point.orp}</td>
+                <td>${point.freeChlorine}</td>
+                <td>${point.combinedChlorine}</td>
+                <td>${point.turbidity}</td>
+                <td>${point.temperature}</td>
+            `;
+        });
+    }
+    
+    /**
      * Clean up on page unload
      */
     function cleanup() {
