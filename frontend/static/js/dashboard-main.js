@@ -154,12 +154,12 @@
         
         // Show/hide tabs
         document.querySelectorAll('.tab-content').forEach(tab => {
-            tab.classList.add('d-none');
+            tab.style.display = 'none';
         });
         
         const targetTab = document.getElementById(targetId);
         if (targetTab) {
-            targetTab.classList.remove('d-none');
+            targetTab.style.display = 'block';
         }
         
         // Update state
