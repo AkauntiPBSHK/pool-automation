@@ -270,7 +270,7 @@ def get_pool_status(pool_id):
 
 async_mode = None  # Let Flask-SocketIO choose the best async mode
 
-# Update your Socket.IO configuration to use polling only
+# Update your Socket.IO configuration to allow both websocket and polling
 socketio = SocketIO(
     app,
     cors_allowed_origins="*",
@@ -278,7 +278,8 @@ socketio = SocketIO(
     engineio_logger=True,
     ping_timeout=app.config['SOCKETIO_PING_TIMEOUT'],
     ping_interval=app.config['SOCKETIO_PING_INTERVAL'],
-    transports=["polling"]    # Only allow polling transport
+    transports=["websocket", "polling"],    # Allow both transports
+    async_mode='threading'  # Use threading for better compatibility
 )
 
 # Create a global instance of the system simulator
