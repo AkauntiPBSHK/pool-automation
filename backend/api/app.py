@@ -947,8 +947,8 @@ def dashboard_data():
 
         if simulator:
             # Get data from the simulator
-            params = simulator.get_all_parameters(pool_id)
-            pump_states = simulator.get_pump_states(pool_id)
+            params = simulator.get_all_parameters()
+            pump_states = simulator.get_pump_states()
             
             return jsonify({
                 "ph": round(params['ph'], 1),
