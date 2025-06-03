@@ -274,6 +274,44 @@
     }
     
     /**
+     * Save chemistry targets
+     * @param {HTMLFormElement} form - The chemistry targets form
+     */
+    async function saveChemistryTargets(form) {
+        try {
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData);
+            
+            // Call settings API to save chemistry targets
+            await APIManager.updateSettings('chemistry_targets', data);
+            
+            UIManager.showToast('Chemistry targets saved successfully', 'success');
+        } catch (error) {
+            console.error('Error saving chemistry targets:', error);
+            UIManager.showToast(`Failed to save chemistry targets: ${error.message}`, 'danger');
+        }
+    }
+    
+    /**
+     * Save notification settings
+     * @param {HTMLFormElement} form - The notification settings form
+     */
+    async function saveNotificationSettings(form) {
+        try {
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData);
+            
+            // Call settings API to save notification settings
+            await APIManager.updateSettings('notifications', data);
+            
+            UIManager.showToast('Notification settings saved successfully', 'success');
+        } catch (error) {
+            console.error('Error saving notification settings:', error);
+            UIManager.showToast(`Failed to save notification settings: ${error.message}`, 'danger');
+        }
+    }
+    
+    /**
      * Set up chart visibility toggles
      */
     function setupChartToggles() {
