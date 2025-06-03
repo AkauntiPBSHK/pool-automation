@@ -42,8 +42,9 @@ const mockData = {
 };
 
 // Updated code with transport configuration
-const socket = io('http://127.0.0.1:5000', {
-    transports: ['polling'],
+const socketUrl = window.location.protocol + '//' + window.location.hostname + (window.location.port ? ':' + window.location.port : '');
+const socket = io(socketUrl, {
+    transports: ['websocket', 'polling'],
     forceNew: true,
     reconnectionAttempts: 5
 });

@@ -400,6 +400,47 @@ function enhanceMobileResponsiveness() {
 window.addEventListener('load', enhanceMobileResponsiveness);
 window.addEventListener('resize', enhanceMobileResponsiveness);
 
+// Missing loading functions that dashboard.js calls
+function showLoading(message = 'Loading...') {
+    console.log('showLoading:', message);
+    // Create or update loading overlay
+    let loadingOverlay = document.getElementById('loading-overlay');
+    if (!loadingOverlay) {
+        loadingOverlay = document.createElement('div');
+        loadingOverlay.id = 'loading-overlay';
+        loadingOverlay.className = 'loading-overlay';
+        loadingOverlay.innerHTML = `
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <div class="loading-message mt-2">${message}</div>
+        `;
+        document.body.appendChild(loadingOverlay);
+    } else {
+        const messageEl = loadingOverlay.querySelector('.loading-message');
+        if (messageEl) messageEl.textContent = message;
+    }
+    loadingOverlay.style.display = 'flex';
+}
+
+function hideLoading() {
+    console.log('hideLoading');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    if (loadingOverlay) {
+        loadingOverlay.style.display = 'none';
+    }
+}
+
+// Make them available globally
+window.showLoading = showLoading;
+window.hideLoading = hideLoading;
+
+// Global date formatting function to avoid duplication
+function formatDate(date) {
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+}
+window.formatDate = formatDate;
+
 // Note: The following enhancement functions are implemented in dashboard.js:
 // - updateAllRangeAriaAttributes
 // - enhanceInitializeHistoryChart
