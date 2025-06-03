@@ -96,14 +96,6 @@ class ProductionConfig(Config):
     # In production, set an absolute path for the database
     DATABASE_PATH = os.getenv('DATABASE_PATH', '/var/www/pool-automation/pool_automation.db')
     
-    # For PostgreSQL (if used)
-    DB_USER = os.getenv('DB_USER', '')
-    DB_PASSWORD = os.getenv('DB_PASSWORD', '')
-    DB_HOST = os.getenv('DB_HOST', 'localhost')
-    DB_PORT = os.getenv('DB_PORT', '5432')
-    DB_NAME = os.getenv('DB_NAME', 'pool_automation')
-    DB_TYPE = os.getenv('DB_TYPE', 'sqlite')  # 'sqlite' or 'postgresql'
-    
     def __init__(self):
         """Validate production configuration."""
         if not self.SECRET_KEY:

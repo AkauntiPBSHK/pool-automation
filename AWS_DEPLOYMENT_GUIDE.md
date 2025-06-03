@@ -8,7 +8,7 @@
 
 ### AWS Infrastructure
 - **Platform**: EC2 Instance (Ubuntu)
-- **Database**: PostgreSQL
+- **Database**: SQLite (file-based)
 - **Web Server**: Nginx + Gunicorn
 
 ## How to Access Your AWS-Hosted Website
@@ -39,10 +39,10 @@
 ssh -i your-key.pem ubuntu@<EC2-IP>
 
 # Create database backup
-sudo -u postgres pg_dump pool_automation_db > pool_automation_backup_$(date +%Y%m%d).sql
+cp /var/www/pool-automation/pool_automation.db /var/www/pool-automation/pool_automation_backup_$(date +%Y%m%d).db
 
 # Download backup to your local machine
-scp -i your-key.pem ubuntu@<EC2-IP>:pool_automation_backup_*.sql ./
+scp -i your-key.pem ubuntu@<EC2-IP>:/var/www/pool-automation/pool_automation_backup_*.db ./
 ```
 
 #### Step 2: Backup Application Files
@@ -93,7 +93,8 @@ scp -i your-key.pem ubuntu@<EC2-IP>:/var/www/pool-automation-backup.tar.gz ./
 
 3. **Restore Database**
    ```bash
-   sudo -u postgres psql pool_automation_db < pool_automation_backup.sql
+   cp pool_automation_backup.db /var/www/pool-automation/pool_automation.db
+   sudo chown www-data:www-data /var/www/pool-automation/pool_automation.db
    ```
 
 4. **Update DNS**
@@ -125,7 +126,6 @@ scp -i your-key.pem ubuntu@<EC2-IP>:/var/www/pool-automation-backup.tar.gz ./
 ## Security Notes
 
 ⚠️ **Important**: Before re-deploying, change these credentials:
-- PostgreSQL password (currently: Pierin17012006)
 - Flask SECRET_KEY
 - Email SMTP password
 - Admin user passwords

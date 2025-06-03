@@ -7,15 +7,6 @@ from flask import current_app
 
 logger = logging.getLogger(__name__)
 
-# Try to import PostgreSQL support, but don't fail if it's not available
-try:
-    import psycopg2
-    import psycopg2.extras
-    POSTGRESQL_AVAILABLE = True
-except ImportError:
-    POSTGRESQL_AVAILABLE = False
-    logger.warning("psycopg2 not available - PostgreSQL support disabled")
-
 class DatabaseHandler:
     def __init__(self, db_path=None, auto_migrate=True):
         """Initialize the database with required tables."""
@@ -25,79 +16,66 @@ class DatabaseHandler:
         self._init_db()
     
     def _get_connection(self):
-        """Get the appropriate database connection based on config."""
+        """Get SQLite database connection."""
         # Check for Flask app context to get config
         if hasattr(current_app, 'config'):
-            self.db_type = current_app.config.get('DB_TYPE', 'sqlite')
-            
-            if self.db_type == 'postgresql' and POSTGRESQL_AVAILABLE:
-                return psycopg2.connect(
-                    user=current_app.config.get('DB_USER', ''),
-                    password=current_app.config.get('DB_PASSWORD', ''),
-                    host=current_app.config.get('DB_HOST', 'localhost'),
-                    port=current_app.config.get('DB_PORT', '5432'),
-                    database=current_app.config.get('DB_NAME', 'pool_automation')
-                )
-            else:
-                # Use configured database path or default
-                db_path = current_app.config.get('DATABASE_PATH', self.db_path or 'pool_automation.db')
-                return sqlite3.connect(db_path)
+            db_path = current_app.config.get('DATABASE_PATH', self.db_path or 'pool_automation.db')
+        else:
+            db_path = self.db_path or 'pool_automation.db'
         
-        # Fallback to SQLite with the provided path or default
-        return sqlite3.connect(self.db_path or 'pool_automation.db')
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        return conn
     
     def _init_db(self):
         """Initialize the database tables if they don't exist."""
         with self._get_connection() as conn:
-            # Detect database type from connection
-            self.db_type = 'postgresql' if hasattr(conn, 'server_version') else 'sqlite'
+            cursor = conn.cursor()
             
-            if self.db_type == 'postgresql':
-                with conn.cursor() as cursor:
-                    # PostgreSQL versions of table creation
-                    cursor.execute('''
-                        CREATE TABLE IF NOT EXISTS turbidity_readings (
-                            id SERIAL PRIMARY KEY,
-                            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            value REAL,
-                            moving_avg REAL,
-                            pool_id TEXT
-                        )
-                    ''')
-                    
-                    cursor.execute('''
-                        CREATE TABLE IF NOT EXISTS dosing_events (
-                            id SERIAL PRIMARY KEY,
-                            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            event_type TEXT,
-                            duration INTEGER,
-                            flow_rate REAL,
-                            turbidity REAL,
-                            pool_id TEXT
-                        )
-                    ''')
-                    
-                    cursor.execute('''
-                        CREATE TABLE IF NOT EXISTS steiel_readings (
-                            id SERIAL PRIMARY KEY,
-                            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            ph REAL,
-                            orp INTEGER,
-                            free_cl REAL,
-                            comb_cl REAL,
-                            pool_id TEXT
-                        )
-                    ''')
-                    
-                    cursor.execute('''
-                        CREATE TABLE IF NOT EXISTS system_events (
-                            id SERIAL PRIMARY KEY,
-                            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            event_type TEXT,
-                            description TEXT,
-                            parameter TEXT,
-                            value TEXT,
-                            pool_id TEXT
+            # Create tables using SQLite syntax
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS turbidity_readings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    value REAL,
+                    moving_avg REAL,
+                    pool_id TEXT
+                )
+            ''')
+            
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS dosing_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    event_type TEXT,
+                    duration INTEGER,
+                    flow_rate REAL,
+                    turbidity REAL,
+                    pool_id TEXT
+                )
+            ''')
+            
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS steiel_readings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    ph REAL,
+                    orp INTEGER,
+                    free_cl REAL,
+                    comb_cl REAL,
+                    pool_id TEXT
+                )
+            ''')
+            
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS system_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    event_type TEXT,
+                    description TEXT,
+                    parameter TEXT,
+                    value TEXT,
+                    pool_id TEXT
                         )
                     ''')
                     
@@ -177,7 +155,7 @@ class DatabaseHandler:
             self._create_indexes()
             
             conn.commit()
-            logger.info(f"Database initialized successfully (type: {self.db_type})")
+            logger.info("Database initialized successfully")
             
             # Run migrations if enabled
             if self.auto_migrate:
@@ -187,44 +165,24 @@ class DatabaseHandler:
         """Create database indexes for better query performance"""
         try:
             with self._get_connection() as conn:
-                if self.db_type == 'postgresql':
-                    with conn.cursor() as cursor:
-                        # Indexes for PostgreSQL
-                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_turbidity_timestamp ON turbidity_readings(timestamp)')
-                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_turbidity_pool_id ON turbidity_readings(pool_id)')
-                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_turbidity_timestamp_pool ON turbidity_readings(timestamp, pool_id)')
-                        
-                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_steiel_timestamp ON steiel_readings(timestamp)')
-                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_steiel_pool_id ON steiel_readings(pool_id)')
-                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_steiel_timestamp_pool ON steiel_readings(timestamp, pool_id)')
-                        
-                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_dosing_timestamp ON dosing_events(timestamp)')
-                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_dosing_pool_id ON dosing_events(pool_id)')
-                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_dosing_event_type ON dosing_events(event_type)')
-                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_dosing_timestamp_pool ON dosing_events(timestamp, pool_id)')
-                        
-                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_system_events_timestamp ON system_events(timestamp)')
-                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_system_events_pool_id ON system_events(pool_id)')
-                        cursor.execute('CREATE INDEX IF NOT EXISTS idx_system_events_type ON system_events(event_type)')
-                else:
-                    # Indexes for SQLite
-                    cursor = conn.cursor()
-                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_turbidity_timestamp ON turbidity_readings(timestamp)')
-                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_turbidity_pool_id ON turbidity_readings(pool_id)')
-                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_turbidity_timestamp_pool ON turbidity_readings(timestamp, pool_id)')
-                    
-                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_steiel_timestamp ON steiel_readings(timestamp)')
-                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_steiel_pool_id ON steiel_readings(pool_id)')
-                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_steiel_timestamp_pool ON steiel_readings(timestamp, pool_id)')
-                    
-                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_dosing_timestamp ON dosing_events(timestamp)')
-                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_dosing_pool_id ON dosing_events(pool_id)')
-                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_dosing_event_type ON dosing_events(event_type)')
-                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_dosing_timestamp_pool ON dosing_events(timestamp, pool_id)')
-                    
-                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_system_events_timestamp ON system_events(timestamp)')
-                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_system_events_pool_id ON system_events(pool_id)')
-                    cursor.execute('CREATE INDEX IF NOT EXISTS idx_system_events_type ON system_events(event_type)')
+                cursor = conn.cursor()
+                # Create indexes for all tables
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_turbidity_timestamp ON turbidity_readings(timestamp)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_turbidity_pool_id ON turbidity_readings(pool_id)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_turbidity_timestamp_pool ON turbidity_readings(timestamp, pool_id)')
+                
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_steiel_timestamp ON steiel_readings(timestamp)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_steiel_pool_id ON steiel_readings(pool_id)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_steiel_timestamp_pool ON steiel_readings(timestamp, pool_id)')
+                
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_dosing_timestamp ON dosing_events(timestamp)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_dosing_pool_id ON dosing_events(pool_id)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_dosing_event_type ON dosing_events(event_type)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_dosing_timestamp_pool ON dosing_events(timestamp, pool_id)')
+                
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_system_events_timestamp ON system_events(timestamp)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_system_events_pool_id ON system_events(pool_id)')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_system_events_type ON system_events(event_type)')
                 
                 logger.info("Database indexes created successfully")
         except Exception as e:
@@ -269,26 +227,15 @@ class DatabaseHandler:
         """Log a turbidity reading to the database."""
         try:
             with self._get_connection() as conn:
-                if self.db_type == 'postgresql':
-                    with conn.cursor() as cursor:
-                        cursor.execute(
-                            """
-                            INSERT INTO turbidity_readings 
-                            (timestamp, value, moving_avg, pool_id) 
-                            VALUES (NOW(), %s, %s, %s)
-                            """, 
-                            (value, moving_avg, pool_id)
-                        )
-                else:
-                    cursor = conn.cursor()
-                    cursor.execute(
-                        """
-                        INSERT INTO turbidity_readings 
-                        (timestamp, value, moving_avg, pool_id) 
-                        VALUES (?, ?, ?, ?)
-                        """, 
-                        (time.time(), value, moving_avg, pool_id)
-                    )
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    INSERT INTO turbidity_readings 
+                    (timestamp, value, moving_avg, pool_id) 
+                    VALUES (datetime('now'), ?, ?, ?)
+                    """, 
+                    (value, moving_avg, pool_id)
+                )
                 conn.commit()
                 return True
         except Exception as e:
@@ -299,26 +246,15 @@ class DatabaseHandler:
         """Log a dosing event to the database."""
         try:
             with self._get_connection() as conn:
-                if self.db_type == 'postgresql':
-                    with conn.cursor() as cursor:
-                        cursor.execute(
-                            """
-                            INSERT INTO dosing_events 
-                            (timestamp, event_type, duration, flow_rate, turbidity, pool_id) 
-                            VALUES (NOW(), %s, %s, %s, %s, %s)
-                            """, 
-                            (event_type, duration, flow_rate, turbidity, pool_id)
-                        )
-                else:
-                    cursor = conn.cursor()
-                    cursor.execute(
-                        """
-                        INSERT INTO dosing_events 
-                        (timestamp, event_type, duration, flow_rate, turbidity, pool_id) 
-                        VALUES (?, ?, ?, ?, ?, ?)
-                        """, 
-                        (time.time(), event_type, duration, flow_rate, turbidity, pool_id)
-                    )
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    INSERT INTO dosing_events 
+                    (timestamp, event_type, duration, flow_rate, turbidity, pool_id) 
+                    VALUES (datetime('now'), ?, ?, ?, ?, ?)
+                    """, 
+                    (event_type, duration, flow_rate, turbidity, pool_id)
+                )
                 conn.commit()
                 return True
         except Exception as e:
@@ -329,26 +265,15 @@ class DatabaseHandler:
         """Log readings from the Steiel controller."""
         try:
             with self._get_connection() as conn:
-                if self.db_type == 'postgresql':
-                    with conn.cursor() as cursor:
-                        cursor.execute(
-                            """
-                            INSERT INTO steiel_readings 
-                            (timestamp, ph, orp, free_cl, comb_cl, pool_id) 
-                            VALUES (NOW(), %s, %s, %s, %s, %s)
-                            """, 
-                            (ph, orp, free_cl, comb_cl, pool_id)
-                        )
-                else:
-                    cursor = conn.cursor()
-                    cursor.execute(
-                        """
-                        INSERT INTO steiel_readings 
-                        (timestamp, ph, orp, free_cl, comb_cl, pool_id) 
-                        VALUES (?, ?, ?, ?, ?, ?)
-                        """, 
-                        (time.time(), ph, orp, free_cl, comb_cl, pool_id)
-                    )
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    INSERT INTO steiel_readings 
+                    (timestamp, ph, orp, free_cl, comb_cl, pool_id) 
+                    VALUES (datetime('now'), ?, ?, ?, ?, ?)
+                    """, 
+                    (ph, orp, free_cl, comb_cl, pool_id)
+                )
                 conn.commit()
                 return True
         except Exception as e:
