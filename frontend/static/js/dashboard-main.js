@@ -283,7 +283,7 @@
             const data = Object.fromEntries(formData);
             
             // Call settings API to save chemistry targets
-            await APIManager.updateSettings('chemistry_targets', data);
+            await DashboardAPI.settings.updateNotifications(data);
             
             UIManager.showToast('Chemistry targets saved successfully', 'success');
         } catch (error) {
@@ -302,7 +302,7 @@
             const data = Object.fromEntries(formData);
             
             // Call settings API to save notification settings
-            await APIManager.updateSettings('notifications', data);
+            await DashboardAPI.settings.updateNotifications(data);
             
             UIManager.showToast('Notification settings saved successfully', 'success');
         } catch (error) {
@@ -479,7 +479,7 @@
         UIManager.updateParameter('orp-value', parameters.orp, 0, ' mV');
         UIManager.updateParameter('free-chlorine-value', parameters.freeChlorine, 2, ' mg/L');
         UIManager.updateParameter('combined-chlorine-value', parameters.combinedChlorine, 2, ' mg/L');
-        UIManager.updateParameter('temperature-value', parameters.temperature, 1, '�C');
+        UIManager.updateParameter('temperature-value', parameters.temperature, 1, '°C');
         UIManager.updateParameter('turbidity-value', parameters.turbidity, 3, ' NTU');
     }
     

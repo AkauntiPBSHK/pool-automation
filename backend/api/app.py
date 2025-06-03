@@ -1051,6 +1051,96 @@ def control_pac_pump():
     except Exception as e:
         error_details = handle_exception(e, "controlling PAC pump")
         return jsonify({"error": error_details["error"]}), 500
+
+@app.route('/api/pumps/ph', methods=['POST'])
+@secure_api_endpoint(require_pool=True, audit_action='pump_control')
+@rate_limit('pump_control', auto_block=True, block_duration=300)
+@validate_request_json(SCHEMAS['pump_control'])
+def control_ph_pump():
+    """Control the pH dosing pump."""
+    data = request.validated_data
+    command = data['command']
+    
+    try:
+        if command == 'start':
+            duration = data.get('duration', 30)
+            
+            # Validate pump control parameters
+            validated_duration, _ = validate_pump_control('ph', duration, None)
+            
+            # For pH pump, we'll simulate starting it through the simulator
+            simulator.set_pump_state('acid', True)
+            
+            # Emit system event
+            emit_system_event('ph_pump_started', f"pH pump started manually for {validated_duration}s")
+            
+            return jsonify({
+                "success": True,
+                "message": f"pH pump started for {validated_duration} seconds"
+            })
+        
+        elif command == 'stop':
+            # Stop pH pump
+            simulator.set_pump_state('acid', False)
+            
+            # Emit system event
+            emit_system_event('ph_pump_stopped', "pH pump stopped manually")
+            
+            return jsonify({
+                "success": True,
+                "message": "pH pump stopped"
+            })
+        
+        else:
+            return jsonify({"error": "Invalid command"}), 400
+    except Exception as e:
+        error_details = handle_exception(e, "controlling pH pump")
+        return jsonify({"error": error_details["error"]}), 500
+
+@app.route('/api/pumps/chlorine', methods=['POST'])
+@secure_api_endpoint(require_pool=True, audit_action='pump_control')
+@rate_limit('pump_control', auto_block=True, block_duration=300)
+@validate_request_json(SCHEMAS['pump_control'])
+def control_chlorine_pump():
+    """Control the chlorine dosing pump."""
+    data = request.validated_data
+    command = data['command']
+    
+    try:
+        if command == 'start':
+            duration = data.get('duration', 30)
+            
+            # Validate pump control parameters
+            validated_duration, _ = validate_pump_control('chlorine', duration, None)
+            
+            # For chlorine pump, we'll simulate starting it through the simulator
+            simulator.set_pump_state('chlorine', True)
+            
+            # Emit system event
+            emit_system_event('chlorine_pump_started', f"Chlorine pump started manually for {validated_duration}s")
+            
+            return jsonify({
+                "success": True,
+                "message": f"Chlorine pump started for {validated_duration} seconds"
+            })
+        
+        elif command == 'stop':
+            # Stop chlorine pump
+            simulator.set_pump_state('chlorine', False)
+            
+            # Emit system event
+            emit_system_event('chlorine_pump_stopped', "Chlorine pump stopped manually")
+            
+            return jsonify({
+                "success": True,
+                "message": "Chlorine pump stopped"
+            })
+        
+        else:
+            return jsonify({"error": "Invalid command"}), 400
+    except Exception as e:
+        error_details = handle_exception(e, "controlling chlorine pump")
+        return jsonify({"error": error_details["error"]}), 500
     
 @app.route('/api/simulator/control', methods=['POST'])
 def control_simulator():

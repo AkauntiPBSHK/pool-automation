@@ -28,7 +28,8 @@
       "Bash(. venv/Scripts/activate)",
       "Bash(venv/Scripts/python.exe:*)",
       "Bash(true)",
-      "Bash(pip freeze)"
+      "Bash(pip freeze)",
+      "Bash(venv/Scripts/pip.exe install:*)"
     ],
     "deny": []
   }

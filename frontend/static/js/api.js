@@ -97,7 +97,15 @@ const DashboardAPI = (function() {
                 // Handle rate limiting
                 if (response.status === 429) {
                     const retryAfter = parseInt(response.headers.get('Retry-After') || 60);
-                    const limitType = data.message || 'requests';
+                    
+                    // Parse response to get limit type
+                    let limitType = 'requests';
+                    try {
+                        const rateLimitData = await response.json();
+                        limitType = rateLimitData.message || 'requests';
+                    } catch (e) {
+                        // Use default if parsing fails
+                    }
                     
                     // Show user-friendly rate limit message
                     if (window.UIManager) {
