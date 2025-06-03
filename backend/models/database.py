@@ -76,80 +76,17 @@ class DatabaseHandler:
                     parameter TEXT,
                     value TEXT,
                     pool_id TEXT
-                        )
-                    ''')
-                    
-                    cursor.execute('''
-                        CREATE TABLE IF NOT EXISTS notification_settings (
-                            id SERIAL PRIMARY KEY,
-                            email TEXT UNIQUE,
-                            alert_types TEXT,
-                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                        )
-                    ''')
-            else:
-                # SQLite version (existing code)
-                cursor = conn.cursor()
-                
-                # Create table for turbidity readings
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS turbidity_readings (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        value REAL,
-                        moving_avg REAL,
-                        pool_id TEXT
-                    )
-                ''')
-                
-                # Create table for dosing events
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS dosing_events (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        event_type TEXT,
-                        duration INTEGER,
-                        flow_rate REAL,
-                        turbidity REAL,
-                        pool_id TEXT
-                    )
-                ''')
-                
-                # Create table for Steiel controller readings (pH, ORP, chlorine)
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS steiel_readings (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        ph REAL,
-                        orp INTEGER,
-                        free_cl REAL,
-                        comb_cl REAL,
-                        pool_id TEXT
-                    )
-                ''')
-                
-                # Create table for system events
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS system_events (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        event_type TEXT,
-                        description TEXT,
-                        parameter TEXT,
-                        value TEXT,
-                        pool_id TEXT
-                    )
-                ''')
-                
-                # Create table for notification settings
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS notification_settings (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        email TEXT UNIQUE,
-                        alert_types TEXT,
-                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                    )
-                ''')
+                )
+            ''')
+            
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS notification_settings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email TEXT UNIQUE,
+                    alert_types TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
             
             # Create indexes for better performance
             self._create_indexes()

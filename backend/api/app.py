@@ -233,11 +233,12 @@ def get_pool(pool_id, user_id=None):
             cursor = conn.cursor()
             
             if user_id:
-                # Check ownership
-                cursor.execute(
-                    "SELECT * FROM pools WHERE id = ? AND owner_id = ?", 
-                    (pool_id, user_id)
-                )
+                # Check ownership through customer relationship
+                cursor.execute("""
+                    SELECT p.* FROM pools p
+                    JOIN customers c ON p.customer_id = c.id
+                    WHERE p.id = ? AND c.user_id = ?
+                """, (pool_id, user_id))
             else:
                 # Just get the pool
                 cursor.execute("SELECT * FROM pools WHERE id = ?", (pool_id,))
@@ -913,61 +914,73 @@ def socket_status():
 
 # Add these API endpoints
 @app.route('/api/dashboard')
-@handle_exceptions()
-@secure_api_endpoint(require_pool=True, audit_action='dashboard_access')
+@login_required
 @rate_limit('api_general')
 def dashboard_data():
     """Get all dashboard data for the current pool."""
-    pool_id = session.get('current_pool_id')
-    
-    if not pool_id:
-        raise_validation_error("No pool selected", "pool_id")
-    
-    # Check if user has access to this pool
-    with sqlite3.connect(app.config['DATABASE_PATH']) as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT id FROM pools WHERE id = ? AND owner_id = ?", 
-            (pool_id, current_user.id)
-        )
-        pool = cursor.fetchone()
+    try:
+        pool_id = session.get('current_pool_id')
         
-        if not pool:
-            raise_not_found_error("Pool", pool_id)
+        if not pool_id:
+            logger.error(f"No pool selected in session. Session keys: {list(session.keys())}")
+            return jsonify({"error": "No pool selected"}), 400
+        
+        # Check if user has access to this pool
+        with sqlite3.connect(app.config['DATABASE_PATH']) as conn:
+            cursor = conn.cursor()
+            
+            # Admin can access any pool
+            if current_user.is_admin():
+                cursor.execute("SELECT id FROM pools WHERE id = ?", (pool_id,))
+            else:
+                # Regular users access through customer relationship
+                cursor.execute("""
+                    SELECT p.id FROM pools p
+                    JOIN customers c ON p.customer_id = c.id
+                    WHERE p.id = ? AND c.user_id = ?
+                """, (pool_id, current_user.id))
+            
+            pool = cursor.fetchone()
+            
+            if not pool:
+                return jsonify({"error": "Pool not found or access denied"}), 404
 
-    if simulator:
-        # Get data from the simulator
-        params = simulator.get_all_parameters(pool_id)
-        pump_states = simulator.get_pump_states(pool_id)
-        
-        return jsonify({
-            "ph": round(params['ph'], 1),
-            "orp": round(params['orp']),
-            "freeChlorine": round(params['free_chlorine'], 2),
-            "combinedChlorine": round(params['combined_chlorine'], 1),
-            "turbidity": round(params['turbidity'], 3),
-            "temperature": round(params['temperature'], 1),
-            "uvIntensity": 94,  # Fixed value for now
-            "phPumpRunning": pump_states.get('acid', False),
-            "clPumpRunning": pump_states.get('chlorine', False),
-            "pacPumpRunning": pump_states.get('pac', False),
-            "pacDosingRate": mock_pac_pump.get_flow_rate()
-        })
-    else:
-        # Fallback to random data
-        return jsonify({
-            "ph": round(random.uniform(7.2, 7.6), 1),
-            "orp": random.randint(680, 760),
-            "freeChlorine": round(random.uniform(1.0, 1.4), 2),
-            "combinedChlorine": round(random.uniform(0.1, 0.3), 1),
-            "turbidity": round(random.uniform(0.12, 0.18), 3),
-            "temperature": round(random.uniform(27.0, 29.0), 1),
-            "uvIntensity": random.randint(90, 96),
-            "phPumpRunning": False,
-            "clPumpRunning": False,
-            "pacPumpRunning": False,
-            "pacDosingRate": 75
-        })
+        if simulator:
+            # Get data from the simulator
+            params = simulator.get_all_parameters(pool_id)
+            pump_states = simulator.get_pump_states(pool_id)
+            
+            return jsonify({
+                "ph": round(params['ph'], 1),
+                "orp": round(params['orp']),
+                "freeChlorine": round(params['free_chlorine'], 2),
+                "combinedChlorine": round(params['combined_chlorine'], 1),
+                "turbidity": round(params['turbidity'], 3),
+                "temperature": round(params['temperature'], 1),
+                "uvIntensity": 94,  # Fixed value for now
+                "phPumpRunning": pump_states.get('acid', False),
+                "clPumpRunning": pump_states.get('chlorine', False),
+                "pacPumpRunning": pump_states.get('pac', False),
+                "pacDosingRate": mock_pac_pump.get_flow_rate()
+            })
+        else:
+            # Fallback to random data
+            return jsonify({
+                "ph": round(random.uniform(7.2, 7.6), 1),
+                "orp": random.randint(680, 760),
+                "freeChlorine": round(random.uniform(1.0, 1.4), 2),
+                "combinedChlorine": round(random.uniform(0.1, 0.3), 1),
+                "turbidity": round(random.uniform(0.12, 0.18), 3),
+                "temperature": round(random.uniform(27.0, 29.0), 1),
+                "uvIntensity": random.randint(90, 96),
+                "phPumpRunning": False,
+                "clPumpRunning": False,
+                "pacPumpRunning": False,
+                "pacDosingRate": 75
+            })
+    except Exception as e:
+        logger.error(f"Error in dashboard_data: {str(e)}")
+        return jsonify({"error": "Internal server error", "message": str(e)}), 500
     
 # Update your control_pac_pump endpoint to use emit_system_event
 @app.route('/api/pumps/pac', methods=['POST'])

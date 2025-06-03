@@ -544,16 +544,20 @@ const SettingsManager = (function() {
      * Load saved settings from storage
      */
     function loadSavedSettings() {
-        Object.keys(DashboardConfig.storage.keys).forEach(key => {
-            const stored = localStorage.getItem(DashboardConfig.getStorageKey(key));
-            if (stored) {
-                try {
-                    state.settings[key] = JSON.parse(stored);
-                } catch (error) {
-                    console.error(`Error loading setting ${key}:`, error);
+        // Get config from the config module
+        const config = window.DashboardConfig.get();
+        if (config && config.storage && config.storage.keys) {
+            Object.keys(config.storage.keys).forEach(key => {
+                const stored = localStorage.getItem(window.DashboardConfig.getStorageKey(key));
+                if (stored) {
+                    try {
+                        state.settings[key] = JSON.parse(stored);
+                    } catch (error) {
+                        console.error(`Error loading setting ${key}:`, error);
+                    }
                 }
-            }
-        });
+            });
+        }
     }
     
     /**
